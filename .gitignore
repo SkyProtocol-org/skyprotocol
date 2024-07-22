@@ -1,0 +1,35 @@
+# Build-generated files
+compiled/
+build-deps
+manifest.ss
+version.ss
+result
+.build
+
+# Runtime data
+run/
+mukn/
+t/precompiled
+t/solidity
+
+# Editor-generated files
+*~
+[#]*[#]
+.vscode/
+
+# Scribble-generated files
+doc/
+*.html
+manual-fonts.css
+manual-racket.css
+manual-racket.js
+manual-style.css
+racket.css
+scribble-common.js
+scribble.css
+
+# Operating-system-generated files
+.DS_Store
+
+#TAGS file
+TAGS
