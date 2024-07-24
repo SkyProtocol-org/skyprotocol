@@ -1,6 +1,5 @@
 # Sky Protocol
 
-
 Sky Protocol is infrastructure for modular blockchains, starting with
 a Data Availability Network.
 
