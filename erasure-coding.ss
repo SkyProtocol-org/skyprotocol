@@ -8,13 +8,17 @@
   (group-in :std/srfi 1)
   (group-in :std/text basic-printers char-set)
   (group-in :std/debug DBG)
-
-
-  ;; gerbil-utils
   (group-in :clan base cli)
-  ;; gerbil-poo
   (group-in :clan/poo brace cli object number fq polynomial))
 
+;; Maybe stick with F_2^64 which might be faster?
+;; I would be less cryptographically "secure", but this is not where security matters,
+;; (and regular encryption can and should be used where it does.
+;; If that's faster, we could also use F_2^8, F_2^16 or F_2^32, though with the constraint that
+;; each comes with increasing limits on the number of network participants
+;; (e.g. 256 shards for F_2^8, etc.)
+;; Also, for even faster processing, use Gerbil interfaces, and
+;; avoid bignums and their allocation, instead use u64vectors and type annotations.
 (def PolyFq {(:: @ Polynomial.) .Ring: F_2^256})
 
 ;; Split a block of data into shards with erasure coding.
