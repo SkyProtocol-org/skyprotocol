@@ -78,12 +78,12 @@
           default = self.packages.${system}.skyprotocol;
         };
 
-        # apps = {
-        #   default = {
-        #     type = "app";
-        #     program = self.packages.${system}.skyprotocol;
-        #   };
-        # };
+        apps = {
+          default = {
+            type = "app";
+            program = "${self.packages.${system}.skyprotocol}/bin/sky";
+          };
+        };
 
         devShells.default = mkShell {
           buildInputs = devTools;
