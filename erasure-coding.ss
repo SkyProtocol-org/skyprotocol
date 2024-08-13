@@ -1,4 +1,5 @@
 (export #t)
+;; Reed-Solomon erasure coding for blocks of data
 
 (import
   (group-in :std/cli getopt multicall print-exit)
