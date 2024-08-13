@@ -33,3 +33,6 @@ scribble.css
 
 #TAGS file
 TAGS
+
+# Cache and other dev setup files
+.direnv/
