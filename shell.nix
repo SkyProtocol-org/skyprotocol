@@ -15,7 +15,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; (
     skyprotocol.buildInputs ++
     lib.optional ethereum go-ethereum ++
-    [ netcat go-libp2p-daemon ] # used by integration tests
+    [ netcat ] # used by integration tests
     # TODO: Save at compile time
     # the path to the p2pd (go-libp2p-daemon) binary.
     # The path is useful because it is a hash -

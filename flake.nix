@@ -9,7 +9,7 @@
       let
         # ethereum = true;
         pkgs = nixpkgs.legacyPackages.${system};
-        # usefull tools to build gerbil packages
+        # useful tools to build gerbil packages
         gerbilTools = pkgs.gerbil-support;
         # gerbil packages
         gPkgs = pkgs.gerbilPackages-unstable;
@@ -47,6 +47,7 @@
             pre-src = gerbilTools.path-src (gerbilTools.gerbilFilterSource ./.);
 
             gerbilInputs = gerbilInputs;
+
             postInstall = ''
               mkdir -p $out/bin $out/gerbil/lib/skyprotocol
               cp main.ss $out/gerbil/lib/skyprotocol/
@@ -93,8 +94,6 @@
             PATH="${self.packages.${system}.skyprotocol.out}/bin:$PATH"
             GERBIL_APPLICATION_HOME="$PWD"
             GERBIL_APPLICATION_SOURCE="$PWD"
-            GLOW_HOME="$PWD"
-            GLOW_SRC="$PWD"
           '';
         };
       }
