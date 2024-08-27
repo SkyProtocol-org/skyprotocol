@@ -7,10 +7,6 @@
 
 (export main)
 
-;; build manifest; generated during the build
-;; defines version-manifest which you can use for exact versioning
-(include "../manifest.ss")
-
 (deflogger tcp)
 
 (def (main . args)
