@@ -25,6 +25,7 @@
 ;; Split a block of data into shards with erasure coding.
 ;; To reconstitute the block of data, you need know its length, the two shard number parameters,
 ;; and have kept a sufficient number of shards, each with its index.
+;; : (List U8vector) <- Nat Nat U8vector
 (def (split-u8vector sufficient-shards total-shards data)
   ;; Compute how many "words" there are
   (def datalen (u8vector-length data))
@@ -55,6 +56,7 @@
 
 
 ;; shards is an alist [[index . u8vector] ...] of at least sufficient-shards shards
+;; : U8vector <- Nat Nat Nat (List U8vector)
 (def (recover-split-u8vector sufficient-shards total-shards datalen shards)
   (def wordlen (* sufficient-shards 32))
   (def n-words (ceiling-quotient datalen wordlen))
@@ -97,6 +99,7 @@
   data)
 
 
+;; : Int <- (Or Int String)
 (def (->int x)
   (cond
    ((exact-integer? x) x)

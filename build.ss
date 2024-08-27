@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-;; This is the main build file for Glow. Invoke it using
+;; This is the main build file for Sky Protocol. Invoke it using
 ;;     ./build.ss [cmd]
 ;; where [cmd] is typically left empty (same as "compile")
 ;; Note that may you need to first:
@@ -24,4 +24,3 @@
   (create-version-file)
   (run-process ["nix-build"] stdin-redirection: #f stdout-redirection: #f)
   (void))
-
