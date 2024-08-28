@@ -25,6 +25,7 @@
         ];
         devTools = with pkgs; [
           gerbil-unstable
+          python3
         ] ++ gerbilInputs
         ++ self.packages.${system}.skyprotocol.buildInputs;
       in

@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
-(import :tcpubsub/pubsub/lib
-        :std/logger ; logger
+(import :std/logger ; logger
+        :std/error
         :std/sugar
         :std/cli/getopt ; cli options
         :std/io ; socket stuff and other
@@ -12,6 +12,10 @@
 
 (deflogger pubsub)
 
+;; gerbil buil
+;; gerbil env pubsub :8000
+;; gerbil env pubsub :8001
+;; ./add-node.py :8000 :8001
 (def (main . args)
   (call-with-getopt pubsub-main args
     program: "pubsub"
