@@ -44,7 +44,7 @@
   (thread-sleep! 1)
   (while #t
     ;; Wait for the next command
-    (let (cm (read-command (open-buffered-reader (StreamSocket-reader client))))
+    (let (cm (read-command/try (open-buffered-reader (StreamSocket-reader client))))
       (match cm
         ;; SYNC command
         ((Command 0 "")
@@ -65,9 +65,9 @@
           (debugf "Received ADD-PEER command from: ~a" (StreamSocket-peer-address client))
           (let* (node-sock (tcp-connect (resolve-address (bytes->string m))))
             (debugf "node-sock: ~a" node-sock)
-            (write-command (sync) (open-buffered-writer (current-output-port)))
+            (write-command/try (sync) (open-buffered-writer (current-output-port)))
             (debugf "after sync in stdout")
-            (write-command (sync) (StreamSocket-writer node-sock))
+            (write-command/try (sync) (StreamSocket-writer node-sock))
             (debugf "Sent sync command to the: ~a" (StreamSocket-peer-address node-sock))
             (with-lock nodes-mx (lambda () 
               (debugf "Added new node to the internal list of nodes")
@@ -80,7 +80,7 @@
   (for* ((i (in-range (evector-fill-pointer evec))))
       (let ((el (with-lock mx (lambda () (evector-ref evec i)))))
         (debugf "Sending message: ~a" (bytes->string el))
-        (write-command (post el) writer))))
+        (write-command/try (post el) writer))))
 
 ;; A simple struct that represents possible command for peer
 (defstruct Command (command message))
@@ -89,6 +89,18 @@
   (let* (buf (make-u8vector 1 0))
     (reader.read buf 0 1 1)
     (u8vector-ref buf 0)))
+
+(def (read-command/try (reader :- BufferedReader))
+  (try
+    (read-command reader)
+    (catch (e)
+      (errorf "Cannot read command: ~a" e))))
+
+(def (write-command/try command (writer :- BufferedWriter))
+  (try
+    (write-command command writer)
+    (catch (e)
+      (errorf "Cannot write command: ~a" e))))
 
 (def (read-command (reader :- BufferedReader))
   (debugf "lol")
@@ -104,11 +116,16 @@
   (match command
     ((Command c m)
       (debugf "(Command ~a ~a)" c m)
-      (let ((len (u8vector-length m)))
-        (writer.write-u8 c)
-        (writer.write-u8 len)
-        (unless (zero? len)
-          (writer.write m 0 len))))))
+      (let* ((len (u8vector-length m))
+             (buf (open-buffered-writer #f)))
+        (using (buf :- BufferedWriter)
+          (buf.write-u8 c)
+          (buf.write-u8 len)
+          (unless (zero? len)
+            (buf.write m 0 len))
+          (let* ((buf1 (get-buffer-output-u8vector buf))
+                 (len1 (u8vector-length buf1)))
+            (writer.write buf1 0 len1)))))))
 
 ;; Valid message must be a u8vector with length less than 256 bytes
 (def (valid-message? m)
