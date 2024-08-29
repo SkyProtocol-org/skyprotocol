@@ -22,19 +22,29 @@ def signal_handler(sig, frame):
         process.terminate()
     exit(0)
 
-def send_add_peer_command(addr_from, addr_to):
+def make_cmd(command, msg):
+  cmd = bytearray(2 + len(msg))
+  cmd[0] = command
+  cmd[1] = len(msg)
+  for i, c in enumerate(msg):
+    cmd[2 + i] = ord(c)
+
+  return cmd
+
+def populate_node(addr):
   with socket(AF_INET, SOCK_STREAM) as sock:
-    sock.connect(("localhost", addr1))
-    command = bytearray(2 + len(addr2))
-    command[0] = 2 # ADD-PEER command
-    command[1] = len(addr2) # len of address
-    for i, c in enumerate(addr2):
-      command[2 + i] = ord(c)
-    sock.sendall(command)
+    sock.connect(("localhost", addr))
+    sock.sendall(make_cmd(1, "kek"))
+    sock.sendall(make_cmd(1, "lol"))
+
+def add_peer(addr_from, addr_to):
+  with socket(AF_INET, SOCK_STREAM) as sock:
+    sock.connect(("localhost", addr_from))
+    sock.sendall(make_cmd(2, addr_to))
   
 
 if __name__ == "__main__":
-  addr1 = int(argv[1][1:]) # node we connect to
+  addr1 = argv[1] # node we connect to
   addr2 = argv[2] # node we want to send add-node request to
 
   commands = [
@@ -51,7 +61,8 @@ if __name__ == "__main__":
       threads.append(thread)
 
   sleep(1)
-  send_add_peer_command(addr1, addr2)
+  populate_node(int(addr2[1:]))
+  add_peer(int(addr1[1:]), addr2)
 
   for thread in threads:
       thread.join()
