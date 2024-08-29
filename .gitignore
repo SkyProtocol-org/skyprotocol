@@ -36,3 +36,11 @@ TAGS
 
 # Cache and other dev setup files
 .direnv/
+
+# Cabal
+dist-newstyle/
+
+
+# Output
+*.plutus
+*.json
