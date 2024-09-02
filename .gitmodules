@@ -1,0 +1,3 @@
+[submodule "cardano"]
+	path = cardano
+	url = git@github.com:SkyProtocol-org/skyprotocol-cardano.git

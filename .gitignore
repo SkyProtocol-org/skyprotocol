@@ -5,6 +5,7 @@ manifest.ss
 version.ss
 result
 .build
+.gerbil
 
 # Runtime data
 run/

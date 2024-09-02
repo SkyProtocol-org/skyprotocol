@@ -1,0 +1,9 @@
+standard scheme: r7rs
+basic i/o and such: gambit
+standard extensions: srfi
+basic gerbil language: gerbil
+gerbil libraries: gerbil std
+my extensions: gerbil-utils, gerbil-poo, etc.
+
+erasure coding for argument handling:
+entry-point
