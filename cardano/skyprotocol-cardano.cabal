@@ -107,7 +107,6 @@ common dependencies
     , base
     , base16-bytestring
     , bytestring
-    , cardano-api
     , cardano-binary
     , cborg
     , data-default
