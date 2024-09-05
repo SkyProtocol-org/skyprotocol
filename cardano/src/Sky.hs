@@ -4,6 +4,8 @@ module Sky (bridge, policy, client) where
 
 -- import Data.ByteString (ByteString)
 
+-- import Utils qualified (token)
+
 --import Plutarch.Api.V2 (type PScriptContext)
 import Plutarch.Prelude
 import Plutarch.DataRepr (type PDataFields)
@@ -92,10 +94,20 @@ tokenName = PTokenName $ pconstant "SkyProtocol bridge policy token"
 -- TODO: NonEmptyList PubKeyHash -- as a first step to the multi-sign
 -- TODO: NonEmptyList (NonEmptyList PubKeyHash) -- we can check several states at once
 policy :: PubKeyHash -> TxOutRef -> ClosedTerm (PAsData PUnit :--> PAsData PScriptContext :--> POpaque) -- PMintingPolicy
-policy _key _ref = plam $ \_unit _ctx -> popaque $ pconstant ()
+policy key ref = plam $ \_unit ctx' -> popaque $ unTermCont do
+  ctx <- tcont $ pletFields @'["txInfo", "purpose"] ctx'
+  PMinting mintFlds <- tcont . pmatch $ getField @"purpose" ctx
+  let ownSym = pfield @"_0" # mintFlds
+  txInfo <- tcont $ pletFields @'["inputs", "mint"] $ getField @"txInfo" ctx
+  pguardC "UTxO not consumed" $
+    pany # plam (\x -> pfield @"outRef" # x #== pdata (pconstant ref)) #$ pfromData $
+      getField @"inputs" txInfo
+  pguardC "Wrong NFT mint amount" $
+    pvalueOf # getField @"mint" txInfo # ownSym # pcon tokenName #== 1
+  pure $ pconstant ()
 
 client :: CurrencySymbol -> ClosedTerm (PAsData PUnit :--> PAsData State :--> PAsData PScriptContext :--> POpaque) -- PValidator
-client token = plam $ \_datm redm ctx -> popaque $ unTermCont do
+client token = plam $ \_unit redm ctx -> popaque $ unTermCont do
   -- TODO: proper Datum evidence (in inputs from the same script or from minting policy)
   let refs = pfromData $ pfield @"referenceInputs" #$ pfield @"txInfo" # ctx
   pguardC "No bridge policy token holder referenced" $
@@ -115,20 +127,6 @@ client token = plam $ \_datm redm ctx -> popaque $ unTermCont do
 -- condition helper
 pguardC :: Term s PString -> Term s PBool -> TermCont s ()
 pguardC s cond = tcont $ \f -> pif cond (f ()) $ ptraceError s
-
-_nftMp :: ClosedTerm (PTxOutRef :--> PTokenName :--> PMintingPolicy)
-_nftMp = plam $ \ref tn _ ctx' -> popaque $
-  unTermCont $ do
-    ctx <- tcont $ pletFields @'["txInfo", "purpose"] ctx'
-    PMinting mintFlds <- tcont . pmatch $ getField @"purpose" ctx
-    let ownSym = pfield @"_0" # mintFlds
-    txInfo <- tcont $ pletFields @'["inputs", "mint"] $ getField @"txInfo" ctx
-    pguardC "UTxO not consumed" $
-      pany # plam (\x -> pfield @"outRef" # x #== pdata ref) #$ pfromData $
-        getField @"inputs" txInfo
-    pguardC "Wrong NFT mint amount" $
-      pvalueOf # getField @"mint" txInfo # ownSym # tn #== 1
-    pure $ pconstant ()
 
 -- Going to implement it the next way:
 -- - client contract could be completely off-chain check.
