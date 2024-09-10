@@ -1,6 +1,10 @@
 ;;; -*- Gerbil -*-
 (import :skyprotocol/pubsub/lib
         (only-in :std/logger start-logger! deflogger current-logger-options debugf errorf)
+        :tcpubsub/pubsub/command
+        :tcpubsub/pubsub/node
+        :std/logger ; logger
+        :std/os/pid ; for getting PID
         :std/sugar
         (only-in :std/cli/getopt call-with-getopt argument)
         (only-in :std/cli/multicall define-entry-point)
@@ -28,7 +32,7 @@
     (while #t
       (try
         (using ((client (ServerSocket-accept sock) : StreamSocket)
-                (node (create-node client) : Node))
+                (node (create-node (getpid) client) : Node))
           (when client
             (debugf "Accepted connection from: ~a, with id: ~a" (node.sock.peer-address) node.id)
             (with-lock nodes-mx (lambda () 
@@ -45,23 +49,23 @@
       (let (cm (read-command node.reader))
         (match cm
           ;; SYNC command
-          ((Command 0 _)
+          ((Command 'SYNC _)
             (debugf "Received SYNC command from: ~a" node.id)
             (spawn send-messages messages-mx messages node.writer))
           ;; POST command
           ;; TODO resend POST to other nodes
-          ((Command 1 m)
+          ((Command 'POST m)
             (debugf "Received POST command from: ~a" node.id)
             (with-lock messages-mx
                        (lambda ()
                          (debugf "Saving new message: ~a" (bytes->string m))
                          (evector-push! messages m))))
           ;; ADD-PEER command
-          ((Command 2 m)
+          ((Command 'ADD-PEER m)
             (debugf "Received ADD-PEER command from: ~a" node.id)
             (try
               (using ((node-sock (tcp-connect (resolve-address (bytes->string m))) : StreamSocket)
-                      (new-node (create-node node-sock) : Node))
+                      (new-node (create-node (getpid) node-sock) : Node))
                 (write-command/try (sync) new-node.writer)
                 (debugf "Sent sync command to the node: ~a" new-node.id)
                 (with-lock nodes-mx
