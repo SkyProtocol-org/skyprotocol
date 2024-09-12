@@ -6,4 +6,5 @@
   '("pubsub/lib"
     "pubsub/command"
     "pubsub/node"
+    "pubsub/misc"
     (exe: "pubsub/main" bin: "pubsub")))

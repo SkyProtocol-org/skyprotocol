@@ -4,28 +4,66 @@
         :std/sugar
         :std/logger
         :std/misc/hash
+        :std/misc/evector ; evector
         :std/io)
 (export Node
-        create-node)
+        Peer)
 
 (deflogger pubsub/node)
 (start-logger! (current-output-port))
 (current-logger-options 5)
 
-;; Node holds reader and writer for the socket connection, as well as a socket itself, for later reuse
-(defstruct Node (id handlers (sock : StreamSocket) (reader : BufferedReader) (writer : BufferedWriter)))
+;; Peer holds info about the connected peer
+(defstruct Peer (id (sock : StreamSocket) (reader : BufferedReader) (writer : BufferedWriter))
+  constructor: :init!)
 
-;; Handy function for creating a Node from StreamSocket
-(def (create-node id (sock : StreamSocket))
-  (Node id (hash) sock (open-buffered-reader (sock.reader)) (open-buffered-writer (sock.writer))))
+(defmethod {:init! Peer}
+  (lambda ((self : Peer) id (sock : StreamSocket))
+    (set! self.id id)
+    (set! self.sock sock)
+    (set! self.reader (open-buffered-reader (sock.reader)))
+    (set! self.writer (open-buffered-writer (sock.writer)))))
 
-(def (add-handler (node : Node) cmd handler)
-  (hash-ref-set! node.handlers cmd handler))
+(defmethod {read-command Peer}
+  (lambda (self : Peer)
+    (read-command self.reader)))
 
-(def (handle-command (node : Node) (cmd : Command))
-  (let (handler (hash-ensure-ref node.handlers cmd.command (error "Can't handle command" "handle-command")))
+;; Node is a service accepting connections from peers and doing work
+(defstruct Node (id (handlers : HashTable) (messages : evector) messages-mx (peers : evector) peers-mx)
+  constructor: :init!)
+
+(defmethod {:init! Node}
+  (case-lambda 
+    (((self : Node))
+      (set! self.id (getpid))
+      (set! self.handlers (hash))
+      (set! self.messages (make-evector #(#f) 0))
+      (set! self.messages-mx (make-mutex))
+      (set! self.peers (make-evector #(#f) 0))
+      (set! self.peers-mx (make-mutex))
+    (((self : Node) (handlers : HashTable))
+      (set! self.id (getpid))
+      (set! self.handlers handlers)
+      (set! self.messages (make-evector #(#f) 0))
+      (set! self.messages-mx (make-mutex))
+      (set! self.peers (make-evector #(#f) 0))
+      (set! self.peers-mx (make-mutex)))))
+
+(defmethod {add-handler Node}
+  (lambda ((self : Node) cmd handler)
+    (hash-ref-set! self.handlers cmd handler)))
+
+(defmethod {handle-command Node}
+  (lambda ((self : Node) (cmd : Command))
+    (let (handler (hash-ensure-ref self.handlers cmd.command (error "Can't handle command" "handle-command")))
+        (try
+          (handler cmd)
+          (catch (e)
+            (errorf "Cannot handle command (Command ~a): ~a" cmd.command e))))))
+
+(defmethod {run Node}
+  (lambda ((self : Node))
     (try
-      (handler cmd)
-      (catch (e)
-        (errorf "Cannot handle command (Command ~a): ~a" cmd.command e)))))
-
+      (while #t
+        ))
+    ))

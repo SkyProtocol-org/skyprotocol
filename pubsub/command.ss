@@ -24,12 +24,14 @@
   (hash (0 'SYNC)
         (1 'POST)
         (2 'ADD-PEER)
+        (3 'HELLO)
         (255 'STUB)))
 
 (def symbolic-commands
   (hash (SYNC 0)
         (POST 1)
         (ADD-PEER 2)
+        (HELLO 3)
         (STUB 255)))
 
 (def (command->symbolic cmd)
@@ -97,6 +99,10 @@
 ;; add peer to the network
 (def (add-peer message)
   (string->message 'ADD-PEER message))
+
+;; hello message used to do a handshake between nodes
+(def (hello message)
+  (string->message 'HELLO message))
 
 ;; do-nothing command
 (def (stub)

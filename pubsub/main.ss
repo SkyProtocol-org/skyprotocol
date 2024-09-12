@@ -34,7 +34,7 @@
         (using ((client (ServerSocket-accept sock) : StreamSocket)
                 (node (create-node (getpid) client) : Node))
           (when client
-            (debugf "Accepted connection from: ~a, with id: ~a" (node.sock.peer-address) node.id)
+            (debugf "Accepted connection from: ~a" (client.peer-address))
             (with-lock nodes-mx (lambda () 
               (evector-push! nodes node)))
             (spawn command-reader node messages messages-mx nodes nodes-mx)))
