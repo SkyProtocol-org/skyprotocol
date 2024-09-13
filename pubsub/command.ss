@@ -4,6 +4,7 @@
         :std/logger
         :std/io)
 (export Command
+        CommandProxy
         read-command
         read-command/try
         write-command
@@ -64,20 +65,25 @@
       (errorf "Cannot write command: ~a" e))))
 
 (def (write-command command (writer :- BufferedWriter))
-  (match command
-    ((Command c m)
-      (debugf "Writing command: (Command ~a ~a)" c m)
-      (let* ((msg-len (u8vector-length m))
-             (buf (open-buffered-writer #f)))
-        (using (buf :- BufferedWriter)
-          (buf.write-u8 (symbolic->command c))
-          (buf.write-u8 msg-len)
-          (unless (zero? msg-len)
-            (buf.write m 0 msg-len))
-          (let* ((cmd (get-buffer-output-u8vector buf))
-                 (cmd-len (u8vector-length cmd)))
-            (writer.write cmd 0 cmd-len)
-            (writer.flush)))))))
+  (with ((Command c m) command)
+    (debugf "Writing command: (Command ~a ~a)" c m)
+    (let* ((msg-len (u8vector-length m))
+           (buf (open-buffered-writer #f)))
+      (using (buf :- BufferedWriter)
+        (buf.write-u8 (symbolic->command c))
+        (buf.write-u8 msg-len)
+        (unless (zero? msg-len)
+          (buf.write m 0 msg-len))
+        (let* ((cmd (get-buffer-output-u8vector buf))
+               (cmd-len (u8vector-length cmd)))
+          (writer.write cmd 0 cmd-len)
+          (writer.flush))))))
+
+(interface CommandProxy
+  ;; receive command
+  (recv)
+  ;; send command
+  (send (cmd :~ Command?)))
 
 ;; Valid message must be a u8vector with length less than 256 bytes
 (def (valid-message? m)
