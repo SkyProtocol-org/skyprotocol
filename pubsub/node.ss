@@ -3,9 +3,10 @@
         :tcpubsub/pubsub/command
         :std/sugar
         :std/logger
-        :std/misc/hash
-        :std/hash-table
+        :std/misc/string ; string manipulation
+        :std/misc/hash ; hash tables
         :std/misc/evector ; evector
+        :std/hash-table ; hash table types
         :std/io)
 (export Node
         Peer)
@@ -16,10 +17,12 @@
 
 ;; Peer holds info about the connected peer
 (defstruct Peer (id (sock : StreamSocket) (reader : BufferedReader) (writer : BufferedWriter))
+  transparent: #t
   constructor: :init!)
 
 (defmethod {:init! Peer}
   (lambda ((self : Peer) (sock : StreamSocket))
+    (set! self.id #f) ;; It's false until the handshake
     (set! self.sock sock)
     (set! self.reader (open-buffered-reader (sock.reader)))
     (set! self.writer (open-buffered-writer (sock.writer)))))
@@ -38,6 +41,7 @@
 
 ;; Node is a service accepting connections from peers and doing work
 (defstruct Node (id (sock : ServerSocket) (handlers : HashTable) messages messages-mx peers peers-mx)
+  transparent: #t
   constructor: :init!)
 
 (defmethod {:init! Node}
@@ -65,8 +69,8 @@
 
 (defmethod {handle-command Node}
   (lambda ((self : Node) (cmd : Command))
-    (let (handler (hash-ensure-ref self.handlers cmd.command (error "Can't handle command" "handle-command")))
-      (handler cmd))))
+    (let (handler (hash-ensure-ref self.handlers cmd.command (error (str "Can't handle " cmd) "handle-command")))
+      (handler self cmd))))
 
 (defmethod {run Node}
   (lambda (self: Node)
@@ -82,7 +86,7 @@
               (peer.set-id id))
             (with-lock self.peers-mx (lambda ()
               (evector-push! self.peers peer)))
-            (self.handle-peer peer)))
+            (spawn self.handle-peer peer)))
         (catch (e)
           (errorf "Error accepting connection: ~a" e))))))
 
@@ -90,6 +94,6 @@
   (lambda ((self : Node) (peer : Peer))
     (try
       (while #t
-        )
+        (self.handle-command self (peer.recv)))
       (catch (e)
         (errorf "Can't handle (Peer ~a): ~a" peer.id e)))))

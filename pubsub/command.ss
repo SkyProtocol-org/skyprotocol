@@ -6,13 +6,7 @@
 (export Command
         CommandProxy
         read-command
-        read-command/try
-        write-command
-        write-command/try
-        stub
-        sync
-        post
-        add-peer)
+        write-command)
 
 (deflogger pubsub/command)
 (start-logger! (current-output-port))
@@ -20,32 +14,6 @@
 
 ;; A simple struct that represents possible command for peer
 (defstruct Command (command message))
-
-(def commands
-  (hash (0 'SYNC)
-        (1 'POST)
-        (2 'ADD-PEER)
-        (3 'HELLO)
-        (255 'STUB)))
-
-(def symbolic-commands
-  (hash (SYNC 0)
-        (POST 1)
-        (ADD-PEER 2)
-        (HELLO 3)
-        (STUB 255)))
-
-(def (command->symbolic cmd)
-  (hash-ref commands cmd 'UKNOWN))
-
-(def (symbolic->command sym)
-  (hash-ref symbolic-commands sym 'UKNOWN))
-
-(def (read-command/try (reader :- BufferedReader))
-  (try
-    (read-command reader)
-    (catch (e)
-      (errorf "Cannot read command: ~a" e))))
 
 (def (read-command (reader :- BufferedReader))
   (debugf "Trying to read command")
@@ -57,12 +25,6 @@
         (unless (zero? len)
           (reader.read buffer 0 len len))
         (Command (command->symbolic command) buffer)))))
-
-(def (write-command/try command (writer :- BufferedWriter))
-  (try
-    (write-command command writer)
-    (catch (e)
-      (errorf "Cannot write command: ~a" e))))
 
 (def (write-command command (writer :- BufferedWriter))
   (with ((Command c m) command)
@@ -94,22 +56,35 @@
     (check-argument (valid-message? m) "u8vector and len < 256" m)
     (Command (symbolic->command t) m)))
 
-;; sync messages from other node
-(def (sync)
-  (string->message 'SYNC ""))
+(def commands (hash))
+(def symbolic-commands (hash))
+(def next-id 0)
 
-;; post message to other node
-(def (post message)
-  (string->message 'POST message))
+(def (command->symbolic cmd)
+  (hash-ref commands cmd 'UKNOWN))
 
-;; add peer to the network
-(def (add-peer message)
-  (string->message 'ADD-PEER message))
+(def (symbolic->command sym)
+  (hash-ref symbolic-commands sym 'UKNOWN))
 
-;; hello message used to do a handshake between nodes
-(def (hello message)
-  (string->message 'HELLO message))
 
-;; do-nothing command
-(def (stub)
-  (string->message 'STUB ""))
+(def (add-command sym)
+  (let (id next-id)
+    (set! next-id (+ next-id 1))
+    (hash-put! commands sym id)
+    (hash-put! symbolic-commands id sym)
+    id))
+
+
+(defsyntax make-command
+  (syntax-rules ()
+    ((make-command 'cmd) 
+     (begin 
+       (add-command 'cmd)
+       (def (cmd msg)
+         (string->message 'cmd msg))
+       (export cmd)))))
+
+(make-command 'sync)
+(make-command 'post)
+(make-command 'add-peer)
+(make-command 'hello)
