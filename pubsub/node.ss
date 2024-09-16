@@ -68,22 +68,23 @@
     (hash-ref-set! self.handlers cmd handler)))
 
 (defmethod {handle-command Node}
-  (lambda ((self : Node) (cmd : Command))
-    (let (handler (hash-ensure-ref self.handlers cmd.command (error (str "Can't handle " cmd) "handle-command")))
-      (handler self cmd))))
+  (lambda ((self : Node) (peer : Peer) (cmd : Command))
+    (if-let (handler (hash-get self.handlers cmd.command))
+      (handler self peer cmd))))
 
 (defmethod {run Node}
-  (lambda (self: Node)
-    (debugf "Starting node on: ~a" self.sock.address)
+  (lambda ((self : Node))
+    (debugf "Starting node on: ~a" (self.sock.address))
     (while #t
       (try
         (using ((client (self.sock.accept) : StreamSocket)
-                (peer (Peer client) : Peer))
+                (peer (Peer client) : Peer)
+                (cmd-proxy peer : CommandProxy))
           (when client
             (debugf "Accepted connection from: ~a" (client.peer-address))
-            (with ((Command 'HELLO id) (peer.recv))
+            (with ((Command 'hello id) (cmd-proxy.recv))
               (debugf "Received greetings from: ~a, got id: ~a" client.peer-address id)
-              (peer.set-id id))
+              (peer.set-id (string->number id)))
             (with-lock self.peers-mx (lambda ()
               (evector-push! self.peers peer)))
             (spawn self.handle-peer peer)))
@@ -94,6 +95,7 @@
   (lambda ((self : Node) (peer : Peer))
     (try
       (while #t
-        (self.handle-command self (peer.recv)))
+        (let (cmd-proxy (CommandProxy peer))
+          {self.handle-command peer {cmd-proxy.recv}}))
       (catch (e)
         (errorf "Can't handle (Peer ~a): ~a" peer.id e)))))

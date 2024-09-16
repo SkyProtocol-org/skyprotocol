@@ -66,7 +66,6 @@
 (def (symbolic->command sym)
   (hash-ref symbolic-commands sym 'UKNOWN))
 
-
 (def (add-command sym)
   (let (id next-id)
     (set! next-id (+ next-id 1))
@@ -74,17 +73,24 @@
     (hash-put! symbolic-commands id sym)
     id))
 
-
 (defsyntax make-command
   (syntax-rules ()
-    ((make-command 'cmd) 
+    ;; for commands that have static or fixed message
+    ((make-command 'cmd msg) 
      (begin 
+       (add-command 'cmd)
+       (def cmd
+         (string->message 'cmd msg))
+       (export cmd)))
+    ;; for commands that have dynamic message
+    ((make-command 'cmd)
+     (begin
        (add-command 'cmd)
        (def (cmd msg)
          (string->message 'cmd msg))
        (export cmd)))))
 
-(make-command 'sync)
+(make-command 'sync "")
 (make-command 'post)
 (make-command 'add-peer)
 (make-command 'hello)
