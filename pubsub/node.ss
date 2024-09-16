@@ -21,22 +21,22 @@
   constructor: :init!)
 
 (defmethod {:init! Peer}
-  (lambda ((self : Peer) (sock : StreamSocket))
+  (lambda (self (sock : StreamSocket))
     (set! self.id #f) ;; It's false until the handshake
     (set! self.sock sock)
     (set! self.reader (open-buffered-reader (sock.reader)))
     (set! self.writer (open-buffered-writer (sock.writer)))))
 
 (defmethod {set-id Peer}
-  (lambda ((self : Peer) id)
+  (lambda (self id)
     (set! self.id id)))
 
 (defmethod {recv Peer}
-  (lambda (self : Peer)
+  (lambda (self)
     (read-command self.reader)))
 
 (defmethod {send Peer}
-  (lambda ((self : Peer) (cmd : Command))
+  (lambda (self (cmd : Command))
     (write-command cmd self.writer)))
 
 ;; Node is a service accepting connections from peers and doing work
@@ -46,7 +46,7 @@
 
 (defmethod {:init! Node}
   (case-lambda 
-    (((self : Node) local-addr)
+    ((self local-addr)
       (set! self.id (getpid))
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers (hash))
@@ -54,7 +54,7 @@
       (set! self.messages-mx (make-mutex))
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))
-    (((self : Node) local-addr (handlers : HashTable))
+    ((self local-addr (handlers : HashTable))
       (set! self.id (getpid))
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers handlers)
@@ -64,38 +64,36 @@
       (set! self.peers-mx (make-mutex)))))
 
 (defmethod {add-handler Node}
-  (lambda ((self : Node) cmd handler)
+  (lambda (self cmd handler)
     (hash-ref-set! self.handlers cmd handler)))
 
 (defmethod {handle-command Node}
-  (lambda ((self : Node) (peer : Peer) (cmd : Command))
+  (lambda (self (peer : Peer) (cmd : Command))
     (if-let (handler (hash-get self.handlers cmd.command))
       (handler self peer cmd))))
 
 (defmethod {run Node}
-  (lambda ((self : Node))
+  (lambda (self)
     (debugf "Starting node on: ~a" (self.sock.address))
     (while #t
       (try
         (using ((client (self.sock.accept) : StreamSocket)
-                (peer (Peer client) : Peer)
-                (cmd-proxy peer : CommandProxy))
+                (peer (Peer client) : Peer))
           (when client
             (debugf "Accepted connection from: ~a" (client.peer-address))
-            (with ((Command 'hello id) (cmd-proxy.recv))
-              (debugf "Received greetings from: ~a, got id: ~a" client.peer-address id)
-              (peer.set-id (string->number id)))
+            (with ((Command 'hello id) {peer.recv})
+              (debugf "Received greetings from: ~a, got id: ~a" (client.peer-address) id)
+              {peer.set-id (string->number id)})
             (with-lock self.peers-mx (lambda ()
               (evector-push! self.peers peer)))
-            (spawn self.handle-peer peer)))
+            (spawn {self.handle-peer} peer)))
         (catch (e)
           (errorf "Error accepting connection: ~a" e))))))
 
 (defmethod {handle-peer Node}
-  (lambda ((self : Node) (peer : Peer))
+  (lambda (self (peer : Peer))
     (try
       (while #t
-        (let (cmd-proxy (CommandProxy peer))
-          {self.handle-command peer {cmd-proxy.recv}}))
+        {self.handle-command peer {peer.recv}})
       (catch (e)
         (errorf "Can't handle (Peer ~a): ~a" peer.id e)))))
