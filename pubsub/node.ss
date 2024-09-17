@@ -1,12 +1,14 @@
 ;;; -*- Gerbil -*-
-(import :std/error ; check-argument
+(import :std/error
         :tcpubsub/pubsub/command
         :std/sugar
-        :std/logger
-        :std/misc/string ; string manipulation
+        :std/logger ; logging stuff
+        :std/os/pid ; getpid
+        :std/net/address
         :std/misc/hash ; hash tables
-        :std/misc/evector ; evector
         :std/hash-table ; hash table types
+        :std/misc/evector ; evector
+        :std/misc/string ; string manipulation
         :std/io)
 (export Node
         Peer)
@@ -70,7 +72,8 @@
 (defmethod {handle-command Node}
   (lambda (self (peer : Peer) (cmd : Command))
     (if-let (handler (hash-get self.handlers cmd.command))
-      (handler self peer cmd))))
+      (handler self peer cmd)
+      (error (str "Can't find handle for " cmd "for peer " peer) "handle-command"))))
 
 (defmethod {run Node}
   (lambda (self)
