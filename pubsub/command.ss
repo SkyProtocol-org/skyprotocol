@@ -16,7 +16,6 @@
 (defstruct Command (command message))
 
 (def (read-command (reader :- BufferedReader))
-  (debugf "Trying to read command")
   (let (command (reader.read-u8))
     (if (eof-object? command)
       (error "Received EOF while trying to read from socket" "read-command")
@@ -28,7 +27,6 @@
 
 (def (write-command command (writer :- BufferedWriter))
   (with ((Command c m) command)
-    (debugf "Writing command: (Command ~a ~a)" c m)
     (let* ((msg-len (u8vector-length m))
            (buf (open-buffered-writer #f)))
       (using (buf :- BufferedWriter)
@@ -69,8 +67,9 @@
 (def (add-command sym)
   (let (id next-id)
     (set! next-id (+ next-id 1))
-    (hash-put! commands sym id)
-    (hash-put! symbolic-commands id sym)
+    (debugf "Adding ~a with id ~a" sym id)
+    (hash-put! commands id sym)
+    (hash-put! symbolic-commands sym id)
     id))
 
 (defsyntax make-command

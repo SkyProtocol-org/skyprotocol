@@ -35,10 +35,12 @@
 
 (defmethod {recv Peer}
   (lambda (self)
+    (debugf "Trying to read command from (Peer '~a')" self.id)
     (read-command self.reader)))
 
 (defmethod {send Peer}
   (lambda (self (cmd : Command))
+    (debugf "Writing command: (Command ~a ~a)" cmd.command cmd.message)
     (write-command cmd self.writer)))
 
 ;; Node is a service accepting connections from peers and doing work
@@ -67,7 +69,7 @@
 
 (defmethod {add-handler Node}
   (lambda (self cmd handler)
-    (hash-ref-set! self.handlers cmd handler)))
+    (hash-put! self.handlers cmd handler)))
 
 (defmethod {run Node}
   (lambda (self)
@@ -90,11 +92,11 @@
       (while #t
         {self.handle-command peer {peer.recv}})
       (catch (e)
-        (errorf "Can't handle (Peer ~a): ~a" peer.id e)))))
+        (errorf "Can't handle (Peer '~a'): ~a" peer.id e)))))
 
 (defmethod {handle-command Node}
   (lambda (self (peer : Peer) (cmd : Command))
     (if-let (handler (hash-get self.handlers cmd.command))
       (handler self peer cmd)
-      (error (str "Can't find handle for " cmd.command " for peer " peer.id) "handle-command"))))
+      (error (str "Can't find handle for (Command " cmd.command ") for (Peer '" peer.id "')") "handle-command"))))
 

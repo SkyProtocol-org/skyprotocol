@@ -13,6 +13,7 @@
 (export hello-handler
         sync-handler
         post-handler
+        unknown-handler
         add-peer-handler)
 
 (deflogger pubsub/handle)
@@ -21,16 +22,22 @@
 
 (def (hello-handler (node : Node) (peer : Peer) (cmd : Command))
   (with ((Command 'hello id) cmd)
-    (debugf "Received greetings from: ~a, got id: ~a" (peer.sock.address) id)
-    {peer.set-id (string->number id)}))
+    (debugf "Received HELLO from: ~a, got id: ~a" (peer.sock.address) (bytes->string id))
+    {peer.set-id (bytes->string id)}))
+
+(def (unknown-handler (node : Node) (peer : Peer) (cmd : Command))
+  (debugf "Received UNKNOWN command from (Peer '~a')" peer.id))
 
 (def (sync-handler (node : Node) (peer : Peer) (cmd : Command))
   #t
   )
 
 (def (post-handler (node : Node) (peer : Peer) (cmd : Command))
-  #t
-  )
+  (with ((Command 'post m) cmd)
+    (debugf "Received POST command from (Peer '~a')" peer.id)
+    (with-lock {node.messages-mx} (lambda () 
+      (debugf "Saving new message: ~a" (bytes->string m))
+      (evector-push! {node.messages} m)))))
 
 (def (add-peer-handler (node : Node) (peer : Peer) (cmd : Command))
   #t
@@ -47,13 +54,6 @@
 ;           ((Command 'SYNC _)
 ;             (debugf "Received SYNC command from: ~a" node.id)
 ;             (spawn send-messages messages-mx messages node.writer))
-;           ;; POST command
-;           ;; TODO resend POST to other nodes
-;           ((Command 'POST m)
-;             (debugf "Received POST command from: ~a" node.id)
-;             (with-lock messages-mx (lambda () 
-;               (debugf "Saving new message: ~a" (bytes->string m))
-;               (evector-push! messages m))))
 ;           ;; ADD-PEER command
 ;           ((Command 'ADD-PEER m)
 ;             (debugf "Received ADD-PEER command from: ~a" node.id)
