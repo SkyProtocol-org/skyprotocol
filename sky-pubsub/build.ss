@@ -7,4 +7,5 @@
     "pubsub/command"
     "pubsub/node"
     "pubsub/misc"
+    "pubsub/handler"
     (exe: "pubsub/main" bin: "pubsub")))

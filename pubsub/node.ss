@@ -69,12 +69,6 @@
   (lambda (self cmd handler)
     (hash-ref-set! self.handlers cmd handler)))
 
-(defmethod {handle-command Node}
-  (lambda (self (peer : Peer) (cmd : Command))
-    (if-let (handler (hash-get self.handlers cmd.command))
-      (handler self peer cmd)
-      (error (str "Can't find handle for " cmd "for peer " peer) "handle-command"))))
-
 (defmethod {run Node}
   (lambda (self)
     (debugf "Starting node on: ~a" (self.sock.address))
@@ -83,13 +77,10 @@
         (using ((client (self.sock.accept) : StreamSocket)
                 (peer (Peer client) : Peer))
           (when client
-            (debugf "Accepted connection from: ~a" (client.peer-address))
-            (with ((Command 'hello id) {peer.recv})
-              (debugf "Received greetings from: ~a, got id: ~a" (client.peer-address) id)
-              {peer.set-id (string->number id)})
+            (debugf "Accepted connection from: ~a" (peer.sock.address))
             (with-lock self.peers-mx (lambda ()
               (evector-push! self.peers peer)))
-            (spawn {self.handle-peer} peer)))
+            (spawn {self.handle-peer peer})))
         (catch (e)
           (errorf "Error accepting connection: ~a" e))))))
 
@@ -100,3 +91,10 @@
         {self.handle-command peer {peer.recv}})
       (catch (e)
         (errorf "Can't handle (Peer ~a): ~a" peer.id e)))))
+
+(defmethod {handle-command Node}
+  (lambda (self (peer : Peer) (cmd : Command))
+    (if-let (handler (hash-get self.handlers cmd.command))
+      (handler self peer cmd)
+      (error (str "Can't find handle for " cmd.command " for peer " peer.id) "handle-command"))))
+

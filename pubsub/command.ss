@@ -61,10 +61,10 @@
 (def next-id 0)
 
 (def (command->symbolic cmd)
-  (hash-ref commands cmd 'UKNOWN))
+  (hash-ref commands cmd 'unknown))
 
 (def (symbolic->command sym)
-  (hash-ref symbolic-commands sym 'UKNOWN))
+  (hash-ref symbolic-commands sym 'unknown))
 
 (def (add-command sym)
   (let (id next-id)
