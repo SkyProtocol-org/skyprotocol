@@ -46,10 +46,10 @@
   (only-in :clan/poo/number Number Real JsInt IntSet)
 
   ;; gerbil-crypto
-  (group-in :clan/crypto keccak secp256k1)
+  #;(group-in :clan/crypto keccak secp256k1)
 
   ;; gerbil-persist
-  (group-in :clan/persist content-addressing db persist merkle-trie)
+  #;(group-in :clan/persist content-addressing db persist merkle-trie)
 
   ;; gerbil-ethereum
   #;(group-in :clan/ethereum abi assembly assets cli contract-config erc20 ethereum

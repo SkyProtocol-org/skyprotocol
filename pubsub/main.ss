@@ -1,12 +1,12 @@
 ;;; -*- Gerbil -*-
-(import :tcpubsub/pubsub/lib
-        :std/logger ; logger
+(import :skyprotocol/pubsub/lib
+        (only-in :std/logger start-logger! deflogger current-logger-options debugf errorf)
         :std/sugar
-        :std/cli/getopt ; cli options
+        (only-in :std/cli/getopt call-with-getopt argument)
         :std/io ; socket stuff and other
-        :std/iter ; for*
-        :std/misc/evector ; evector
-        :std/net/address) ; resolve-address
+        (only-in :std/iter for* in-range)
+        (only-in :std/misc/evector make-evector evector-push! evector-fill-pointer evector-ref)
+        (only-in :std/net/address resolve-address))
 
 (export main)
 

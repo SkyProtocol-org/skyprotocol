@@ -10,7 +10,8 @@
         :clan/base :clan/building :clan/debug :clan/git-fu)
 
 (def (files)
-  (all-gerbil-modules))
+  [;;[exe: "pubsub/main" bin: "pubsub"]
+   (all-gerbil-modules) ...])
 
 (init-build-environment!
  name: "Sky"

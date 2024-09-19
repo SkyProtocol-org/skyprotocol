@@ -1,8 +1,9 @@
 (import :gerbil/gambit)
+(import :std/io)
 
 (def make-stack
   (lambda ()
-          (let ((ls '())) 
+          (let ((ls '()))
             (lambda (msg . args)
                     (cond
                       ((eqv? msg 'empty?) (null? ls))
