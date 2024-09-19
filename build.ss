@@ -10,7 +10,9 @@
         :clan/base :clan/building :clan/debug :clan/git-fu)
 
 (def (files)
-  (all-gerbil-modules))
+  (!> (all-gerbil-modules)
+      #;(cut remove-build-file <> "main.ss")
+      #;(cut cons [exe: "main.ss" bin: "sky-main"] <>)))
 
 (init-build-environment!
  name: "Sky"

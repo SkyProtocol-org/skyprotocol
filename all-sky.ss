@@ -46,10 +46,10 @@
   (only-in :clan/poo/number Number Real JsInt IntSet)
 
   ;; gerbil-crypto
-  (group-in :clan/crypto keccak secp256k1)
+  #;(group-in :clan/crypto keccak secp256k1)
 
   ;; gerbil-persist
-  (group-in :clan/persist content-addressing db persist merkle-trie)
+  #;(group-in :clan/persist content-addressing db persist merkle-trie)
 
   ;; gerbil-ethereum
   #;(group-in :clan/ethereum abi assembly assets cli contract-config erc20 ethereum
@@ -57,7 +57,7 @@
             nonce-tracker presigned rlp simple-apps #;testing transaction tx-tracker
             types watch)
 
-  (group-in :skyprotocol erasure-coding))
+  (group-in :skyprotocol erasure-coding pubsub/lib pubsub/main))
 
 (import :clan/poo/brace)
 

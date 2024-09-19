@@ -1,4 +1,6 @@
 {
+  description = "A flake for Sky Protocol";
+
   inputs = {
     nixpkgs.url = "github:MuKnIO/nixpkgs/devel";
     flake-utils.url = "github:numtide/flake-utils";
@@ -7,7 +9,6 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        # ethereum = true;
         pkgs = nixpkgs.legacyPackages.${system};
         # useful tools to build gerbil packages
         gerbilTools = pkgs.gerbil-support;
@@ -16,18 +17,19 @@
 
         gerbilInputs = with gPkgs; [
           gerbil-utils
-          gerbil-crypto
+          # gerbil-crypto
           gerbil-poo
-          gerbil-persist
-          gerbil-ethereum
-          gerbil-leveldb
+          # gerbil-persist
+          # gerbil-ethereum
+          # gerbil-leveldb
           # gerbil-libp2p
         ];
         devTools = with pkgs; [
           gerbil-unstable
           python3
         ] ++ gerbilInputs
-        ++ self.packages.${system}.skyprotocol.buildInputs;
+        # ++ self.packages.${system}.skyprotocol.buildInputs
+        ;
       in
       with pkgs;
       {
@@ -87,16 +89,19 @@
           };
         };
 
+        # For use by `nix develop`
         devShells.default = mkShell {
           buildInputs = devTools;
           LD_LIBRARY_PATH = lib.makeLibraryPath devTools;
           shellHook = ''
+            echo "Welcome to Sky Protocol"
             ${self.packages.${system}.skyprotocol.postConfigure}
             PATH="${self.packages.${system}.skyprotocol.out}/bin:$PATH"
             GERBIL_APPLICATION_HOME="$PWD"
             GERBIL_APPLICATION_SOURCE="$PWD"
           '';
         };
+
       }
     );
 }

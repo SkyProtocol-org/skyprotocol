@@ -1,6 +1,19 @@
 ARCH := $(shell uname -m)
-DOCKER_IMAGE := "gerbil/gerbilxx:$(ARCH)"
+DOCKER_IMAGE := "mukn/all:$(ARCH)"
+
 default: linux-static
+
+all: build test
+
+build:
+	./build.ss
+
+test:
+	./unit-tests.ss
+
+# Build using nix-build
+nix:
+	./build.ss nix
 
 build-release:
 	/opt/gerbil/bin/gxpkg deps -i
@@ -20,3 +33,5 @@ install:
 clean:
 	gerbil clean
 	gerbil clean all
+
+.PHONY: all build test nix default clean install build-release linux-static
