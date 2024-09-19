@@ -3,6 +3,7 @@
         (only-in :std/logger start-logger! deflogger current-logger-options debugf errorf)
         :std/sugar
         (only-in :std/cli/getopt call-with-getopt argument)
+        (only-in :std/cli/multicall define-entry-point)
         :std/io ; socket stuff and other
         (only-in :std/iter for* in-range)
         (only-in :std/misc/evector make-evector evector-push! evector-fill-pointer evector-ref)
@@ -12,19 +13,12 @@
 
 (deflogger pubsub)
 
-(def (main . args)
-  (call-with-getopt pubsub-main args
-    program: "pubsub"
-    help: "Simple tcp pubsub peer"
-    (argument 'laddr help: "local address")))
-
-(def (pubsub-main opt)
+(define-entry-point (node local-address)
+  (help: "Start a Sky node"
+   getopt: [(argument 'local-address help: "local address")])
   (start-logger! (current-output-port))
   (current-logger-options 5)
-  (run (hash-get opt 'laddr)))
-
-(def (run addr)
-  (let* ((laddr (resolve-address addr))
+  (let* ((laddr (resolve-address local-address))
          (sock (tcp-listen laddr))
          (messages (make-evector #(#f) 0)) ; shared message buffer
          (messages-mx (make-mutex))
@@ -58,20 +52,22 @@
           ;; TODO resend POST to other nodes
           ((Command 1 m)
             (debugf "Received POST command from: ~a" node.id)
-            (with-lock messages-mx (lambda () 
-              (debugf "Saving new message: ~a" (bytes->string m))
-              (evector-push! messages m))))
+            (with-lock messages-mx
+                       (lambda ()
+                         (debugf "Saving new message: ~a" (bytes->string m))
+                         (evector-push! messages m))))
           ;; ADD-PEER command
           ((Command 2 m)
             (debugf "Received ADD-PEER command from: ~a" node.id)
-            (try 
+            (try
               (using ((node-sock (tcp-connect (resolve-address (bytes->string m))) : StreamSocket)
                       (new-node (create-node node-sock) : Node))
                 (write-command/try (sync) new-node.writer)
                 (debugf "Sent sync command to the node: ~a" new-node.id)
-                (with-lock nodes-mx (lambda () 
-                  (debugf "Added new node to the internal list of nodes")
-                  (evector-push! nodes new-node)))
+                (with-lock nodes-mx
+                           (lambda ()
+                             (debugf "Added new node to the internal list of nodes")
+                             (evector-push! nodes new-node)))
                 (spawn command-reader new-node messages messages-mx nodes nodes-mx))
               (catch (e)
                 (errorf "Cannot add peer: ~a" e))))
@@ -84,6 +80,6 @@
 
 (def (send-messages mx evec (writer : BufferedWriter))
   (for* ((i (in-range (evector-fill-pointer evec))))
-      (let ((el (with-lock mx (lambda () (evector-ref evec i)))))
-        (debugf "Sending message: ~a" (bytes->string el))
-        (write-command/try (post el) writer))))
+    (let ((el (with-lock mx (lambda () (evector-ref evec i)))))
+      (debugf "Sending message: ~a" (bytes->string el))
+      (write-command/try (post el) writer))))

@@ -57,7 +57,7 @@
             nonce-tracker presigned rlp simple-apps #;testing transaction tx-tracker
             types watch)
 
-  (group-in :skyprotocol erasure-coding))
+  (group-in :skyprotocol erasure-coding pubsub/lib pubsub/main))
 
 (import :clan/poo/brace)
 
