@@ -1,4 +1,6 @@
 {
+  description = "A flake for Sky Protocol";
+
   inputs = {
     nixpkgs.url = "github:MuKnIO/nixpkgs/devel";
     flake-utils.url = "github:numtide/flake-utils";
@@ -87,6 +89,7 @@
           };
         };
 
+        # For use by `nix develop`
         devShells.default = mkShell {
           buildInputs = devTools;
           LD_LIBRARY_PATH = lib.makeLibraryPath devTools;
@@ -98,6 +101,7 @@
             GERBIL_APPLICATION_SOURCE="$PWD"
           '';
         };
+
       }
     );
 }
