@@ -1,3 +1,9 @@
+= Install Dependencies
+
+Debian/Ubuntu:
+
+`apt-get install asciidoctor ruby-asciidoctor-pdf`
+
 = Build PDF
 
 `asciidoctor-pdf catalyst-milestone-1.adoc`
