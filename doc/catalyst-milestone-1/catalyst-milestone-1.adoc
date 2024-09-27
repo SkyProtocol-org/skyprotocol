@@ -1,5 +1,5 @@
 = Feasibility Study - Data Availability with Validation on Cardano
-Sky Protocol Team
+65;7200;1cSky Protocol Team
 2024-09-27
 :doctype: book
 :showtitle:
@@ -35,4 +35,5 @@ We will use the usual
 link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle
 membership proof] approach.
 
-The Merkle path from the leaf to the root is signed.
+The hashes of the path segments from the root to the leaf node in question
+(and of required sibling nodes) is signed.
