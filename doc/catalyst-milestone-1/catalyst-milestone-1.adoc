@@ -1,5 +1,5 @@
 = Feasibility Study - Data Availability with Validation on Cardano
-65;7200;1cSky Protocol Team
+Sky Protocol Team
 2024-09-27
 :doctype: book
 :showtitle:
