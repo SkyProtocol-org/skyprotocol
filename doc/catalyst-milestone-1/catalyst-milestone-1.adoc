@@ -16,10 +16,17 @@ NFT-based oracles, similar to the
 link:https://plutus-pioneer-program.readthedocs.io/en/latest/pioneer/week6.html[example]
 from the Plutus Pioneer Program.
 
+Each data topic will be associated with an NFT that stores the root
+hash as its datum.
+
 == Multisig for Data Availability Committee
 
-Initially, we will use a simple N-of-M multisig based on Ed25519 signatures.
+Initially, we will use a simple M-of-N multisig based on Ed25519 signatures.
+
+In the future we might use Schnorr signatures.
 
 == Merkle Proof of Data Availability
 
-We will use the usual link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle proof approach].
+We will use the usual
+link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle
+membership proof] approach.
