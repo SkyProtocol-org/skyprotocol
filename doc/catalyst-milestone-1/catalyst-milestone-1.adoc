@@ -27,13 +27,13 @@ Initially, we will use a simple M-of-N multisig based on Ed25519 signatures.
 
 A configurable number of data operators will be required to sign hashes.
 
-In the future we might use Schnorr signatures.
+In the future we might use Schnorr signatures for reduced size.
 
 == Merkle Proof of Data Availability
 
-We will use the usual
+We will implement the usual
 link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle
-membership proof] approach.
+membership proof] approach in Plutus.
 
 The hashes of the path segments from the root to the leaf node in question
-(and of required sibling nodes) is signed.
+(and of required sibling nodes) are signed.
