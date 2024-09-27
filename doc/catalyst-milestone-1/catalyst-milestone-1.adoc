@@ -1,0 +1,25 @@
+= Feasibility Study - Data Availability with Validation on Cardano
+Sky Protocol Team
+2024-09-27
+:doctype: book
+:showtitle:
+
+== Overview
+
+This report addresses link:https://milestones.projectcatalyst.io/projects/1200203/milestones/1[milestone 1]
+of the link:https://projectcatalyst.io/funds/12/f12-cardano-open-developers/sky-protocol-data-availability-for-cardano-layer-2-solutions[Sky Protocol: Data Availability for Cardano Layer 2 Solutions] proposal.
+
+== Maintenance of Unique Identifiable Contract State
+
+For the maintenance of unique identifiable contract state, we will use
+NFT-based oracles, similar to the
+link:https://plutus-pioneer-program.readthedocs.io/en/latest/pioneer/week6.html[example]
+from the Plutus Pioneer Program.
+
+== Multisig for Data Availability Committee
+
+Initially, we will use a simple N-of-M multisig based on Ed25519 signatures.
+
+== Merkle Proof of Data Availability
+
+We will use the usual link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle proof approach].

@@ -19,7 +19,6 @@ t/solidity
 .vscode/
 
 # Scribble-generated files
-doc/
 *.html
 manual-fonts.css
 manual-racket.css
