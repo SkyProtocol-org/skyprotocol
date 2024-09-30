@@ -42,8 +42,8 @@ hash as its datum.
 
 * Off-chain code will be used to find the NFT UTXO.
 
-* We will use reference inputs to allow contracts to read the root
-  hash.
+* We will use link:https://cips.cardano.org/cip/CIP-31[CIP-31]
+  reference inputs to allow contracts to read the root hash.
 
 == Criterion 1.b: Multisig for Data Availability Committee
 
