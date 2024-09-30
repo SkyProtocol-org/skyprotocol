@@ -80,3 +80,9 @@ membership proof] approach in Plutus.
 * The path segments from the root to the leaf node in question (and of
 required sibling nodes) are included in the proof, and the root
 segment is signed.
+
+== Conclusion
+
+We are positive that with the adopted measures (NFT-based oracles for
+contract state, M-of-N Ed25519 multisigs, Merkle membership proofs)
+our data availability service on Cardano is feasible.
