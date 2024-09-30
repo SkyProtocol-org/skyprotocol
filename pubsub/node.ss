@@ -54,7 +54,7 @@
       (set! self.id (getpid))
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers (hash))
-      (set! self.messages (make-evector #(#f) 0))
+      (set! self.messages (hash))
       (set! self.messages-mx (make-mutex))
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))
@@ -62,18 +62,16 @@
       (set! self.id (getpid))
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers handlers)
-      (set! self.messages (make-evector #(#f) 0))
+      (set! self.messages (hash))
       (set! self.messages-mx (make-mutex))
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))))
 
 (defmethod {set-id Node}
-  (lambda (self id)
-    (set! self.id id)))
+  (lambda (self id) (set! self.id id)))
 
 (defmethod {add-handler Node}
-  (lambda (self cmd handler)
-    (hash-put! self.handlers cmd handler)))
+  (lambda (self cmd handler) (hash-put! self.handlers cmd handler)))
 
 (defmethod {run Node}
   (lambda (self)
