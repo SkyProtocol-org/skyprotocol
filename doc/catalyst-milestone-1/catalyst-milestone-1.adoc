@@ -1,11 +1,12 @@
 = Feasibility Study - Data Availability with Validation on Cardano
 Sky Protocol Team
-2024-09-27
+2024-09-30
 :doctype: book
 :showtitle:
 
 == Overview
 
+[quote]
 Sky Protocol is committed to constructing a tailored Data
 Availability Solution aligned with the requirements of Cardano. Our approach involves
 publishing data in a format conducive for Cardano smart contracts to seamlessly validate and
@@ -29,29 +30,49 @@ as having “the” state for the bridge contract, and all lock scripts
 involved track which eUTXO possesses the NFT and what data is
 associated with it.
 
-For the maintenance of unique identifiable contract state, we will use
-NFT-based oracles, similar to the
+=== Results
+
+* For the maintenance of unique identifiable contract state, we will
+use NFT-based oracles, similar to the
 link:https://plutus-pioneer-program.readthedocs.io/en/latest/pioneer/week6.html[example]
 from the Plutus Pioneer Program.
 
-Each data topic will be associated with an NFT that stores the root
+* Each data topic will be associated with an NFT that stores the root
 hash as its datum.
 
-Off-chain code will be used to find the NFT UTXO.
+* Off-chain code will be used to find the NFT UTXO.
 
 == Multisig for Data Availability Committee
 
-Initially, we will use a simple M-of-N multisig based on Ed25519 signatures.
+[quote]
+How to maintain a unique identifiable contract state from one
+eUTXO to the next such that other contracts can read that state. This
+service may or may not already be provided by some Cardano contract
+languages, and may or may not be easy to provide on top of those
+languages. Presumably, underneath it all, an NFT identifies its holder
+as having “the” state for the bridge contract, and all lock scripts
+involved track which eUTXO possesses the NFT and what data is
+associated with it.
 
-A configurable number of data operators will be required to sign hashes.
+=== Results
 
-In the future we might use Schnorr signatures for reduced size.
+* Initially, we will use a simple M-of-N multisig based on Ed25519 signatures.
+
+* A configurable number of data operators will be required to sign hashes.
+
+* In the future we might use Schnorr signatures for reduced size.
 
 == Merkle Proof of Data Availability
 
-We will implement the usual
+[quote]
+How to verify in some smart contract language a “merkle proof”
+that data was present in a merkle tree the root of which was signed.
+
+=== Results
+
+* We will implement the usual
 link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle
 membership proof] approach in Plutus.
 
-The hashes of the path segments from the root to the leaf node in question
+* The hashes of the path segments from the root to the leaf node in question
 (and of required sibling nodes) are signed.
