@@ -1,72 +1,39 @@
-(import :gerbil/gambit)
-(import :std/io)
+(import :gerbil/gambit
+        :tcpubsub/pubsub/command
+        :tcpubsub/pubsub/node
+        :tcpubsub/pubsub/handler
+        :std/logger
+        :std/sugar
+        :std/io
+        :std/test
+        :std/net/address)
 
-(def make-stack
-  (lambda ()
-          (let ((ls '()))
-            (lambda (msg . args)
-                    (cond
-                      ((eqv? msg 'empty?) (null? ls))
-                      ((eqv? msg 'push!) (set! ls (cons (car args) ls)))
-                      ((eqv? msg 'top) (car ls))
-                      ((eqv? msg 'pop!) (set! ls (cdr ls)))
-                      (else "oops"))))))
+(deflogger test)
+(start-logger! (current-output-port))
+(current-logger-options 5)
 
-(def stack (make-stack))
+(def next-id 0)
 
-(displayln (stack 'empty?))
-(stack 'push! 'a)
-(displayln (stack 'empty?))
-(stack 'push! 'b)
-(displayln (stack 'top))
+(def (make-node addr)
+  (using (node (Node addr) : Node)
+    (debugf "Starting node on: ~a, with id: ~a" (node.sock.address) node.id)
+    {node.set-id next-id}
+    (set! next-id (+ next-id 1))
+    {node.add-handler 'hello hello-handler}
+    {node.add-handler 'unknown unknown-handler}
+    {node.add-handler 'post post-handler}
+    {node.add-handler 'add-peer add-peer-handler}
+    node)))
 
-(define factorial
-  (lambda (n)
-          (do ((i n (- i 1)) (a 1 (* a i))) 
-              ((zero? i) a))))
-
-(displayln (factorial 3))
-
-
-(define (stream-car s) (car (force s)))
-
-(define (stream-cdr s) (cdr (force s)))
-
-(define (stream-map f s)
-  (delay (cons (f (stream-car s)) (stream-map f (stream-cdr s)))))
-
-(define (stream-add s1 s2)
-  (delay (cons (+ (stream-car s1) (stream-car s2)) (stream-add (stream-cdr s1) (stream-cdr s2)))))
-
-(define counters
-  (let next ((n 1))
-    (delay (cons n (next (+ n 1))))))
-
-(displayln (stream-car counters))
-
-(displayln (stream-car (stream-cdr counters)))
-
-(define counters-squared
-  (stream-map (lambda (e) (* e e)) counters))
-
-(displayln (stream-car counters-squared))
-(displayln (stream-car (stream-cdr counters-squared)))
-(displayln (stream-car (stream-cdr (stream-cdr counters-squared))))
-
-
-;; TCP server example
-
-(define (start-server port)
-  (let* ((server-socket (##tcp-listen port 5)) ;; create a listening TCP socket on specified port
-        (client-socket (##tcp-accept server-socket))) ;; wait for a client to connect
-    (let loop ((input (open-input-output-port client-socket)))
-      (let ((line (read-line input)))
-        (if line
-            (begin
-              (displayln line)
-              (newline)
-              (loop input))
-            (close-input-port input))))
-    (##tcp-close server-socket)))
-
-(start-server 8000)
+(def 01-handshake-test
+  (test-suite "Integration test for nodes greeting each other"
+    (test-case "Set-up 2 nodes, send ADD-PEER to one of them"
+      (using ((node1 (make-node "localhost:8001") : Node)
+              (node2 (make-node "localhost:8002") : Node)
+              (client (open-buffered-writer (tcp-connect "localhost:8001")) : StreamSocket))
+        (spawn {node1.run})
+        (spawn {node2.run})
+        (write-command (hello "test client") client)
+        (write-command (add-peer "localhost:8002") client)
+        (write-command (post "test message") client) 
+        (check {node2.messages} => (list->evector '("test message")))))))

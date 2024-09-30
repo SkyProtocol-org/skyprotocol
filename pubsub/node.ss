@@ -67,6 +67,10 @@
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))))
 
+(defmethod {set-id Node}
+  (lambda (self id)
+    (set! self.id id)))
+
 (defmethod {add-handler Node}
   (lambda (self cmd handler)
     (hash-put! self.handlers cmd handler)))
