@@ -36,8 +36,8 @@ def greet_node(sock):
   sock.sendall(cmd)
 
 def populate_node(sock):
-  sock.sendall(make_cmd(1, "kek"))
-  sock.sendall(make_cmd(1, "lol"))
+  sock.sendall(make_cmd(1, "topic1:kek"))
+  sock.sendall(make_cmd(1, "topic2:lol"))
 
 def add_peer(sock, addr_to):
   sock.sendall(make_cmd(2, addr_to))

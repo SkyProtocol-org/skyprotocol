@@ -44,7 +44,10 @@
     (with ([topic . msg] (string-split (bytes->string m) ":"))
       (debugf "Received POST command from (Peer '~a')" peer.id)
       (with-lock node.messages-mx (lambda () 
-        (debugf "Saving new message: ~a" (bytes->string m))
+        (debugf "Saving new message: ~a, to topic: ~a" msg topic)
+        ;; ensure the topic exists on this node
+        (until (hash-get node.messages topic)
+          (hash-put! node.messages topic (make-evector #(#f) 0)))
         (evector-push! (hash-ref node.messages topic) msg))))))
 
 (def (add-peer-handler (node : Node) (peer : Peer) (cmd : Command))
