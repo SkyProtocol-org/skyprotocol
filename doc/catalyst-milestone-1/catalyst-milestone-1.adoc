@@ -18,7 +18,7 @@ network, thus pooling resources and capital for network validation.
 This report addresses link:https://milestones.projectcatalyst.io/projects/1200203/milestones/1[Project Catalyst milestone 1]
 of the link:https://projectcatalyst.io/funds/12/f12-cardano-open-developers/sky-protocol-data-availability-for-cardano-layer-2-solutions[Sky Protocol: Data Availability for Cardano Layer 2 Solutions] proposal.
 
-== Criteria 1.a: Maintenance of Unique Identifiable Contract State
+== Criterion 1.a: Maintenance of Unique Identifiable Contract State
 
 [quote]
 How to maintain a unique identifiable contract state from one
@@ -45,7 +45,7 @@ hash as its datum.
 * We will use reference inputs to allow contracts to read the root
   hash.
 
-== Criteria 1.b: Multisig for Data Availability Committee
+== Criterion 1.b: Multisig for Data Availability Committee
 
 [quote]
 How to maintain a unique identifiable contract state from one
@@ -65,7 +65,7 @@ associated with it.
 
 * In the future we might use Schnorr signatures for reduced size.
 
-== Criteria 1.c: Merkle Proof of Data Availability
+== Criterion 1.c: Merkle Proof of Data Availability
 
 [quote]
 How to verify in some smart contract language a “merkle proof”
