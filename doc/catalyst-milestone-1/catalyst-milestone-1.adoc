@@ -19,6 +19,16 @@ of the link:https://projectcatalyst.io/funds/12/f12-cardano-open-developers/sky-
 
 == Maintenance of Unique Identifiable Contract State
 
+[quote]
+How to maintain a unique identifiable contract state from one
+eUTXO to the next such that other contracts can read that state. This
+service may or may not already be provided by some Cardano contract
+languages, and may or may not be easy to provide on top of those
+languages. Presumably, underneath it all, an NFT identifies its holder
+as having “the” state for the bridge contract, and all lock scripts
+involved track which eUTXO possesses the NFT and what data is
+associated with it.
+
 For the maintenance of unique identifiable contract state, we will use
 NFT-based oracles, similar to the
 link:https://plutus-pioneer-program.readthedocs.io/en/latest/pioneer/week6.html[example]
