@@ -77,5 +77,6 @@ that data was present in a merkle tree the root of which was signed.
 link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle
 membership proof] approach in Plutus.
 
-* The hashes of the path segments from the root to the leaf node in question
-(and of required sibling nodes) are signed.
+* The path segments from the root to the leaf node in question (and of
+required sibling nodes) are included in the proof, and the root
+segment is signed.
