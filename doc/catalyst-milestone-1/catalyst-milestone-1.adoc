@@ -6,7 +6,15 @@ Sky Protocol Team
 
 == Overview
 
-This report addresses link:https://milestones.projectcatalyst.io/projects/1200203/milestones/1[milestone 1]
+Sky Protocol is committed to constructing a tailored Data
+Availability Solution aligned with the requirements of Cardano. Our approach involves
+publishing data in a format conducive for Cardano smart contracts to seamlessly validate and
+integrate into Layer 1 contracts. Rooted in Cardano and underpinned by its own Cardano-based
+token, our network reduces reliance on external networks and minimizes trust assumptions. Our
+network enables multiple Cardano-based DApps to leverage the same Data Availability
+network, thus pooling resources and capital for network validation.
+
+This report addresses link:https://milestones.projectcatalyst.io/projects/1200203/milestones/1[Project Catalyst milestone 1]
 of the link:https://projectcatalyst.io/funds/12/f12-cardano-open-developers/sky-protocol-data-availability-for-cardano-layer-2-solutions[Sky Protocol: Data Availability for Cardano Layer 2 Solutions] proposal.
 
 == Maintenance of Unique Identifiable Contract State
