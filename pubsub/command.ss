@@ -94,3 +94,4 @@
 (make-command 'add-peer)
 (make-command 'hello)
 (make-command 'add-topic)
+(make-command 'stop "")

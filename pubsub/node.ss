@@ -40,11 +40,11 @@
 
 (defmethod {send Peer}
   (lambda (self (cmd : Command))
-    (debugf "Writing command: (Command ~a ~a)" cmd.command cmd.message)
+    (debugf "Writing command: (Command ~a ~a)" cmd.command (bytes->string cmd.message))
     (write-command cmd self.writer)))
 
 ;; Node is a service accepting connections from peers and doing work
-(defstruct Node (id (sock : ServerSocket) (handlers : HashTable) messages messages-mx peers peers-mx)
+(defstruct Node (id (sock : ServerSocket) (handlers : HashTable) messages messages-mx peers peers-mx to-stop)
   transparent: #t
   constructor: :init!)
 
@@ -52,6 +52,7 @@
   (case-lambda 
     ((self local-addr)
       (set! self.id (getpid))
+      (set! self.to-stop #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers (hash))
       (set! self.messages (hash))
@@ -60,6 +61,7 @@
       (set! self.peers-mx (make-mutex)))
     ((self local-addr (handlers : HashTable))
       (set! self.id (getpid))
+      (set! self.to-stop #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers handlers)
       (set! self.messages (hash))
@@ -70,13 +72,16 @@
 (defmethod {set-id Node}
   (lambda (self id) (set! self.id id)))
 
+(defmethod {stop Node}
+  (lambda (self) (set! self.to-stop #t)))
+
 (defmethod {add-handler Node}
   (lambda (self cmd handler) (hash-put! self.handlers cmd handler)))
 
 (defmethod {run Node}
   (lambda (self)
-    (debugf "Starting node on: ~a" (self.sock.address))
-    (while #t
+    (debugf "Starting node on: ~a, with id: ~a" (self.sock.address) self.id)
+    (while (not self.to-stop)
       (try
         (using ((client (self.sock.accept) : StreamSocket)
                 (peer (Peer client) : Peer))
