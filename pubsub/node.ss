@@ -3,12 +3,12 @@
         :tcpubsub/pubsub/command
         :std/sugar
         :std/logger ; logging stuff
-        :std/os/pid ; getpid
-        :std/net/address
+        (only-in :std/os/pid getpid)
+        (only-in :std/misc/string str)
+        :std/hash-table ; HashTable type
         :std/misc/hash ; hash tables
-        :std/hash-table ; hash table types
         :std/misc/evector ; evector
-        :std/misc/string ; string manipulation
+        :std/net/address
         :std/io)
 (export Node
         Peer)
@@ -89,7 +89,7 @@
             (debugf "Accepted connection from: ~a" (peer.sock.address))
             (with-lock self.peers-mx (lambda ()
               (evector-push! self.peers peer)))
-            (spawn {self.handle-peer peer})))
+            (spawn (cut {self.handle-peer peer}))))
         (catch (e)
           (errorf "Error accepting connection: ~a" e))))))
 

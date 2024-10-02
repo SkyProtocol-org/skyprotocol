@@ -13,7 +13,8 @@
 (current-logger-options 5)
 
 ;; A simple struct that represents possible command for peer
-(defstruct Command (command message))
+(defstruct Command (command message)
+  transparent: #t)
 
 (def (read-command (reader :- BufferedReader))
   (let (command (reader.read-u8))
@@ -52,7 +53,7 @@
 (def (string->message t str)
   (let ((m (string->bytes str)))
     (check-argument (valid-message? m) "u8vector and len < 256" m)
-    (Command (symbolic->command t) m)))
+    (Command t m)))
 
 (def commands (hash))
 (def symbolic-commands (hash))

@@ -1,13 +1,13 @@
 ;;; -*- Gerbil -*-
 (import :std/error
         :std/srfi/130
+        :std/logger ; logging stuff
+        :std/sugar
         :tcpubsub/pubsub/command
         :tcpubsub/pubsub/node
-        :std/sugar
-        :std/logger ; logging stuff
         :std/net/address
-        :std/misc/hash ; hash tables
-        :std/hash-table ; hash table types
+        :std/hash-table ; HashTable types
+        :std/misc/hash ; hash tables manipulation
         :std/misc/evector ; evector
         :std/misc/string ; string manipulation
         :std/io)
@@ -55,6 +55,6 @@
     (debugf "Received ADD-PEER command from (Peer '~a')" peer.id)
     (using ((peer-sock (tcp-connect (resolve-address (bytes->string m))) : StreamSocket)
             (new-peer (Peer peer-sock) : Peer))
-      {peer.send (hello (node.sock.address))}
+      {peer.send (hello (inet-address->string (node.sock.address)))}
       (with-lock node.peers-mx (lambda () (evector-push! node.peers new-peer)))
-      (spawn {node.handle-peer peer}))))
+      (spawn (cut {node.handle-peer peer})))))
