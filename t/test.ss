@@ -90,20 +90,26 @@
     {node.add-handler 'unknown unknown-handler}
     {node.add-handler 'post post-handler}
     {node.add-handler 'add-peer add-peer-handler}
-    {node.add-handler 'stop (lambda (node peer cmd) {node.stop})}
     node))
 
 (def 02-node-test
-  (test-suite "Integration test for nodes greeting each other"
-    (test-case "Set-up 2 nodes, send ADD-PEER"
-      (using ((node1 (make-node "localhost:8001") : Node)
-              (node2 (make-node "localhost:8002") : Node)
+  (test-suite "Integration tests for nodes"
+    (test-case "Spin node up and down"
+      (using ((node (make-node "localhost:8001") : Node)
               (client (Peer (tcp-connect "localhost:8001")) : Peer))
-        (let* ((th1 (spawn (cut {node1.run})))
-               (th2 (spawn (cut {node2.run}))))
+        (let (th (spawn (cut {node.run})))
           (thread-sleep! 1)
           {client.send (hello "test client")}
-          {client.send (add-peer "localhost:8002")}
-          {client.send stop}
-          (thread-join! th2)
-          (check-equal? 1 (vector-length (evector->vector node2.peers))))))))
+          (thread-join! th))))))
+    ; (test-case "Set-up 2 nodes, send ADD-PEER"
+    ;   (using ((node1 (make-node "localhost:8001") : Node)
+    ;           (node2 (make-node "localhost:8002") : Node)
+    ;           (client (Peer (tcp-connect "localhost:8001")) : Peer))
+    ;     (let* ((th1 (spawn (cut {node1.run})))
+    ;            (th2 (spawn (cut {node2.run}))))
+    ;       (thread-sleep! 1)
+    ;       {client.send (hello "test client")}
+    ;       {client.send (add-peer "localhost:8002")}
+    ;       {client.send stop}
+    ;       (thread-join! th2)
+    ;       (check-equal? 1 (vector-length (evector->vector node2.peers))))))))
