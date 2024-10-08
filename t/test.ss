@@ -17,62 +17,32 @@
 (start-logger! (current-output-port))
 (current-logger-options 5)
 
+(def (test-command cmd cmd-sym)
+  (with ((Command c m) cmd)
+    (let* ((buf (make-u8vector 20 0))
+           (reader (open-buffered-reader buf))
+           (writer (open-buffered-writer #f buf)))
+      (write-command (Command c m) writer)
+      (check-equal? (symbolic->command cmd-sym) (u8vector-ref buf 0))
+      (check-equal? (u8vector-length m) (u8vector-ref buf 1))
+      (check-equal? (read-command reader) (Command c m)))))
+
 (def 01-command-test
   (test-suite "Unit tests for command marshaling"
     (test-case "SYNC"
-      (with ((Command c m) sync)
-        (let* ((buf (make-u8vector 20 0))
-               (reader (open-buffered-reader buf))
-               (writer (open-buffered-writer #f buf)))
-          (write-command (Command c m) writer)
-          (check-equal? buf (make-u8vector 20 0))
-          (check-equal? (read-command reader) (Command c m)))))
+      (test-command sync 'sync))
     (test-case "POST"
-      (with ((Command c m) (post "test"))
-        (let* ((buf (make-u8vector 20 0))
-               (reader (open-buffered-reader buf))
-               (writer (open-buffered-writer #f buf)))
-          (write-command (Command c m) writer)
-          (check-equal? 1 (u8vector-ref buf 0))
-          (check-equal? (u8vector-length m) (u8vector-ref buf 1))
-          (check-equal? (read-command reader) (Command c m)))))
+      (test-command (post "test_topic" "test_message") 'post))
     (test-case "ADD-PEER"
-      (with ((Command c m) (add-peer "localhost:8000"))
-        (let* ((buf (make-u8vector 20 0))
-               (reader (open-buffered-reader buf))
-               (writer (open-buffered-writer #f buf)))
-          (write-command (Command c m) writer)
-          (check-equal? 2 (u8vector-ref buf 0))
-          (check-equal? (u8vector-length m) (u8vector-ref buf 1))
-          (check-equal? (read-command reader) (Command c m)))))
+      (test-command (add-peer "localhost:8000") 'add-peer))
     (test-case "HELLO"
-      (with ((Command c m) (hello "test_id"))
-        (let* ((buf (make-u8vector 20 0))
-               (reader (open-buffered-reader buf))
-               (writer (open-buffered-writer #f buf)))
-          (write-command (Command c m) writer)
-          (check-equal? 3 (u8vector-ref buf 0))
-          (check-equal? (u8vector-length m) (u8vector-ref buf 1))
-          (check-equal? (read-command reader) (Command c m)))))
+      (test-command (hello "test_id") 'hello))
     (test-case "ADD-TOPIC"
-      (with ((Command c m) (add-topic "test"))
-        (let* ((buf (make-u8vector 20 0))
-               (reader (open-buffered-reader buf))
-               (writer (open-buffered-writer #f buf)))
-          (write-command (Command c m) writer)
-          (check-equal? 4 (u8vector-ref buf 0))
-          (check-equal? (u8vector-length m) (u8vector-ref buf 1))
-          (check-equal? (read-command reader) (Command c m)))))
+      (test-command (add-topic "test") 'add-topic))
     (test-case "STOP"
-      (with ((Command c m) stop)
-        (let* ((buf (make-u8vector 20 0))
-               (reader (open-buffered-reader buf))
-               (writer (open-buffered-writer #f buf)))
-          (write-command (Command c m) writer)
-          (check-equal? 5 (u8vector-ref buf 0))
-          (check-equal? (read-command reader) (Command c m)))))
+      (test-command stop 'stop))
     (test-case "Invalid commands should be treated as UKNOWN"
-      (with ((Command c m) (post "test"))
+      (with ((Command c m) (post "test1" "test2"))
         (let* ((buf (make-u8vector 20 0))
                (reader (open-buffered-reader buf))
                (writer (open-buffered-writer #f buf)))
@@ -100,16 +70,6 @@
         (let (th (spawn (cut {node.run})))
           (thread-sleep! 1)
           {client.send (hello "test client")}
+          (thread-sleep! 1)
+          {node.stop}
           (thread-join! th))))))
-    ; (test-case "Set-up 2 nodes, send ADD-PEER"
-    ;   (using ((node1 (make-node "localhost:8001") : Node)
-    ;           (node2 (make-node "localhost:8002") : Node)
-    ;           (client (Peer (tcp-connect "localhost:8001")) : Peer))
-    ;     (let* ((th1 (spawn (cut {node1.run})))
-    ;            (th2 (spawn (cut {node2.run}))))
-    ;       (thread-sleep! 1)
-    ;       {client.send (hello "test client")}
-    ;       {client.send (add-peer "localhost:8002")}
-    ;       {client.send stop}
-    ;       (thread-join! th2)
-    ;       (check-equal? 1 (vector-length (evector->vector node2.peers))))))))

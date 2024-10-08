@@ -44,7 +44,12 @@
     (write-command cmd self.writer)))
 
 ;; Node is a service accepting connections from peers and doing work
-(defstruct Node (id (sock : ServerSocket) (handlers : HashTable) messages messages-mx peers peers-mx)
+(defstruct Node (id
+                 (sock : ServerSocket)
+                 (handlers : HashTable)
+                 continue?
+                 messages messages-mx
+                 peers peers-mx)
   transparent: #t
   constructor: :init!)
 
@@ -52,6 +57,7 @@
   (case-lambda 
     ((self local-addr)
       (set! self.id (getpid))
+      (set! self.continue? #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers (hash))
       (set! self.messages (hash))
@@ -60,6 +66,7 @@
       (set! self.peers-mx (make-mutex)))
     ((self local-addr (handlers : HashTable))
       (set! self.id (getpid))
+      (set! self.continue? #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers handlers)
       (set! self.messages (hash))
@@ -75,8 +82,9 @@
 
 (defmethod {run Node}
   (lambda (self)
+    (set! self.continue? #t)
     (debugf "Starting node on: ~a, with id: ~a" (self.sock.address) self.id)
-    (while #t
+    (while self.continue?
       (try
         (using ((client (self.sock.accept) : StreamSocket)
                 (peer (Peer client) : Peer))
@@ -87,6 +95,14 @@
             (spawn (cut {self.handle-peer peer}))))
         (catch (e)
           (errorf "Error accepting connection: ~a" e))))))
+
+(defmethod {stop Node}
+  (lambda (self)
+    (set! self.continue? #f)
+    (try
+      (self.sock.close)
+      (catch (e)
+        (debugf "Stopping node on: ~a, with id: ~a" (self.sock.address) self.id)))))
 
 (defmethod {handle-peer Node}
   (lambda (self (peer : Peer))
