@@ -104,7 +104,7 @@
          (Command 'cmd (string->message msg)))
        (export cmd)))))
 
-(make-command 'sync "")
+; (make-command 'sync "")
 (make-command 'add-peer)
 (make-command 'hello)
 (make-command 'add-topic)

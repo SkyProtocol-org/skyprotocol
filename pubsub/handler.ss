@@ -1,10 +1,12 @@
 ;;; -*- Gerbil -*-
-(import :std/error
-        :std/srfi/130
-        :std/logger ; logging stuff
-        :std/sugar
-        :tcpubsub/pubsub/command
+(import :tcpubsub/pubsub/command
         :tcpubsub/pubsub/node
+        :tcpubsub/pubsub/message
+        :std/error
+        :std/sugar
+        :std/logger ; logging stuff
+        :std/srfi/130
+        :std/srfi/19
         :std/net/address
         :std/hash-table ; HashTable types
         :std/misc/hash ; hash tables manipulation
@@ -12,7 +14,6 @@
         :std/misc/string ; string manipulation
         :std/io)
 (export hello-handler
-        sync-handler
         post-handler
         unknown-handler
         add-topic-handler
@@ -35,20 +36,22 @@
 (def (unknown-handler (node : Node) (peer : Peer) (cmd : Command))
   (debugf "Received UNKNOWN command from (Peer '~a')" peer.id))
 
-(def (sync-handler (node : Node) (peer : Peer) (cmd : Command))
-  #t
-  )
+; (def (sync-handler (node : Node) (peer : Peer) (cmd : Command))
+;   (with ((Command 'sync topic from) cmd)
+;     (let (msgs-to-send (filter (time>? from) ))
+;       )))
 
 (def (post-handler (node : Node) (peer : Peer) (cmd : Command))
-  (with ((Command 'post m) cmd)
-    (with ([topic . msg] (string-split (bytes->string m) ":"))
-      (debugf "Received POST command from (Peer '~a')" peer.id)
-      (with-lock node.messages-mx (lambda () 
-        (debugf "Saving new message: ~a, to topic: ~a" msg topic)
-        ;; ensure the topic exists on this node
-        (until (hash-get node.messages topic)
-          (hash-put! node.messages topic (make-evector #(#f) 0)))
-        (evector-push! (hash-ref node.messages topic) msg))))))
+  (with ((Command 'post (PostMessage topic msg)) cmd)
+    (debugf "Received POST command from (Peer '~a')" peer.id)
+    (with-lock node.messages-mx (lambda ()
+      (debugf "Saving new message: ~a, to topic: ~a" msg topic)
+      ;; ensure the topic exists on this node
+      (until (hash-get node.messages topic)
+        (hash-put! node.messages topic (make-evector #(#f) 0)))
+      (evector-push! (hash-ref node.messages topic) (create-message msg))
+      (when node.main?
+        {node.propagate topic msg})))))
 
 (def (add-peer-handler (node : Node) (peer : Peer) (cmd : Command))
   (with ((Command 'add-peer m) cmd)
