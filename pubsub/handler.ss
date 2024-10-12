@@ -1,7 +1,7 @@
 ;;; -*- Gerbil -*-
-(import :tcpubsub/pubsub/command
-        :tcpubsub/pubsub/node
-        :tcpubsub/pubsub/message
+(import :skyprotocol/pubsub/command
+        :skyprotocol/pubsub/node
+        :skyprotocol/pubsub/message
         :std/error
         :std/sugar
         :std/logger ; logging stuff

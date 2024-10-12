@@ -1,7 +1,7 @@
 (import :gerbil/gambit
-        :tcpubsub/pubsub/command
-        :tcpubsub/pubsub/node
-        :tcpubsub/pubsub/handler
+        :skyprotocol/pubsub/command
+        :skyprotocol/pubsub/node
+        :skyprotocol/pubsub/handler
         :std/misc/evector
         :std/misc/threads
         :std/logger

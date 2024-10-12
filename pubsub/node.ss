@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 (import :std/error
-        :tcpubsub/pubsub/command
+        :skyprotocol/pubsub/command
         :std/sugar
         :std/logger ; logging stuff
         (only-in :std/os/pid getpid)
@@ -56,7 +56,7 @@
   constructor: :init!)
 
 (defmethod {:init! Node}
-  (case-lambda 
+  (case-lambda
     ((self local-addr main?)
       (set! self.id (getpid))
       (set! self.main? main?)

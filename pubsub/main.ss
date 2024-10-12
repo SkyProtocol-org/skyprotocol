@@ -1,8 +1,9 @@
 ;;; -*- Gerbil -*-
 (import :skyprotocol/pubsub/lib
         (only-in :std/logger start-logger! deflogger current-logger-options debugf errorf)
-        :tcpubsub/pubsub/command
-        :tcpubsub/pubsub/node
+        :skyprotocol/pubsub/command
+        :skyprotocol/pubsub/node
+        :std/interface
         :std/logger ; logger
         :std/os/pid ; for getting PID
         :std/sugar
@@ -22,9 +23,9 @@
    getopt: [(argument 'local-address help: "local address")])
   (start-logger! (current-output-port))
   (current-logger-options 5)
-  (run (hash-get opt 'laddr)))
+  (run local-address))
 
 (def (run addr)
-  (using (node (Node addr) : Node)
+  (using (node (Node addr #t) : Node)
     (debugf "Starting node on: ~a" (node.sock.address))
     {node.run}))
