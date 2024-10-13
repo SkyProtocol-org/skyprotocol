@@ -85,18 +85,18 @@ associated with it.
 
 === Results
 
-One crucial feature of Sky Protocol is the ability to rely decentralized committees
+One crucial feature of Sky Protocol is the ability to rely on decentralized committees
 such that a 2/3+ε majority of honest functioning participants is enough to keep the system running.
 Thus, our Bridge contract must accept some M-out-of-N multisignature scheme,
-where N will be the size of its committee, and M will be 1+⌊⅔N⌋.
+where N will be the size of its committee, and M will be 1+floor(⅔N).
 
-Initially, we will use a simple M-of-N multisig based on Ed25519 signatures.
+Initially, we will use a simple M-of-N multisig based on explicitly counting Ed25519 signatures.
 This is readily possible with a Plutus script, using Plutus builtin functions
 that allow one to check signatures of arbitrary data
 against public keys themselves provided as data.
 Note that this is different from pre-Plutus support for multisig,
 that only supports signing the entire transaction against a set of public keys known in advance.
-Note that the size of the committee is limited by the necessity to publish
+Also note that the size of the committee is limited by the necessity to publish
 the public keys and signatures on-chain in a 16384-byte transaction;
 the exact size limit will depend on the contract as finalized,
 but from an estimate of data sizes (32 byte for public key, 64 for signature)
@@ -114,11 +114,11 @@ There could even be intermediate signature schemes allowing for several levels
 of progressive performance degradation.
 This choice of multiple algorithms will not change significantly the size of committees.
 
-One final technique we could use is a Zero Knowledge proofs.
-Such a proof is much more expensive to create or verify than the other signatures.
+One final technique we could use is Zero Knowledge proofs (ZK proofs).
+A ZK proof is much more expensive to create or verify than the other signatures.
 However, (a) it can scale to much larger committees, and (b) the technique can be used
 to validate more about state of DA updates than just signatures.
-In the long run, we will want to use such Zero Knowledge proofs;
+In the long run, we will want to use such ZK proofs;
 but in the short run, we can and should launch Sky Protocol
 with simpler multisig techniques that are easier to build and deploy.
 
@@ -141,10 +141,13 @@ A signature commits to a simple 32-byte datum, the hash of a larger data structu
 To verify nested fields of that data structure, we will implement the usual
 link:https://pangea.cloud/docs/audit/merkle-trees#understand-membership-proof[Merkle
 membership proof] approach in Plutus.
+We may reuse existing libraries such as
+link:https://hydra.family/head-protocol/haddock/plutus-merkle-tree/Plutus-MerkleTree.html[Plutus.MerkleTree],
+or reuse the implementation techniques underlying such libraries.
 
-The path segments from the root to the leaf node in question
-(and of required sibling nodes) are included in the proof,
-and the root segment is signed.
+The path segments from the root to the leaf nodes of interests are included in the proof,
+together with the hashes of the parts of the tree not visited.
+Only the root hash is signed, its signature verified.
 
 == Conclusion
 
