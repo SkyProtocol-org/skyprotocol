@@ -88,7 +88,7 @@ associated with it.
 One crucial feature of Sky Protocol is the ability to rely on decentralized committees
 such that a 2/3+ε majority of honest functioning participants is enough to keep the system running.
 Thus, our Bridge contract must accept some M-out-of-N multisignature scheme,
-where N will be the size of its committee, and M will be 1+floor(⅔N).
+where N will be the size of its committee, and M will be 1+floor(2*N/3).
 
 Initially, we will use a simple M-of-N multisig based on explicitly counting Ed25519 signatures.
 This is readily possible with a Plutus script, using Plutus builtin functions
