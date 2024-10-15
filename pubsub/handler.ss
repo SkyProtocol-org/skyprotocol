@@ -60,4 +60,4 @@
             (new-peer (Peer peer-sock) : Peer))
       {peer.send (hello (inet-address->string (node.sock.address)))}
       (with-lock node.peers-mx (lambda () (evector-push! node.peers new-peer)))
-      (spawn (cut {node.handle-peer peer})))))
+      (spawn/name 'node.peer-handler (cut {node.handle-peer peer})))))

@@ -103,7 +103,7 @@
             (debugf "Accepted connection from: ~a" (peer.sock.address))
             (with-lock self.peers-mx (lambda ()
               (evector-push! self.peers peer)))
-            (spawn (cut {self.handle-peer peer}))))
+            (spawn/name 'node.run (cut {self.handle-peer peer}))))
         (catch (e)
           (errorf "Error accepting connection: ~a" e))))))
 
