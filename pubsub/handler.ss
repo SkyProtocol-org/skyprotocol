@@ -12,12 +12,9 @@
         :std/misc/hash ; hash tables manipulation
         :std/misc/evector ; evector
         :std/misc/string ; string manipulation
+        :std/misc/list ; for-each!
         :std/io)
-(export hello-handler
-        post-handler
-        unknown-handler
-        add-topic-handler
-        add-peer-handler)
+(export (except-out #t debugf infof warnf errorf verbosef))
 
 (deflogger pubsub/handle)
 (start-logger! (current-output-port))
@@ -33,13 +30,32 @@
     (debugf "Adding topic: ~a" (bytes->string topic-name))
     (with-lock node.messages-mx (lambda () (hash-get-set! node.messages (bytes->string topic-name) (make-evector #(#f) 0))))))
 
+(def (get-topics-handler (node : Node) (peer : Peer) (cmd : Command))
+  (with ((Command 'get-topics _) cmd)
+     (debugf "(Peer ~a) requesting topics" peer.id)
+     (with-lock node.messages-mx (lambda () 
+        (for-each! (hash-keys node.messages) (lambda (topic)
+          {peer.send (topic-name topic)}))))))
+
+(def (describe-topic-handler (node : Node) (peer : Peer) (cmd : Command))
+  (with ((Command 'describe-topic topic) cmd)
+    (debugf "(Peer ~a) requesting description for ~a" peer.id (bytes->string topic))))
+
+(def (poll-topic-handler (node : Node) (peer : Peer) (cmd : Command))
+  (with ((Command 'poll-topic topic) cmd)
+    (debugf "(Peer ~a) polls topic ~a" peer.id (bytes->string topic))
+    {peer.send (topic-height 2)}))
+
+(def (read-topic-handler (node : Node) (peer : Peer) (cmd : Command))
+  (with ((Command 'read-topic topic) cmd)
+    (debugf "(Peer ~a) reads topic ~a" peer.id (bytes->string topic))))
+
+(def (get-data-certificate-handler (node : Node) (peer : Peer) (cmd : Command))
+  (with ((Command 'get-data-certificate topic) cmd)
+    (debugf "(Peer ~a) requests data certificate for ~a" peer.id (bytes->string topic))))
+
 (def (unknown-handler (node : Node) (peer : Peer) (cmd : Command))
   (debugf "Received UNKNOWN command from (Peer '~a')" peer.id))
-
-; (def (sync-handler (node : Node) (peer : Peer) (cmd : Command))
-;   (with ((Command 'sync topic from) cmd)
-;     (let (msgs-to-send (filter (time>? from) ))
-;       )))
 
 (def (post-handler (node : Node) (peer : Peer) (cmd : Command))
   (with ((Command 'post (PostMessage topic msg)) cmd)
@@ -49,9 +65,7 @@
       ;; ensure the topic exists on this node
       (until (hash-get node.messages topic)
         (hash-put! node.messages topic (make-evector #(#f) 0)))
-      (evector-push! (hash-ref node.messages topic) (create-message msg))
-      (when node.main?
-        {node.propagate topic msg})))))
+      (evector-push! (hash-ref node.messages topic) (create-message msg))))))
 
 (def (add-peer-handler (node : Node) (peer : Peer) (cmd : Command))
   (with ((Command 'add-peer m) cmd)

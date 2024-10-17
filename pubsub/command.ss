@@ -108,6 +108,13 @@
 (make-command 'add-peer)
 (make-command 'hello)
 (make-command 'add-topic)
+(make-command 'get-topics "")
+(make-command 'topic-name) ;; sub command for 'get-topics
+(make-command 'describe-topic)
+(make-command 'poll-topic)
+(make-command 'topic-height) ;; sub command for 'poll-topic
+(make-command 'read-topic)
+(make-command 'get-data-certificate)
 (make-command 'stop "")
 
 (add-command 'post)

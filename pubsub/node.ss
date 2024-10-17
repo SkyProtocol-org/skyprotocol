@@ -48,7 +48,6 @@
 (defstruct Node (id
                  (sock : ServerSocket)
                  (handlers : HashTable)
-                 main?
                  continue?
                  messages messages-mx
                  peers peers-mx)
@@ -57,9 +56,8 @@
 
 (defmethod {:init! Node}
   (case-lambda
-    ((self local-addr main?)
+    ((self local-addr)
       (set! self.id (getpid))
-      (set! self.main? main?)
       (set! self.continue? #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers (hash))
@@ -67,9 +65,8 @@
       (set! self.messages-mx (make-mutex))
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))
-    ((self local-addr (handlers : HashTable) main?)
+    ((self local-addr (handlers : HashTable))
       (set! self.id (getpid))
-      (set! self.main? main?)
       (set! self.continue? #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers handlers)
@@ -83,13 +80,6 @@
 
 (defmethod {add-handler Node}
   (lambda (self cmd handler) (hash-put! self.handlers cmd handler)))
-
-(defmethod {propagate Node}
-  (lambda (self topic msg)
-    (with-lock self.peers-mx (lambda ()
-      (for-each! self.peers (lambda (peer)
-        (using (peer : Peer)
-          {peer.send (post topic msg)})))))))
 
 (defmethod {run Node}
   (lambda (self)
