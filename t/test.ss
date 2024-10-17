@@ -1,72 +1,77 @@
-(import :gerbil/gambit)
-(import :std/io)
+(import :gerbil/gambit
+        :skyprotocol/pubsub/command
+        :skyprotocol/pubsub/node
+        :skyprotocol/pubsub/handler
+        :std/misc/evector
+        :std/misc/threads
+        :std/logger
+        :std/sugar
+        :std/io
+        :std/test
+        :std/net/address)
+(import :std/debug/DBG)
 
-(def make-stack
-  (lambda ()
-          (let ((ls '()))
-            (lambda (msg . args)
-                    (cond
-                      ((eqv? msg 'empty?) (null? ls))
-                      ((eqv? msg 'push!) (set! ls (cons (car args) ls)))
-                      ((eqv? msg 'top) (car ls))
-                      ((eqv? msg 'pop!) (set! ls (cdr ls)))
-                      (else "oops"))))))
+(export 01-command-test 
+        02-node-test)
 
-(def stack (make-stack))
+(deflogger test)
+(start-logger! (current-output-port))
+(current-logger-options 5)
 
-(displayln (stack 'empty?))
-(stack 'push! 'a)
-(displayln (stack 'empty?))
-(stack 'push! 'b)
-(displayln (stack 'top))
+(def (test-command cmd cmd-sym)
+  (with ((Command c m) cmd)
+    (let* ((buf (make-u8vector 20 0))
+           (reader (open-buffered-reader buf))
+           (writer (open-buffered-writer #f buf)))
+      (write-command (Command c m) writer)
+      (check-equal? (symbolic->command cmd-sym) (u8vector-ref buf 0))
+      (check-equal? (u8vector-length m) (u8vector-ref buf 1))
+      (check-equal? (read-command reader) (Command c m)))))
 
-(define factorial
-  (lambda (n)
-          (do ((i n (- i 1)) (a 1 (* a i))) 
-              ((zero? i) a))))
+(def 01-command-test
+  (test-suite "Unit tests for command marshaling"
+    (test-case "GET-TOPICS"
+      (test-command get-topics 'get-topics))
+    (test-case "POST"
+      (with ((Command c m) (post "test-topic" "test-message"))
+        (let* ((buf (make-u8vector 40 0))
+               (reader (open-buffered-reader buf))
+               (writer (open-buffered-writer #f buf)))
+          (write-command (Command c m) writer)
+          (check-equal? (symbolic->command 'post) (u8vector-ref buf 0))
+          (check-equal? (u8vector-length m) (+ 2 (+ (string-length "test-topic") (string-length "test-message")))))))
+    (test-case "ADD-PEER"
+      (test-command (add-peer "localhost:8000") 'add-peer))
+    (test-case "HELLO"
+      (test-command (hello "test_id") 'hello))
+    (test-case "ADD-TOPIC"
+      (test-command (add-topic "test") 'add-topic))
+    (test-case "STOP"
+      (test-command stop 'stop))))
 
-(displayln (factorial 3))
+(def next-id 0)
 
+(def (make-node addr)
+  (using (node (Node addr) : Node)
+    {node.set-id next-id}
+    (set! next-id (+ next-id 1))
+    {node.add-handler 'hello hello-handler}
+    {node.add-handler 'unknown unknown-handler}
+    {node.add-handler 'post post-handler}
+    {node.add-handler 'add-peer add-peer-handler}
+    node))
 
-(define (stream-car s) (car (force s)))
-
-(define (stream-cdr s) (cdr (force s)))
-
-(define (stream-map f s)
-  (delay (cons (f (stream-car s)) (stream-map f (stream-cdr s)))))
-
-(define (stream-add s1 s2)
-  (delay (cons (+ (stream-car s1) (stream-car s2)) (stream-add (stream-cdr s1) (stream-cdr s2)))))
-
-(define counters
-  (let next ((n 1))
-    (delay (cons n (next (+ n 1))))))
-
-(displayln (stream-car counters))
-
-(displayln (stream-car (stream-cdr counters)))
-
-(define counters-squared
-  (stream-map (lambda (e) (* e e)) counters))
-
-(displayln (stream-car counters-squared))
-(displayln (stream-car (stream-cdr counters-squared)))
-(displayln (stream-car (stream-cdr (stream-cdr counters-squared))))
-
-
-;; TCP server example
-
-(define (start-server port)
-  (let* ((server-socket (##tcp-listen port 5)) ;; create a listening TCP socket on specified port
-        (client-socket (##tcp-accept server-socket))) ;; wait for a client to connect
-    (let loop ((input (open-input-output-port client-socket)))
-      (let ((line (read-line input)))
-        (if line
-            (begin
-              (displayln line)
-              (newline)
-              (loop input))
-            (close-input-port input))))
-    (##tcp-close server-socket)))
-
-(start-server 8000)
+(def 02-node-test
+  (test-suite "Integration tests for nodes"
+    (test-case "Spin node up and down"
+      (using ((node (make-node "localhost:8001") : Node)
+              (client (Peer (tcp-connect "localhost:8001")) : Peer))
+        (let (th (spawn/name 'test (cut {node.run})))
+          (thread-sleep! 1)
+          {client.send (hello "test client")}
+          {client.send (post "test-topic" "kek")}
+          (thread-sleep! 1)
+          {node.stop}
+          (try
+           (thread-join! th)
+           (catch (e) (displayln e))))))))

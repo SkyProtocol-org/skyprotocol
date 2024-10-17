@@ -17,7 +17,7 @@
 
         gerbilInputs = with gPkgs; [
           gerbil-utils
-          # gerbil-crypto
+          gerbil-crypto
           gerbil-poo
           # gerbil-persist
           # gerbil-ethereum
@@ -26,9 +26,9 @@
         ];
         devTools = with pkgs; [
           gerbil-unstable
-          python3
+          # python3
         ] ++ gerbilInputs
-        # ++ self.packages.${system}.skyprotocol.buildInputs
+          # ++ self.packages.${system}.skyprotocol.buildInputs
         ;
       in
       with pkgs;

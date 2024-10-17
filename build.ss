@@ -17,7 +17,7 @@
 (init-build-environment!
  name: "Sky"
  ;; NB: missing versions for drewc/smug-gerbil and vyzo/libp2p
- deps: '("clan" "clan/crypto" "clan/poo" "clan/persist" "clan/ethereum")
+ deps: '("clan" "clan/crypto" "clan/poo")
  spec: files)
 
 ;; TODO: create version files for all overridden dependencies, too

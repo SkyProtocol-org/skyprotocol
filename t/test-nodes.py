@@ -31,16 +31,16 @@ def make_cmd(command, msg):
 
   return cmd
 
-def populate_node(addr):
-  with socket(AF_INET, SOCK_STREAM) as sock:
-    sock.connect(("localhost", addr))
-    sock.sendall(make_cmd(1, "kek"))
-    sock.sendall(make_cmd(1, "lol"))
+def greet_node(sock):
+  cmd = make_cmd(3, "python script")
+  sock.sendall(cmd)
 
-def add_peer(addr_from, addr_to):
-  with socket(AF_INET, SOCK_STREAM) as sock:
-    sock.connect(("localhost", addr_from))
-    sock.sendall(make_cmd(2, addr_to))
+def populate_node(sock):
+  sock.sendall(make_cmd(1, "topic1:kek"))
+  sock.sendall(make_cmd(1, "topic2:lol"))
+
+def add_peer(sock, addr_to):
+  sock.sendall(make_cmd(2, addr_to))
   
 
 if __name__ == "__main__":
@@ -61,8 +61,15 @@ if __name__ == "__main__":
       threads.append(thread)
 
   sleep(1)
-  populate_node(int(addr2[1:]))
-  add_peer(int(addr1[1:]), addr2)
+  with socket(AF_INET, SOCK_STREAM) as sock1:
+    with socket(AF_INET, SOCK_STREAM) as sock2:
+      sock1.connect(("localhost", int(addr1[1:])))
+      sock2.connect(("localhost", int(addr2[1:])))
+      greet_node(sock1)
+      greet_node(sock2)
+      populate_node(sock1)
+      populate_node(sock2)
+      add_peer(sock1, addr2)
 
   for thread in threads:
       thread.join()
