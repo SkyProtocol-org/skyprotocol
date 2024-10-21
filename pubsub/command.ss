@@ -21,11 +21,6 @@
     command: [Symbol]
     payload: [Any]))
 
-(define-type PostPayload
-  (Record
-    topic: [u8vector]
-    body: [u8vector]))
-
 (define-type DefaultPayload
   (Record
     body: [u8vector]))
@@ -60,12 +55,16 @@
      (begin
        (add-command 'cmd)
        ;; TODO implement this
-       (def (req-cmd payload))))
+       (def (req-cmd payload))
+       (export req-cmd)
+       ))
     ((make-command res 'cmd payload-t)
      (begin
        (add-command 'cmd)
        ;; TODO implement this
-       (def (res-cmd payload))))))
+       (def (res-cmd payload))
+       (export res-cmd)
+       ))))
 
 ; (defsyntax make-command
 ;   (syntax-rules ()
@@ -84,17 +83,84 @@
 ;          (Command 'cmd (string->message msg)))
 ;        (export cmd)))))
 
-(make-command req 'add-peer)
-(make-command req 'hello)
-(make-command res 'hello-res)
-(make-command req 'add-topic)
-(make-command req 'get-topics)
-(make-command res 'topic-name) ;; sub command for 'get-topics
-(make-command req 'describe-topic)
-(make-command req 'poll-topic)
-(make-command res 'topic-height) ;; sub command for 'poll-topic
-(make-command req 'read-topic)
-(make-command res 'read-topic-res)
-(make-command req 'get-data-certificate)
-(make-command req 'stop)
-(make-command req 'post)
+(define-type AddPeerPayload
+  (Record
+    peer: [String]))
+(make-command req 'add-peer AddPeerPayload)
+
+(define-type HelloPayload
+  (Record
+    id: [u8vector]))
+(make-command req 'hello HelloPayload)
+(make-command res 'hello-res HelloPayload)
+
+(define-type AddTopicPayload
+  (Record
+    topic: [u8vector]))
+(make-command req 'add-topic AddTopicPayload)
+
+(define-type DescribeTopicPayload
+  (Record
+    topic: [u8vector]))
+(make-command req 'describe-topic DescribeTopicPayload)
+
+(define-type DescribeTopicRes
+  (Record
+    topic-name: [u8vector]))
+(make-command res 'describe-topic-res DescribeTopicRes)
+
+(define-type GetTopicsPayload
+  (Record
+    topic: [u8vector])) ; starting topic
+(make-command req 'get-topics GetTopicsPayload)
+
+(define-type GetTopicsRes
+  (Record
+    topic: [u8vector]
+    more?: [bool]))
+(make-command res 'get-topics-res GetTopicsRes)
+
+(define-type PollTopicPayload
+  (Record
+    topic: [u8vector]))
+(make-command req 'poll-topic PollTopicPayload)
+
+(define-type PollTopicRes
+  (Record
+    height: [nat]
+    certificate: [u8vector]))
+(make-command res 'poll-topic-res PollTopicRes)
+
+(define-type ReadTopicPayload
+  (Record
+    topic: [u8vector]
+    height: [nat]))
+(make-command req 'read-topic ReadTopicPayload)
+
+(define-type ReadTopicRes
+  (Record
+    block-data: [u8vector]
+    more?: [bool]))
+(make-command res 'read-topic-res ReadTopicRes)
+
+(define-type GetDataCertPayload
+  (Record
+    topic: [u8vector]
+    height: [nat]))
+(make-command req 'get-data-cert GetDataCertPayload)
+
+(define-type GetDataCertRes
+  (Record
+    certificate: [u8vector]))
+(make-command res 'get-data-cert-res GetDataCertRes)
+
+(define-type PublishBlockPayload
+  (Record
+    topic: [u8vector]
+    block-data: [u8vector]))
+(make-command req 'publish-block)
+
+(define-type PublishBlockRes
+  (Record
+    block-certificate: [u8vector]))
+(make-command res 'publish-block-res PublishBlockRes)
