@@ -6,6 +6,9 @@
         (only-in :std/os/pid getpid)
         (only-in :std/misc/string str)
         (only-in :std/misc/list for-each!)
+        :clan/poo/object
+        :clan/poo/mop
+        :clan/poo/type
         :std/hash-table ; HashTable type
         :std/misc/hash ; hash tables
         :std/misc/evector ; evector
@@ -34,15 +37,15 @@
   (lambda (self id)
     (set! self.id id)))
 
+;; TODO fix, it's using ports, and I don't know how it works
 (defmethod {recv Peer}
   (lambda (self)
-    (debugf "Trying to read command from (Peer '~a')" self.id)
-    (read-command self.reader)))
+    (debugf "Trying to read command from (Peer '~a')" self.id)))
 
+;; TODO fix, it's using ports, and I don't know how it works
 (defmethod {send Peer}
-  (lambda (self (cmd : Command))
-    (debugf "Writing command: (Command ~a ~a)" cmd.command (bytes->string cmd.message))
-    (write-command cmd self.writer)))
+  (lambda (self req/res)
+    (debugf "Writing command: (Command ~a)" (.get req/res command))))
 
 ;; Node is a service accepting connections from peers and doing work
 (defstruct Node (id
@@ -114,8 +117,9 @@
         (errorf "Can't handle (Peer '~a'): ~a" peer.id e)))))
 
 (defmethod {handle-command Node}
-  (lambda (self (peer : Peer) (cmd : Command))
-    (if-let (handler (hash-get self.handlers cmd.command))
-      (handler self peer cmd)
-      (error (str "Can't find handle for (Command " cmd.command ") for (Peer '" peer.id "')") "handle-command"))))
+  (lambda (self (peer : Peer) req)
+    (let (cmd (.get req command))
+      (if-let (handler (hash-get self.handlers cmd))
+        (handler self peer cmd)
+        (error (str "Can't find handle for (Command " cmd ") for (Peer '" peer.id "')") "handle-command")))))
 

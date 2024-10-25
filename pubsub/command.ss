@@ -8,15 +8,13 @@
         :clan/poo/brace
         :clan/poo/mop
         :clan/poo/type
-        :clan/poo/number
-        )
+        :clan/poo/number)
 (export (except-out #t debugf infof warnf errorf verbosef))
 
 (deflogger pubsub/command)
 (start-logger! (current-output-port))
 (current-logger-options 5)
 
-;; TODO ask Fare how to do this right
 (def (Request symbol T)
   (Record
     command: [(Exactly symbol)]
@@ -27,9 +25,6 @@
     command: [(Exactly symbol)]
     payload: [T]))
 
-;; TODO implement this
-;; NOTE as I understand, to have parametrized types I need functions that will
-;; prefill the parameter in the type
 (defrule (make-command command input-t output-t)
   (with-id make-command ((req-cmd 'request- #'command)
                          (res-cmd 'response- #'command)
@@ -38,9 +33,13 @@
     (def req-t (Request 'command input-t))
     (def res-t (Response 'command output-t))
     (def (req-cmd payload)
-      (validate req-t {command: 'command payload}))
+      (let (cmd ({command: 'command payload}))
+        (validate req-t cmd)
+        cmd))
     (def (res-cmd payload)
-      (validate res-t {command: 'command payload}))
+      (let (cmd ({command: 'command payload}))
+        (validate res-t {command: 'command payload})
+        cmd))
     (export req-t res-t req-cmd res-cmd)))
 
 (define-type PeerAddress String) ;; the peer
