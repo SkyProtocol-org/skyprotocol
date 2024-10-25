@@ -9,6 +9,9 @@
         :clan/poo/object
         :clan/poo/mop
         :clan/poo/type
+        :clan/poo/number
+        :clan/persist/content-addressing
+        :clan/persist/merkle-trie
         :std/hash-table ; HashTable type
         :std/misc/hash ; hash tables
         :std/misc/evector ; evector
@@ -41,11 +44,17 @@
 (defmethod {recv Peer}
   (lambda (self)
     (debugf "Trying to read command from (Peer '~a')" self.id)))
+#|    ... (lambda (port)
+std/io
+ <-bytes
+ bytes<-
+          (def command (unmarshal COMMAND port)) |#
 
 ;; TODO fix, it's using ports, and I don't know how it works
 (defmethod {send Peer}
   (lambda (self req/res)
     (debugf "Writing command: (Command ~a)" (.get req/res command))))
+;;;;  #|marshal req/res port)|#
 
 ;; Node is a service accepting connections from peers and doing work
 (defstruct Node (id
@@ -57,6 +66,23 @@
   transparent: #t
   constructor: :init!)
 
+#| (set! foo.messages (.call MessageTrie .acons new-index value foo.messages)) |#
+#| Or for lots of messages, use the zipper instead with O(1) .zipper-acons |#
+
+
+(define-type (UInt6 @ (UIntN 6)))
+(define-type (UInt64 @ (UIntN 64)))
+
+
+;; TODO: 1. define and use UInt6.
+;; 2. define blake2b-addressing and replace keccak-addressing by it.
+;; 3. Find a better type for Bytes?
+;; 4. add support in MerkleTrie for "forgetting" old nodes but still having their hash
+;; (some methods will throw an exception if they have to look inside those forgotten nodes)
+;; Maybe "just" make the wrapper a maybe-forgetful one.
+(define-type MessageTrie (MerkleTrie Key: UInt64 Height: UInt6 Value: Bytes
+                                     Digesting: keccak-addressing))
+
 (defmethod {:init! Node}
   (case-lambda
     ((self local-addr)
@@ -64,7 +90,7 @@
       (set! self.continue? #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers (hash))
-      (set! self.messages (hash))
+      (set! self.messages (.@ MessageTrie .empty))
       (set! self.messages-mx (make-mutex))
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))
@@ -122,4 +148,3 @@
       (if-let (handler (hash-get self.handlers cmd))
         (handler self peer cmd)
         (error (str "Can't find handle for (Command " cmd ") for (Peer '" peer.id "')") "handle-command")))))
-

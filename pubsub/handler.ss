@@ -25,23 +25,23 @@
 (current-logger-options 5)
 
 ; TODO fix this
-(defsyntax make-handler
-  (syntax-rules ()
-    ((_ name ((type handler) ...))
-     (def (name-handler (node : Node) (peer : Peer) reqres)
-       (cond
-         ((validate type reqres) handler) ...
-         (#t (error (str "Something went wrong in " name " handler")))))
-     (export name-handler))))
+(defrule (define-handler (name node peer reqres) (type handler ...) ...)
+  (begin
+    (def (name-handler (node : Node) (peer : Peer) reqres)
+      (cond
+       ((element? type reqres) handler ...)
+       ...
+       (else (str "Something went wrong in " 'name " handler"))))
+    (export name-handler)))
 
-(make-handler add-peer
-  ((request-add-peer-t (lambda () (begin
-    (debugf "Received ADD-PEER command from (Peer '~a')" peer.id)
-    (using ((peer-sock (tcp-connect (resolve-address (bytes->string (.get reqres payload)))) : StreamSocket)
-            (new-peer (Peer peer-sock) : Peer))
-    {peer.send (hello (inet-address->string (node.sock.address)))}
-    (with-lock node.peers-mx (lambda () (evector-push! node.peers new-peer)))
-    (spawn/name 'node.peer-handler (cut {node.handle-peer peer}))))))))
+(define-handler (add-peer node peer reqres)
+  (request-add-peer-t
+   (debugf "Received ADD-PEER command from (Peer '~a')" peer.id)
+   (using ((peer-sock (tcp-connect (resolve-address (bytes->string (.get reqres payload)))) : StreamSocket)
+           (new-peer (Peer peer-sock) : Peer))
+     {peer.send (request-hello (inet-address->string (node.sock.address)))}
+     (with-lock node.peers-mx (lambda () (evector-push! node.peers new-peer)))
+     (spawn/name 'node.peer-handler (cut {node.handle-peer peer})))))
 
 ; (def (add-peer-handler (node : Node) (peer : Peer) reqres)
 ;   (cond
@@ -59,16 +59,16 @@
     ((validate request-hello-t reqres) (begin
      {peer.set-id (bytes->string (.get reqres payload))}
      (debugf "Received HELLO request from: ~a, got id: ~a" (peer.sock.address) peer.id)
-     {peer.send (response-hello (Bytes (string->bytes node.id)))}))
+     {peer.send (response-hello (string->bytes node.id))}))
     ((validate response-hello-t reqres) (begin
      {peer.set-id (bytes->string (.get reqres payload))}
      (debugf "Received HELLO response from: ~a, got id: ~a" (peer.sock.address) peer.id)))
     (#t (error "Something went wrong in HELLO handler"))))
 
-; (def (add-topic-handler (node : Node) (peer : Peer) (cmd : Command))
-;   (with ((Command 'add-topic topic-name) cmd)
-;     (debugf "Adding topic: ~a" (bytes->string topic-name))
-;     (with-lock node.messages-mx (lambda () (hash-get-set! node.messages (bytes->string topic-name) (make-evector #(#f) 0))))))
+;(def (add-topic-handler (node : Node) (peer : Peer) (cmd : Command))
+;  (with ((Command 'add-topic topic-name) cmd)
+;    (debugf "Adding topic: ~a" (bytes->string topic-name))
+;    (with-lock node.messages-mx (lambda () (hash-get-set! node.messages (bytes->string topic-name) (make-evector #(#f) 0))))))
 
 ; (def (get-topics-handler (node : Node) (peer : Peer) (cmd : Command))
 ;   (with ((Command 'get-topics _) cmd)

@@ -25,22 +25,26 @@
     command: [(Exactly symbol)]
     payload: [T]))
 
-(defrule (make-command command input-t output-t)
-  (with-id make-command ((req-cmd 'request- #'command)
-                         (res-cmd 'response- #'command)
-                         (req-t 'request- #'command '-t)
-                         (res-t 'response- #'command '-t))
-    (def req-t (Request 'command input-t))
-    (def res-t (Response 'command output-t))
-    (def (req-cmd payload)
-      (let (cmd ({command: 'command payload}))
-        (validate req-t cmd)
-        cmd))
-    (def (res-cmd payload)
-      (let (cmd ({command: 'command payload}))
-        (validate res-t {command: 'command payload})
-        cmd))
-    (export req-t res-t req-cmd res-cmd)))
+(import :std/debug/DBG)
+
+(defsyntax define-command
+  (syntax-rules ()
+    ((_ ctx command input-t output-t)
+     (with-id ctx ((req-cmd "request-" #'command)
+                   (res-cmd "response-" #'command)
+                   (req-t "request-" #'command "-t")
+                   (res-t "response-" #'command "-t"))
+              (def req-t (Request 'command input-t))
+              (def res-t (Response 'command output-t))
+              (def (req-cmd payload)
+                (validate req-t payload))
+              (def (res-cmd payload)
+                (validate res-t {command: 'command payload}))
+              (DBG define-command: ['(command req-cmd res-cmd req-t res-t)])
+              (export req-t res-t req-cmd res-cmd)))
+    ((ctx command input-t output-t)
+     (ctx ctx command input-t output-t))))
+
 
 (define-type PeerAddress String) ;; the peer
 (define-type PeerId Bytes) ;; the id
@@ -57,14 +61,14 @@
     topic: [TopicId]
     height: [UInt]))
 
-(make-command add-peer PeerAddress Unit)
-(make-command hello PeerId PeerId)
-(make-command add-topic TopicId Unit)
-(make-command describe-topic TopicId TopicDescription)
-(make-command next-topic (Maybe TopicId) (Maybe TopicId))
-;;(make-command get-topics (Maybe TopicId) (Stream TopicId)) ;; in the future, with Stream
-(make-command poll-topic TopicId TopicTop)
-;; (make-command read-topic (Tuple TopicId UInt) (Stream BlockData)) ;; in the future, with Stream
-(make-command next-topic-data TopicIndex (Maybe BlockData))
-(make-command get-data-cert TopicIndex Certificate)
-(make-command publish-block (Tuple TopicId BlockData) TopicTop)
+(define-command hello PeerId PeerId)
+(define-command add-peer PeerAddress Unit)
+(define-command add-topic TopicId Unit)
+(define-command describe-topic TopicId TopicDescription)
+(define-command next-topic (Maybe TopicId) (Maybe TopicId))
+;;(define-command get-topics (Maybe TopicId) (Stream TopicId)) ;; in the future, with Stream
+(define-command poll-topic TopicId TopicTop)
+;; (define-command read-topic (Tuple TopicId UInt) (Stream BlockData)) ;; in the future, with Stream
+(define-command next-topic-data TopicIndex (Maybe BlockData))
+(define-command get-data-cert TopicIndex Certificate)
+(define-command publish-block (Tuple TopicId BlockData) TopicTop)
