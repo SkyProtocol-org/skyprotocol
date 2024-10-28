@@ -40,21 +40,23 @@
   (lambda (self id)
     (set! self.id id)))
 
-;; TODO fix, it's using ports, and I don't know how it works
+;; TODO encode type & len into one 32 int at the start of the sequence
 (defmethod {recv Peer}
   (lambda (self)
-    (debugf "Trying to read command from (Peer '~a')" self.id)))
-#|    ... (lambda (port)
-std/io
- <-bytes
- bytes<-
-          (def command (unmarshal COMMAND port)) |#
+    (debugf "Trying to read command from (Peer '~a')" self.id)
+    (let* ((cmd-ty (self.reader.read-u8))
+           (cmd-len (self.reader.read-u32))
+           (buf (make-u8vector cmd-len 0)))
+      (self.reader.read buf)
+      (.@ (cmd->type cmd-ty) .<-bytes))))
 
-;; TODO fix, it's using ports, and I don't know how it works
+;; TODO the above one
 (defmethod {send Peer}
   (lambda (self req/res)
-    (debugf "Writing command: (Command ~a)" (.get req/res command))))
-;;;;  #|marshal req/res port)|#
+    (debugf "Writing command: (Command ~a)" (.get req/res command))
+    (let* ((cmd-ty (type->cmd req/res))
+           (buf (.@ req/res .bytes<-)))
+      (self.writer.write buf))))
 
 ;; Node is a service accepting connections from peers and doing work
 (defstruct Node (id

@@ -25,7 +25,24 @@
     command: [(Exactly symbol)]
     payload: [T]))
 
-(import :std/debug/DBG)
+;; type -> id
+(def type-cmd (hash))
+;; id -> type
+(def id-cmd (hash))
+(def next-id 0)
+
+(def (cmd->type cmd)
+  (hash-ref id-cmd cmd 'unknown))
+
+(def (type->cmd type)
+  (hash-ref type-cmd type 'unknown))
+
+(def (add-cmd cmd)
+  (let (id next-id)
+    (set! next-id (+ next-id 1))
+    (hash-put! id-cmd id cmd)
+    (hash-put! type-cmd cmd id)
+    id))
 
 (defsyntax define-command
   (syntax-rules ()
@@ -36,15 +53,15 @@
                    (res-t "response-" #'command "-t"))
               (def req-t (Request 'command input-t))
               (def res-t (Response 'command output-t))
+              (add-cmd req-t)
+              (add-cmd res-t)
               (def (req-cmd payload)
                 (validate req-t payload))
               (def (res-cmd payload)
                 (validate res-t {command: 'command payload}))
-              (DBG define-command: ['(command req-cmd res-cmd req-t res-t)])
               (export req-t res-t req-cmd res-cmd)))
     ((ctx command input-t output-t)
      (ctx ctx command input-t output-t))))
-
 
 (define-type PeerAddress String) ;; the peer
 (define-type PeerId Bytes) ;; the id

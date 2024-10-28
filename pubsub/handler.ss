@@ -24,7 +24,6 @@
 (start-logger! (current-output-port))
 (current-logger-options 5)
 
-; TODO fix this
 (defrule (define-handler (name node peer reqres) (type handler ...) ...)
   (begin
     (def (name-handler (node : Node) (peer : Peer) reqres)
@@ -43,27 +42,14 @@
      (with-lock node.peers-mx (lambda () (evector-push! node.peers new-peer)))
      (spawn/name 'node.peer-handler (cut {node.handle-peer peer})))))
 
-; (def (add-peer-handler (node : Node) (peer : Peer) reqres)
-;   (cond
-;     ((validate request-add-peer-t reqres) (begin
-;      (debugf "Received ADD-PEER command from (Peer '~a')" peer.id)
-;      (using ((peer-sock (tcp-connect (resolve-address (bytes->string (.get reqres payload)))) : StreamSocket)
-;              (new-peer (Peer peer-sock) : Peer))
-;       {peer.send (hello (inet-address->string (node.sock.address)))}
-;       (with-lock node.peers-mx (lambda () (evector-push! node.peers new-peer)))
-;       (spawn/name 'node.peer-handler (cut {node.handle-peer peer})))))
-;     (#t (error "Something went wrong in ADD-PEER handler"))))
-
-(def (hello-handler (node : Node) (peer : Peer) reqres)
-  (cond
-    ((validate request-hello-t reqres) (begin
-     {peer.set-id (bytes->string (.get reqres payload))}
-     (debugf "Received HELLO request from: ~a, got id: ~a" (peer.sock.address) peer.id)
-     {peer.send (response-hello (string->bytes node.id))}))
-    ((validate response-hello-t reqres) (begin
-     {peer.set-id (bytes->string (.get reqres payload))}
-     (debugf "Received HELLO response from: ~a, got id: ~a" (peer.sock.address) peer.id)))
-    (#t (error "Something went wrong in HELLO handler"))))
+(define-handler (hello node peer reqres)
+  (request-hello-t
+    {peer.set-id (bytes->string (.get reqres payload))}
+    (debugf "Received HELLO request from: ~a, got id: ~a" (peer.sock.address) peer.id)
+    {peer.send (response-hello (string->bytes node.id))})
+  (response-hello-t
+    {peer.set-id (bytes->string (.get reqres payload))}
+    (debugf "Received HELLO response from: ~a, got id: ~a" (peer.sock.address) peer.id)))
 
 ;(def (add-topic-handler (node : Node) (peer : Peer) (cmd : Command))
 ;  (with ((Command 'add-topic topic-name) cmd)

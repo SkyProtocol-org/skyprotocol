@@ -19,9 +19,9 @@
           gerbil-utils
           gerbil-crypto
           gerbil-poo
-          # gerbil-persist
+          gerbil-persist
+          gerbil-leveldb
           # gerbil-ethereum
-          # gerbil-leveldb
           # gerbil-libp2p
         ];
         devTools = with pkgs; [
