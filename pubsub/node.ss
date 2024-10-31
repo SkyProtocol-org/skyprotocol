@@ -48,7 +48,7 @@
            (cmd-len (self.reader.read-u32))
            (buf (make-u8vector cmd-len 0)))
       (self.reader.read buf)
-      (.@ (cmd->type cmd-ty) .<-bytes))))
+      (.@ (cmd->type cmd-ty) .<-bytes buf))))
 
 ;; TODO the above one
 (defmethod {send Peer}

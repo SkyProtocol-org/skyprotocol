@@ -67,7 +67,7 @@
 (define-type PeerId Bytes) ;; the id
 (define-type TopicId Bytes) ;; topic id
 (define-type TopicDescription Bytes)
-(define-type Certificate Bytes)
+(define-type Certificate Bytes) ;; TODO is this a merkle proof?
 (define-type TopicTop
   (Record
     height: [UInt]
