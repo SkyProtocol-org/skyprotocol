@@ -1,5 +1,6 @@
 ;;; -*- Gerbil -*-
 (import :std/error
+        :skyprotocol/types
         :skyprotocol/pubsub/command
         :std/sugar
         :std/logger ; logging stuff
@@ -72,18 +73,7 @@
 #| Or for lots of messages, use the zipper instead with O(1) .zipper-acons |#
 
 
-(define-type (UInt6 @ (UIntN 6)))
-(define-type (UInt64 @ (UIntN 64)))
 
-
-;; TODO: 1. define and use UInt6.
-;; 2. define blake2b-addressing and replace keccak-addressing by it.
-;; 3. Find a better type for Bytes?
-;; 4. add support in MerkleTrie for "forgetting" old nodes but still having their hash
-;; (some methods will throw an exception if they have to look inside those forgotten nodes)
-;; Maybe "just" make the wrapper a maybe-forgetful one.
-(define-type MessageTrie (MerkleTrie Key: UInt64 Height: UInt6 Value: Bytes
-                                     Digesting: keccak-addressing))
 
 (defmethod {:init! Node}
   (case-lambda

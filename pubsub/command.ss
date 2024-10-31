@@ -8,7 +8,8 @@
         :clan/poo/brace
         :clan/poo/mop
         :clan/poo/type
-        :clan/poo/number)
+        :clan/poo/number
+        :skyprotocol/types)
 (export (except-out #t debugf infof warnf errorf verbosef))
 
 (deflogger pubsub/command)
@@ -63,27 +64,12 @@
     ((ctx command input-t output-t)
      (ctx ctx command input-t output-t))))
 
-(define-type PeerAddress String) ;; the peer
-(define-type PeerId Bytes) ;; the id
-(define-type TopicId Bytes) ;; topic id
-(define-type TopicDescription Bytes)
-(define-type Certificate Bytes) ;; TODO is this a merkle proof?
-(define-type TopicTop
-  (Record
-    height: [UInt]
-    certificate: [Certificate]))
-(define-type BlockData Bytes)
-(define-type TopicIndex
-  (Record
-    topic: [TopicId]
-    height: [UInt]))
-
 (define-command hello PeerId PeerId)
 (define-command add-peer PeerAddress Unit)
 (define-command add-topic TopicId Unit)
 (define-command describe-topic TopicId TopicDescription)
-(define-command next-topic (Maybe TopicId) (Maybe TopicId))
-;;(define-command get-topics (Maybe TopicId) (Stream TopicId)) ;; in the future, with Stream
+;;(define-command next-topic (Maybe TopicId) (Maybe TopicId))
+(define-command get-topics (Maybe TopicId) (Maybe TopicId)) ;; in the future, with Stream
 (define-command poll-topic TopicId TopicTop)
 ;; (define-command read-topic (Tuple TopicId UInt) (Stream BlockData)) ;; in the future, with Stream
 (define-command next-topic-data TopicIndex (Maybe BlockData))
