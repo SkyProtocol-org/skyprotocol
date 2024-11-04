@@ -64,7 +64,7 @@
                  (sock : ServerSocket)
                  (handlers : HashTable)
                  continue?
-                 messages messages-mx
+                 topics topics-mx
                  peers peers-mx)
   transparent: #t
   constructor: :init!)
@@ -91,8 +91,8 @@
       (set! self.continue? #f)
       (set! self.sock (tcp-listen (resolve-address local-addr)))
       (set! self.handlers handlers)
-      (set! self.messages (hash))
-      (set! self.messages-mx (make-mutex))
+      (set! self.topics (.@ TopicTrie .empty))
+      (set! self.topics-mx (make-mutex))
       (set! self.peers (make-evector #(#f) 0))
       (set! self.peers-mx (make-mutex)))))
 

@@ -25,13 +25,14 @@
 (current-logger-options 5)
 
 (defrule (define-handler (name node peer reqres) (type handler ...) ...)
-  (begin
-    (def (name-handler (node : Node) (peer : Peer) reqres)
+  (with-id define-handler ((hname #'name "-handler"))
+    (def (hname (node : Node) (peer : Peer) reqres)
+      (debugf (str "Received " 'name " request/response from (Peer '~a') with payload: " (.get reqres payload)) peer.id)
       (cond
        ((element? type reqres) handler ...)
        ...
        (else (str "Something went wrong in " 'name " handler"))))
-    (export name-handler)))
+    (export hname)))
 
 (define-handler (hello node peer reqres)
   (request-hello-t
@@ -44,7 +45,6 @@
 
 (define-handler (add-peer node peer reqres)
   (request-add-peer-t
-   (debugf "Received ADD-PEER request from (Peer '~a')" peer.id)
    (using ((peer-sock (tcp-connect (resolve-address (bytes->string (.get reqres payload)))) : StreamSocket)
            (new-peer (Peer peer-sock) : Peer))
      {peer.send (request-hello (inet-address->string (node.sock.address)))}
@@ -53,33 +53,31 @@
 
 (define-handler (add-topic node peer reqres)
   (request-add-topic-t
-    (debugf "Adding topic: ~a" (bytes->string (.get reqres payload)))
-    (with-lock node.messages-mx (lambda () (set! node.messages (.call TopicTrie .acons (.get reqres payload) (.@ MessageTrie .empty)))))))
+    (with-lock node.messages-mx (lambda () (set! node.messages (.call TopicTrie .acons (.get reqres payload) (.call MessageTrie .empty)))))))
 
+;; for now it's empty(or not implemented in this case), in the future we want to send data about throughput, etc
 (define-handler (describe-topic node peer reqres)
   (request-describe-topic-t
-    (debugf "Received DESCRIBE-TOPIC request from (Peer '~a') for topic '~a'" peer.id (bytes->string (.get reqres payload)))
     {peer.send (response-describe-topic (string->bytes "not implemented"))}))
 
-;; TODO fix this
+;; TODO how to send null value from Maybe? Is it just void?
 (define-handler (get-topics node peer reqres)
   (request-get-topics-t
-    (debugf "Received GET-TOPICS request from (Peer '~a')" peer.id)
-    (spawn/name 'get-topics (lambda () (begin
-      (.call TopicTrie .map/key (lambda (k v) {peer.send (response-get-topics k)}) node.topics (.get reqres payload)))))))
+    (spawn/name 'get-topics (lambda ()
+      (with-lock node.topics-mx (lambda () (begin
+        (for ([key . val] (.call MerkleTrie .iter<- node.topics (.get reqres payload)))
+          {peer.send (response-get-topics key)})
+        {peer.send (response-get-topics #void)})))))))
 
 (define-handler (poll-topic node peer reqres)
   (request-poll-topic-t
-    (debugf "Received POLL-TOPIC request from (Peer '~a')" peer.id)
     {peer.send (response-poll-topic (.o 
       (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
       (certificate (.call MerkleTrie .proof node.topics (.get reqres payload))))}))
 
-(define-handler (read-topic node peer reqres)
-  (request-read-topic-t
-    (debugf "Received READ-TOPIC request from (Peer '~a')" peer.id)
-    ))
+; (define-handler (read-topic node peer reqres)
+;   (request-read-topic-t
+;     ))
 
-(define-handler (get-data-cert node peer reqres)
-  (request-get-data-cert-t
-    (debugf "Received GET-DATA-CERT request from (Peer '~a')" peer.id))) ;; TODO implement this
+; (define-handler (get-data-cert node peer reqres)
+;   (request-get-data-cert-t)) ;; TODO implement this
