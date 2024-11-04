@@ -54,42 +54,32 @@
 (define-handler (add-topic node peer reqres)
   (request-add-topic-t
     (debugf "Adding topic: ~a" (bytes->string (.get reqres payload)))
-    (with-lock node.messages-mx (lambda () (set! node.messages (.call MessageTrie .acons (.get reqres payload) '()))))))
+    (with-lock node.messages-mx (lambda () (set! node.messages (.call TopicTrie .acons (.get reqres payload) (.@ MessageTrie .empty)))))))
 
-;; TODO figure out how this will work, do we want to store something more elaborate than just topic -> list of blocks?
 (define-handler (describe-topic node peer reqres)
   (request-describe-topic-t
     (debugf "Received DESCRIBE-TOPIC request from (Peer '~a') for topic '~a'" peer.id (bytes->string (.get reqres payload)))
     {peer.send (response-describe-topic (string->bytes "not implemented"))}))
 
-;; TODO how to work with maybe?
-;; it may actually be easier to just implement the "Stream" version, since we won't need to think
-;; where to store intermediate pointers and stuff.
-;; just fork a thread which will send responses continiously
-(define-handler (next-topic node peer reqres)
-  (request-next-topic-t
-    (debugf "Received NEXT-TOPIC request from (Peer '~a')" peer.id)
-    {peer.send (response-next-topic (Maybe ...))})) ;; TODO Do I want to zip through the whole tree topic by topic until I hit the specified and return next?
+;; TODO fix this
+(define-handler (get-topics node peer reqres)
+  (request-get-topics-t
+    (debugf "Received GET-TOPICS request from (Peer '~a')" peer.id)
+    (spawn/name 'get-topics (lambda () (begin
+      (.call TopicTrie .map/key (lambda (k v) {peer.send (response-get-topics k)}) node.topics (.get reqres payload)))))))
 
 (define-handler (poll-topic node peer reqres)
   (request-poll-topic-t
     (debugf "Received POLL-TOPIC request from (Peer '~a')" peer.id)
-    {peer.send (response-poll-topic {topic: (.get reqres payload) height: 1})}))
+    {peer.send (response-poll-topic (.o 
+      (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
+      (certificate (.call MerkleTrie .proof node.topics (.get reqres payload))))}))
 
-; (def (read-topic-handler (node : Node) (peer : Peer) (cmd : Command))
-;   (with ((Command 'read-topic topic) cmd)
-;     (debugf "(Peer ~a) reads topic ~a" peer.id (bytes->string topic))))
+(define-handler (read-topic node peer reqres)
+  (request-read-topic-t
+    (debugf "Received READ-TOPIC request from (Peer '~a')" peer.id)
+    ))
 
-; (def (get-data-certificate-handler (node : Node) (peer : Peer) (cmd : Command))
-;   (with ((Command 'get-data-certificate topic) cmd)
-;     (debugf "(Peer ~a) requests data certificate for ~a" peer.id (bytes->string topic))))
-
-; (def (post-handler (node : Node) (peer : Peer) (cmd : Command))
-;   (with ((Command 'post (PostMessage topic msg)) cmd)
-;     (debugf "Received POST command from (Peer '~a')" peer.id)
-;     (with-lock node.messages-mx (lambda ()
-;       (debugf "Saving new message: ~a, to topic: ~a" msg topic)
-;       ;; ensure the topic exists on this node
-;       (until (hash-get node.messages topic)
-;         (hash-put! node.messages topic (make-evector #(#f) 0)))
-;       (evector-push! (hash-ref node.messages topic) (create-message msg))))))
+(define-handler (get-data-cert node peer reqres)
+  (request-get-data-cert-t
+    (debugf "Received GET-DATA-CERT request from (Peer '~a')" peer.id))) ;; TODO implement this

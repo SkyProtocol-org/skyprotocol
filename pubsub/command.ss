@@ -69,9 +69,9 @@
 (define-command add-topic TopicId Unit)
 (define-command describe-topic TopicId TopicDescription)
 ;;(define-command next-topic (Maybe TopicId) (Maybe TopicId))
-(define-command get-topics (Maybe TopicId) (Maybe TopicId)) ;; in the future, with Stream
+(define-command get-topics (Maybe TopicId) (Maybe TopicId))
 (define-command poll-topic TopicId TopicTop)
-;; (define-command read-topic (Tuple TopicId UInt) (Stream BlockData)) ;; in the future, with Stream
-(define-command next-topic-data TopicIndex (Maybe BlockData))
+(define-command read-topic (Tuple TopicId UInt) (Maybe BlockData))
+; (define-command next-topic-data TopicIndex (Maybe BlockData))
 (define-command get-data-cert TopicIndex Certificate)
 (define-command publish-block (Tuple TopicId BlockData) TopicTop)
