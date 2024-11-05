@@ -2,10 +2,12 @@
 (import :skyprotocol/pubsub/command
         :skyprotocol/pubsub/node
         :skyprotocol/pubsub/message
+        :skyprotocol/types
         :clan/poo/object
         :clan/poo/mop
         :clan/poo/type
         :clan/poo/number
+        :std/iter
         :std/error
         :std/sugar
         :std/logger ; logging stuff
@@ -24,10 +26,22 @@
 (start-logger! (current-output-port))
 (current-logger-options 5)
 
+(defrules defrule ()
+    ((_ (name . args) body)
+     (identifier? #'name)
+     (define-syntax name
+       (syntax-rules ()
+         ((name . args) body))))
+    ((_ (name . args) fender body)
+     (identifier? #'name)
+     (define-syntax name
+       (syntax-rules ()
+         ((name . args) fender body)))))
+
 (defrule (define-handler (name node peer reqres) (type handler ...) ...)
   (with-id define-handler ((hname #'name "-handler"))
     (def (hname (node : Node) (peer : Peer) reqres)
-      (debugf (str "Received " 'name " request/response from (Peer '~a') with payload: " (.get reqres payload)) peer.id)
+      ; (debugf (str "Received " 'name " request/response from (Peer '~a') with payload: " (.get reqres payload)) peer.id)
       (cond
        ((element? type reqres) handler ...)
        ...
@@ -53,31 +67,43 @@
 
 (define-handler (add-topic node peer reqres)
   (request-add-topic-t
-    (with-lock node.messages-mx (lambda () (set! node.messages (.call TopicTrie .acons (.get reqres payload) (.call MessageTrie .empty)))))))
+    (with-lock node.topics-mx (lambda () (set! node.topics (.call TopicTrie .acons (.get reqres payload) (.call MessageTrie .empty)))))))
 
-;; for now it's empty(or not implemented in this case), in the future we want to send data about throughput, etc
+; ;; for now it's empty(or not implemented in this case), in the future we want to send data about throughput, etc
 (define-handler (describe-topic node peer reqres)
   (request-describe-topic-t
     {peer.send (response-describe-topic (string->bytes "not implemented"))}))
 
-;; TODO how to send null value from Maybe? Is it just void?
+; ;; TODO how to send null value from Maybe? Is it just void?
 (define-handler (get-topics node peer reqres)
   (request-get-topics-t
     (spawn/name 'get-topics (lambda ()
       (with-lock node.topics-mx (lambda () (begin
-        (for ([key . val] (.call MerkleTrie .iter<- node.topics (.get reqres payload)))
+        (for (key (.call TopicTrie .iter<- node.topics (.get reqres payload)))
           {peer.send (response-get-topics key)})
-        {peer.send (response-get-topics #void)})))))))
+        {peer.send (response-get-topics #f)})))))))
 
-(define-handler (poll-topic node peer reqres)
-  (request-poll-topic-t
-    {peer.send (response-poll-topic (.o 
-      (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
-      (certificate (.call MerkleTrie .proof node.topics (.get reqres payload))))}))
+; (define-handler (poll-topic node peer reqres)
+;   (request-poll-topic-t
+;     {peer.send (response-poll-topic (.o 
+;       (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
+;       (certificate (.call MerkleTrie .proof node.topics (.get reqres payload))))}))
 
+(define-handler (get-data-cert node peer reqres)
+  (request-get-data-cert-t
+    ;; if I remember correctly, the key and the height in the MessageTrie are the same
+    {peer.send (response-poll-topic (.call MerkleTrie .proof (.call TopicTrie .ref node.topics (.get reqres payload topic)) (.get reqres payload height)))}))
+
+;; TODO how to work with Tuple?
+;; TODO we want to read messages backwards, so I want to try using zippers here?
 ; (define-handler (read-topic node peer reqres)
 ;   (request-read-topic-t
-;     ))
+;     (spawn/name 'read-topic (lambda ()
+;       (with-lock node.topics-mx (lambda () (begin
+;         (let* ((topic (.call TopicTrie .ref node.topics (.get reqres payload fst))) ;; assuming to get first element of tuple I want 'fst' as accessor
+;                (height (.get reqres payload snd))) ;; assuming to get second element of tuple I want 'snd' as accessor
+;           (for ([key . val] (.call TopicTrie .iter<- node.topics (.get reqres payload fst))))))))))))
 
-; (define-handler (get-data-cert node peer reqres)
-;   (request-get-data-cert-t)) ;; TODO implement this
+; (define-handler (publish-block node peer reqres)
+;   (request-publish-block-t
+;     ))
