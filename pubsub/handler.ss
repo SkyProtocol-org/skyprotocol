@@ -3,6 +3,7 @@
         :skyprotocol/pubsub/node
         :skyprotocol/pubsub/message
         :skyprotocol/types
+        :clan/persist/merkle-trie
         :clan/poo/object
         :clan/poo/mop
         :clan/poo/type
@@ -26,17 +27,17 @@
 (start-logger! (current-output-port))
 (current-logger-options 5)
 
-(defrules defrule ()
-    ((_ (name . args) body)
-     (identifier? #'name)
-     (define-syntax name
-       (syntax-rules ()
-         ((name . args) body))))
-    ((_ (name . args) fender body)
-     (identifier? #'name)
-     (define-syntax name
-       (syntax-rules ()
-         ((name . args) fender body)))))
+; (defrules defrule ()
+;     ((_ (name . args) body)
+;      (identifier? #'name)
+;      (define-syntax name
+;        (syntax-rules ()
+;          ((name . args) body))))
+;     ((_ (name . args) fender body)
+;      (identifier? #'name)
+;      (define-syntax name
+;        (syntax-rules ()
+;          ((name . args) fender body)))))
 
 (defrule (define-handler (name node peer reqres) (type handler ...) ...)
   (with-id define-handler ((hname #'name "-handler"))
@@ -83,11 +84,11 @@
           {peer.send (response-get-topics key)})
         {peer.send (response-get-topics #f)})))))))
 
-; (define-handler (poll-topic node peer reqres)
-;   (request-poll-topic-t
-;     {peer.send (response-poll-topic (.o 
-;       (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
-;       (certificate (.call MerkleTrie .proof node.topics (.get reqres payload))))}))
+(define-handler (poll-topic node peer reqres)
+  (request-poll-topic-t
+    {peer.send (response-poll-topic (.o 
+      (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
+      (certificate (.call MerkleTrie .proof node.topics (.get reqres payload)))))}))
 
 (define-handler (get-data-cert node peer reqres)
   (request-get-data-cert-t
@@ -104,6 +105,12 @@
 ;                (height (.get reqres payload snd))) ;; assuming to get second element of tuple I want 'snd' as accessor
 ;           (for ([key . val] (.call TopicTrie .iter<- node.topics (.get reqres payload fst))))))))))))
 
-; (define-handler (publish-block node peer reqres)
-;   (request-publish-block-t
-;     ))
+(define-handler (publish-block node peer reqres)
+  (request-publish-block-t
+    (with-lock node.topics-mx (lambda () (begin
+      (let* ((topic (.call TopicTrie .ref node.topics (.get reqres payload fst)))
+             (height (.call MessageTrie .trie-height topic)))
+        (.call MessageTrie .acons (.get reqres payload snd) (+ 1 height) topic)
+        {peer.send (response-publish-block (.o
+          (height (+ 1 height))
+          (topic (.get reqres payload))))}))))))
