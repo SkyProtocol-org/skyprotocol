@@ -1,14 +1,6 @@
 ;;; -*- Gerbil -*-
-(import :std/error ; check-argument
-        :std/sugar
-        :std/logger
-        :std/misc/string
-        :std/io
-        :clan/poo/object
-        :clan/poo/brace
-        :clan/poo/mop
-        :clan/poo/type
-        :clan/poo/number
+(import (group-in :std error sugar logger misc/string io)
+        (group-in :clan/poo object brace mop type number)
         :skyprotocol/types)
 (export (except-out #t debugf infof warnf errorf verbosef))
 

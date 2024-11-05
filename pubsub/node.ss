@@ -1,23 +1,11 @@
 ;;; -*- Gerbil -*-
-(import :std/error
-        :skyprotocol/types
-        :skyprotocol/pubsub/command
-        :std/sugar
-        :std/logger ; logging stuff
+(import (group-in :std error hash-table io sugar logger misc/hash misc/evector net/address)
+        (group-in :skyprotocol types pubsub/command)
+        (group-in :clan/poo object mop type number)
+        (group-in :clan/persist content-addressing merkle-trie)
         (only-in :std/os/pid getpid)
         (only-in :std/misc/string str)
-        (only-in :std/misc/list for-each!)
-        :clan/poo/object
-        :clan/poo/mop
-        :clan/poo/type
-        :clan/poo/number
-        :clan/persist/content-addressing
-        :clan/persist/merkle-trie
-        :std/hash-table ; HashTable type
-        :std/misc/hash ; hash tables
-        :std/misc/evector ; evector
-        :std/net/address
-        :std/io)
+        (only-in :std/misc/list for-each!))
 (export Node
         Peer)
 

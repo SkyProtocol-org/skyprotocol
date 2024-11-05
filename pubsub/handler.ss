@@ -1,26 +1,12 @@
 ;;; -*- Gerbil -*-
-(import :skyprotocol/pubsub/command
-        :skyprotocol/pubsub/node
-        :skyprotocol/pubsub/message
+(import (group-in :skyprotocol/pubsub node command message)
+        (group-in :clan/poo object mop type number)
+        (group-in :std iter error sugar logger hash-table io)
+        (group-in :std/misc hash evector string list)
+        (group-in :std/srfi 130 19)
         :skyprotocol/types
         :clan/persist/merkle-trie
-        :clan/poo/object
-        :clan/poo/mop
-        :clan/poo/type
-        :clan/poo/number
-        :std/iter
-        :std/error
-        :std/sugar
-        :std/logger ; logging stuff
-        :std/srfi/130
-        :std/srfi/19
-        :std/net/address
-        :std/hash-table ; HashTable types
-        :std/misc/hash ; hash tables manipulation
-        :std/misc/evector ; evector
-        :std/misc/string ; string manipulation
-        :std/misc/list ; for-each!
-        :std/io)
+        :std/net/address)
 (export (except-out #t debugf infof warnf errorf verbosef))
 
 (deflogger pubsub/handle)
