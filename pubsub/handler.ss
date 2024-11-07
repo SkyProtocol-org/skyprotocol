@@ -1,6 +1,6 @@
 ;;; -*- Gerbil -*-
 (import (group-in :skyprotocol/pubsub node command message)
-        (group-in :clan/poo object mop type number)
+        (group-in :clan/poo object mop type number table)
         (group-in :std iter error sugar logger hash-table io)
         (group-in :std/misc hash evector string list)
         (group-in :std/srfi 130 19)
@@ -12,18 +12,6 @@
 (deflogger pubsub/handle)
 (start-logger! (current-output-port))
 (current-logger-options 5)
-
-; (defrules defrule ()
-;     ((_ (name . args) body)
-;      (identifier? #'name)
-;      (define-syntax name
-;        (syntax-rules ()
-;          ((name . args) body))))
-;     ((_ (name . args) fender body)
-;      (identifier? #'name)
-;      (define-syntax name
-;        (syntax-rules ()
-;          ((name . args) fender body)))))
 
 (defrule (define-handler (name node peer reqres) (type handler ...) ...)
   (with-id define-handler ((hname #'name "-handler"))
@@ -54,7 +42,9 @@
 
 (define-handler (add-topic node peer reqres)
   (request-add-topic-t
-    (with-lock node.topics-mx (lambda () (set! node.topics (.call TopicTrie .acons (.get reqres payload) (.call MessageTrie .empty)))))))
+    (with-lock node.topics-mx (lambda () 
+      (set! node.topics 
+        (.call TopicTrie .acons (.get reqres payload) (.call MessageTrie .empty)))))))
 
 ; ;; for now it's empty(or not implemented in this case), in the future we want to send data about throughput, etc
 (define-handler (describe-topic node peer reqres)
@@ -73,30 +63,38 @@
 (define-handler (poll-topic node peer reqres)
   (request-poll-topic-t
     {peer.send (response-poll-topic (.o 
-      (height (.call MessageTrie .trie-height (.call TopicTrie .ref node.topics (.get reqres payload)))) 
+      (height (.call MessageTrie .trie-height 
+        (.call TopicTrie .ref node.topics (.get reqres payload)))) 
       (certificate (.call MerkleTrie .proof node.topics (.get reqres payload)))))}))
 
+;; key == height in MessageTrie
 (define-handler (get-data-cert node peer reqres)
   (request-get-data-cert-t
-    ;; if I remember correctly, the key and the height in the MessageTrie are the same
-    {peer.send (response-poll-topic (.call MerkleTrie .proof (.call TopicTrie .ref node.topics (.get reqres payload topic)) (.get reqres payload height)))}))
+    {peer.send (response-poll-topic
+      (.call MerkleTrie .proof
+        (.call TopicTrie .ref node.topics
+          (.get reqres payload topic))
+          (.get reqres payload height)))}))
 
-;; TODO how to work with Tuple?
-;; TODO we want to read messages backwards, so I want to try using zippers here?
-; (define-handler (read-topic node peer reqres)
-;   (request-read-topic-t
-;     (spawn/name 'read-topic (lambda ()
-;       (with-lock node.topics-mx (lambda () (begin
-;         (let* ((topic (.call TopicTrie .ref node.topics (.get reqres payload fst))) ;; assuming to get first element of tuple I want 'fst' as accessor
-;                (height (.get reqres payload snd))) ;; assuming to get second element of tuple I want 'snd' as accessor
-;           (for ([key . val] (.call TopicTrie .iter<- node.topics (.get reqres payload fst))))))))))))
+(define-handler (read-topic node peer reqres)
+  (request-read-topic-t
+    (spawn/name 'read-topic (lambda ()
+      (with-lock node.topics-mx (lambda () (begin
+        (let* ((topic (.call TopicTrie .ref node.topics (vector-ref (.get reqres payload) 0)))
+               (height (vector-ref (.get reqres payload) 1)))
+          (.call MessageTrie .for-each/reverse (lambda (key _) (begin
+            (when (<= key height)
+              {peer.send (response-read-topic 
+                (.call MessageTrie .ref topic key))}))) 
+            topic)))))))))
 
 (define-handler (publish-block node peer reqres)
   (request-publish-block-t
     (with-lock node.topics-mx (lambda () (begin
-      (let* ((topic (.call TopicTrie .ref node.topics (.get reqres payload fst)))
+      (let* ((topic (.call TopicTrie .ref node.topics (vector-ref (.get reqres payload) 0)))
+             (block (vector-ref (.get reqres payload) 1))
              (height (.call MessageTrie .trie-height topic)))
-        (.call MessageTrie .acons (.get reqres payload snd) (+ 1 height) topic)
+        (.call MessageTrie .acons block (+ 1 height) topic)
         {peer.send (response-publish-block (.o
           (height (+ 1 height))
-          (topic (.get reqres payload))))}))))))
+          (topic topic)))}))))))
