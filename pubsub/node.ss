@@ -57,12 +57,6 @@
   transparent: #t
   constructor: :init!)
 
-#| (set! foo.messages (.call MessageTrie .acons new-index value foo.messages)) |#
-#| Or for lots of messages, use the zipper instead with O(1) .zipper-acons |#
-
-
-
-
 (defmethod {:init! Node}
   (case-lambda
     ((self local-addr)
@@ -126,5 +120,5 @@
   (lambda (self (peer : Peer) req)
     (let (cmd (.get req command))
       (if-let (handler (hash-get self.handlers cmd))
-        (handler self peer cmd)
-        (error (str "Can't find handle for (Command " cmd ") for (Peer '" peer.id "')") "handle-command")))))
+        (handler self peer (.get req payload))
+        (errorf (str "Can't find handle for (Command " cmd ") for (Peer '" peer.id "')") "handle-command")))))

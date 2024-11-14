@@ -1,5 +1,5 @@
 ;;; -*- Gerbil -*-
-(import (group-in :skyprotocol/pubsub node command message)
+(import (group-in :skyprotocol/pubsub node command)
         (group-in :clan/poo object mop type number table)
         (group-in :std iter error sugar logger hash-table io)
         (group-in :std/misc hash evector string list)
@@ -16,6 +16,7 @@
 (defrule (define-handler (name node peer reqres) (type handler ...) ...)
   (with-id define-handler ((hname #'name "-handler"))
     (def (hname (node : Node) (peer : Peer) reqres)
+      ;; something weird goes on here, `peer.id` doesn't work for some reason, when placed in macro
       ; (debugf (str "Received " 'name " request/response from (Peer '~a') with payload: " (.get reqres payload)) peer.id)
       (cond
        ((element? type reqres) handler ...)
@@ -46,12 +47,12 @@
       (set! node.topics 
         (.call TopicTrie .acons (.get reqres payload) (.call MessageTrie .empty)))))))
 
-; ;; for now it's empty(or not implemented in this case), in the future we want to send data about throughput, etc
+;; for now it's empty(or not implemented in this case), in the future we want to send data about throughput, etc
 (define-handler (describe-topic node peer reqres)
   (request-describe-topic-t
     {peer.send (response-describe-topic (string->bytes "not implemented"))}))
 
-; ;; TODO how to send null value from Maybe? Is it just void?
+;; TODO how to send null value from Maybe? Is it just void?
 (define-handler (get-topics node peer reqres)
   (request-get-topics-t
     (spawn/name 'get-topics (lambda ()

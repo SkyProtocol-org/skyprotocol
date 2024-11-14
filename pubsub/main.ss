@@ -1,18 +1,9 @@
 ;;; -*- Gerbil -*-
-(import :skyprotocol/pubsub/lib
-        (only-in :std/logger start-logger! deflogger current-logger-options debugf errorf)
-        :skyprotocol/pubsub/command
-        :skyprotocol/pubsub/node
-        :std/interface
-        :std/logger ; logger
-        :std/os/pid ; for getting PID
-        :std/sugar
+(import (only-in :std/logger start-logger! deflogger current-logger-options debugf errorf)
+        (group-in :skyprotocol/pubsub command node)
+        (group-in :std interface logger os/pid sugar io)
         (only-in :std/cli/getopt call-with-getopt argument)
-        (only-in :std/cli/multicall define-entry-point)
-        :std/io ; socket stuff and other
-        (only-in :std/iter for* in-range)
-        (only-in :std/misc/evector make-evector evector-push! evector-fill-pointer evector-ref)
-        (only-in :std/net/address resolve-address))
+        (only-in :std/cli/multicall define-entry-point))
 
 (export main)
 
