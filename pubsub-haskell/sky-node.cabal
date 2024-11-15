@@ -54,9 +54,32 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
+common shared-libs
+    build-depends:
+        base ^>=4.18.2.1,
+        yaml,
+        fast-logger
+
+library sky-lib
+    import: shared-libs, warnings
+
+    exposed-modules:
+        App
+        App.Error
+        Config
+
+    build-depends:
+        network,
+        mtl,
+        exceptions,
+
+    hs-source-dirs: lib
+
+    default-language: Haskell2010
+
 executable sky-node
     -- Import common warning flags.
-    import:           warnings
+    import: shared-libs, warnings
 
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
@@ -68,10 +91,11 @@ executable sky-node
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.18.2.1
+    build-depends:
+        sky-lib
 
     -- Directories containing source files.
-    hs-source-dirs:   app
+    hs-source-dirs: app
 
     -- Base language which the package is written in.
     default-language: Haskell2010
