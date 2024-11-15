@@ -36,3 +36,4 @@ TAGS
 
 # Cache and other dev setup files
 .direnv/
+*/dist-newstyle/*
