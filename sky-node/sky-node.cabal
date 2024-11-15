@@ -72,6 +72,7 @@ library sky-lib
         network,
         mtl,
         exceptions,
+        stm,
 
     hs-source-dirs: lib
 
