@@ -73,6 +73,7 @@ library sky-lib
         mtl,
         exceptions,
         stm,
+        data-default,
 
     hs-source-dirs: lib
 
