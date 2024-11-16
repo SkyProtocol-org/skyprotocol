@@ -8,6 +8,7 @@ import GHC.Generics (Generic)
 
 -- | Node configuration
 data AppConfig = AppConfig
-  { port :: String
+  { port :: String,
+    hostname :: String
   }
   deriving (Show, Generic, FromJSON)

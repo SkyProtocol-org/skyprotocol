@@ -7,6 +7,9 @@ module App (runApp) where
 import Config (AppConfig (..))
 import Control.Concurrent.STM (newTVarIO)
 import Control.Concurrent.STM.TVar (TVar)
+import Control.Exception (bracket)
+import Data.Default
+import qualified Network.Socket as S
 import System.Log.FastLogger (LoggerSet, pushLogStrLn, toLogStr)
 
 -- | Aux data structure to keep info about 'Peer'.
@@ -19,6 +22,9 @@ newtype Peer = Peer
 -- | Signalizes if the node needs to shutdown or continue running.
 data Shutdown = Continue | Shutdown deriving (Show)
 
+instance Default Shutdown where
+  def = Continue
+
 -- | State of the node.
 data AppState = AppState
   { -- | Messages.
@@ -29,20 +35,38 @@ data AppState = AppState
     continue :: Shutdown
   }
 
--- | Initializes default node state
+-- | Initializes default node state.
 initAppState :: IO AppState
 initAppState = do
-  let peers = []
-      continue = Continue
-  messages <- newTVarIO []
+  let peers = def
+      continue = def
+  messages <- newTVarIO def
   pure $ AppState {..}
 
--- | Run the application
+-- | Runs the application with the default 'AppState'.
 runApp :: AppConfig -> LoggerSet -> IO ()
 runApp config logger = do
   state <- initAppState
-  pushLogStrLn logger . toLogStr $ "Starting Sky Node on port " <> config.port
+  pushLogStrLn logger $ toLogStr "Starting Sky Node..."
   runServer config state logger
 
+-- | Runs the server. Binds socket to the address and accepts incoming connection.
 runServer :: AppConfig -> AppState -> LoggerSet -> IO ()
-runServer config state logger = undefined
+runServer config state logger = do
+  addr <- resolve config.hostname config.port
+  bracket (S.openSocket addr) S.close $ \sock -> do
+    S.setSocketOption sock S.ReuseAddr 1 -- easier for debugging
+    S.bind sock (S.addrAddress addr)
+    S.listen sock 10
+    pushLogStrLn logger . toLogStr $ "Node listening on port " <> config.port
+    acceptLoop sock state logger
+  where
+    resolve :: String -> String -> IO S.AddrInfo
+    resolve host port = do
+      let hints = S.defaultHints {S.addrSocketType = S.Stream}
+      addr : _ <- S.getAddrInfo (Just hints) (Just $ host <> ":" <> port) Nothing
+      pure addr
+
+-- | Loop handling new connections.
+acceptLoop :: S.Socket -> AppState -> LoggerSet -> IO ()
+acceptLoop = undefined
