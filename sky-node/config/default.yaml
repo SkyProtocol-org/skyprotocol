@@ -1,2 +1,2 @@
 port: "3456"
-address: "localhost"
+hostname: "localhost"

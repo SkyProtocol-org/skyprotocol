@@ -5,9 +5,12 @@ module App (runApp) where
 
 -- import App.Error
 import Config (AppConfig (..))
+import Control.Concurrent (forkIO)
 import Control.Concurrent.STM (newTVarIO)
 import Control.Concurrent.STM.TVar (TVar)
 import Control.Exception (bracket)
+import Control.Exception.Base (finally)
+import Control.Monad (when)
 import Data.Default
 import qualified Network.Socket as S
 import System.Log.FastLogger (LoggerSet, pushLogStrLn, toLogStr)
@@ -20,7 +23,7 @@ newtype Peer = Peer
   deriving (Show)
 
 -- | Signalizes if the node needs to shutdown or continue running.
-data Shutdown = Continue | Shutdown deriving (Show)
+data Shutdown = Continue | Shutdown deriving (Show, Eq, Bounded)
 
 instance Default Shutdown where
   def = Continue
@@ -69,4 +72,16 @@ runServer config state logger = do
 
 -- | Loop handling new connections.
 acceptLoop :: S.Socket -> AppState -> LoggerSet -> IO ()
-acceptLoop = undefined
+acceptLoop sock AppState {..} logger = do
+  (conn, conn_addr) <- S.accept sock
+  pushLogStrLn logger . toLogStr $ "Accepted new connection from " <> show conn_addr
+  _ <-
+    forkIO $
+      handlePeer conn AppState {..} logger `finally` do
+        S.close conn
+
+  -- loop until told to shutdown
+  when (continue == Continue) $ acceptLoop sock AppState {..} logger
+
+handlePeer :: S.Socket -> AppState -> LoggerSet -> IO ()
+handlePeer = undefined
