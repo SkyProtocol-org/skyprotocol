@@ -54,22 +54,28 @@ extra-doc-files:    CHANGELOG.md
 common warnings
     ghc-options: -Wall
 
-common shared-libs
+common base
+    default-language: GHC2021
     build-depends:
         base ^>=4.18.2.1,
         yaml,
         fast-logger
 
 library sky-lib
-    import: shared-libs, warnings
+    import: base, warnings
 
     exposed-modules:
         App
         App.Error
+        App.Env
         Config
+        Peer
 
     build-depends:
         network,
+        -- effectful,
+        -- resourcet,
+        unliftio,
         mtl,
         exceptions,
         stm,
@@ -81,7 +87,7 @@ library sky-lib
 
 executable sky-node
     -- Import common warning flags.
-    import: shared-libs, warnings
+    import: base, warnings
 
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
