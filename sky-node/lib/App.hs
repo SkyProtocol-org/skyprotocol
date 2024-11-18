@@ -1,87 +1,64 @@
 {-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE RecordWildCards #-}
 
-module App (runApp) where
+module App (runApp, initApp) where
 
--- import App.Error
+import App.Env
 import Config (AppConfig (..))
-import Control.Concurrent (forkIO)
-import Control.Concurrent.STM (newTVarIO)
-import Control.Concurrent.STM.TVar (TVar)
-import Control.Exception (bracket)
-import Control.Exception.Base (finally)
-import Control.Monad (when)
-import Data.Default
+import Control.Monad.Reader (ReaderT (runReaderT), asks, liftIO)
+import Data.Functor (void)
 import qualified Network.Socket as S
 import System.Log.FastLogger (LoggerSet, pushLogStrLn, toLogStr)
+import UnliftIO.Concurrent (forkIO)
+import UnliftIO.Exception (bracket, finally)
 
--- | Aux data structure to keep info about 'Peer'.
-newtype Peer = Peer
-  { -- | Id of the 'Peer'
-    id :: String
-  }
-  deriving (Show)
+type AppM = ReaderT AppEnv IO
 
--- | Signalizes if the node needs to shutdown or continue running.
-data Shutdown = Continue | Shutdown deriving (Show, Eq, Bounded)
-
-instance Default Shutdown where
-  def = Continue
-
--- | State of the node.
-data AppState = AppState
-  { -- | Messages.
-    messages :: TVar [Int],
-    -- | List of peers that are connected to this node.
-    peers :: [Peer],
-    -- | Marker for graceful shutdown.
-    continue :: Shutdown
-  }
-
--- | Initializes default node state.
-initAppState :: IO AppState
-initAppState = do
-  let peers = def
-      continue = def
-  messages <- newTVarIO def
-  pure $ AppState {..}
+runApp :: AppEnv -> AppM a -> IO a
+runApp = flip runReaderT
 
 -- | Runs the application with the default 'AppState'.
-runApp :: AppConfig -> LoggerSet -> IO ()
-runApp config logger = do
-  state <- initAppState
-  pushLogStrLn logger $ toLogStr "Starting Sky Node..."
-  runServer config state logger
+initApp :: AppConfig -> LoggerSet -> IO ()
+initApp config logger = do
+  env <- initAppEnv config logger
+  runApp env runServer
+
+logMsg :: String -> AppM ()
+logMsg msg = do
+  logger <- asks envLogger
+  liftIO . pushLogStrLn logger $ toLogStr msg
 
 -- | Runs the server. Binds socket to the address and accepts incoming connection.
-runServer :: AppConfig -> AppState -> LoggerSet -> IO ()
-runServer config state logger = do
+runServer :: AppM ()
+runServer = do
+  logMsg "Starting Sky Node..."
+  config <- asks envConfig
   addr <- resolve config.hostname config.port
-  bracket (S.openSocket addr) S.close $ \sock -> do
-    S.setSocketOption sock S.ReuseAddr 1 -- easier for debugging
-    S.bind sock (S.addrAddress addr)
-    S.listen sock 10
-    pushLogStrLn logger . toLogStr $ "Node listening on port " <> config.port
-    acceptLoop sock state logger
+  bracket (liftIO $ S.openSocket addr) (liftIO . S.close) $ \sock -> do
+    liftIO $ do
+      S.setSocketOption sock S.ReuseAddr 1 -- easier for debugging
+      S.bind sock (S.addrAddress addr)
+      S.listen sock 10
+    logMsg $ "Node listening on port " <> config.port
+    acceptLoop sock
   where
-    resolve :: String -> String -> IO S.AddrInfo
-    resolve host port = do
+    resolve :: String -> String -> AppM S.AddrInfo
+    resolve host p = do
       let hints = S.defaultHints {S.addrSocketType = S.Stream}
-      addr : _ <- S.getAddrInfo (Just hints) (Just $ host <> ":" <> port) Nothing
+      addr : _ <- liftIO $ S.getAddrInfo (Just hints) (Just $ host <> ":" <> p) Nothing
       pure addr
 
 -- | Loop handling new connections.
-acceptLoop :: S.Socket -> AppState -> LoggerSet -> IO ()
-acceptLoop sock AppState {..} logger = do
-  (conn, conn_addr) <- S.accept sock
-  pushLogStrLn logger . toLogStr $ "Accepted new connection from " <> show conn_addr
-  _ <-
+acceptLoop :: S.Socket -> AppM ()
+acceptLoop sock = do
+  (conn, conn_addr) <- liftIO $ S.accept sock
+  logMsg $ "Accepted new connection from " <> show conn_addr
+  void $
     forkIO $
-      handlePeer conn AppState {..} logger `finally` do
-        S.close conn
+      handlePeer conn `finally` do
+        liftIO $ S.close conn
 
-  -- loop until told to shutdown
-  when (continue == Continue) $ acceptLoop sock AppState {..} logger
+-- loop until told to shutdown
+-- when (continue == Continue) $ acceptLoop sock
 
-handlePeer :: S.Socket -> AppState -> LoggerSet -> IO ()
+handlePeer :: S.Socket -> AppM ()
 handlePeer = undefined
