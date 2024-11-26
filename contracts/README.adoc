@@ -1,0 +1,43 @@
+# Sky Contracts
+
+## On-chain Code (Plutus/Haskell)
+
+### Bridge Contract: link:src/SkyBridgeContract.hs[]
+
+The main Sky bridge contract.
+
+### Example Client Contract: link:src/BountyContract.hs[]
+
+An example client contract that locks some funds.
+
+### Bridge NFT Minting Policy: link:src/SkyMintingPolicy.hs[]
+
+The minting policy for the bridge NFT.
+
+## Off-chain Code (MeshJS)
+
+### Mint Bridge NFT: link:off-chain/mint-nft.mjs[]
+
+Mints the bridge NFT using funds from a wallet.
+
+### Update Bridge NFT: link:off-chain/update-bridge.mjs[]
+
+Updates the top hash stored in the bridge NFT.
+
+### Offer Bounty: link:off-chain/offer-bounty.mjs[]
+
+Sends some Ada from offerer wallet to bounty contract address.
+
+### Claim Bounty: link:off-chain/claim-bounty.mjs[]
+
+Claims the bounty funds by supplying a Merkle proof.
+
+## Integration Tests (Preview Testnet)
+
+### Test Updating Bridge NFT: link:off-chain/test-1.sh[]
+
+This test updates the NFT with a new top hash and verifies that it has in fact been updated afterwards.
+
+### Test Offering and Claiming Bounty: link:off-chain/test-2.sh[]
+
+Locks some funds at bounty contract and claims them afterwards, making sure they have been transferred afterwards.

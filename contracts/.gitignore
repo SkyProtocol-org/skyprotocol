@@ -1,0 +1,7 @@
+dist-newstyle
+.pre-commit-config.yaml
+validator.uplc
+cabal.project.freeze
+result
+off-chain
+*~

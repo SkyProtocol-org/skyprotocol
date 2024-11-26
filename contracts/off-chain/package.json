@@ -1,0 +1,10 @@
+{
+  "name": "off-chain",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@meshsdk/core": "^1.7.7",
+    "cbor": "^9.0.2"
+  }
+}
