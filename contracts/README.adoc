@@ -10,15 +10,7 @@ The main Sky bridge contract.
 
 An example client contract that locks some funds.
 
-### Bridge NFT Minting Policy: link:src/SkyMintingPolicy.hs[]
-
-The minting policy for the bridge NFT.
-
 ## Off-chain Code (MeshJS)
-
-### Mint Bridge NFT: link:off-chain/mint-nft.mjs[]
-
-Mints the bridge NFT using funds from a wallet.
 
 ### Update Bridge NFT: link:off-chain/update-bridge.mjs[]
 
