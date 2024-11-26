@@ -24,6 +24,10 @@ import fs from 'node:fs'
 
 import { findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
 
+//////////////////////////////////////////////////////////////////////////////
+// Setup
+//////////////////////////////////////////////////////////////////////////////
+
 const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
 const blockchainProvider = new BlockfrostProvider(blockfrostKey)
 
@@ -84,11 +88,6 @@ const mintingPolicyHash = resolveScriptHash(
   mintingPolicy.version
 )
 
-const bridgeUtxos = await blockchainProvider.fetchAddressUTxOs(validatorAddress);
-const nft = findUTXOWithSpecificUnit(bridgeUtxos, mintingPolicyHash + stringToHex('SkyBridge'))
-
-console.log(JSON.stringify(nft));
-
 const bountyBlueprint = JSON.parse(
   fs.readFileSync('./var/sky-bounty-validator.json')
 )
@@ -103,9 +102,16 @@ const bountyValidator = {
 }
 
 const bountyAddress = serializePlutusScript(bountyValidator).address
+
+//////////////////////////////////////////////////////////////////////////////
+// Find NFT for Top Hash, Find Bounty Reward, and Unlock it Via Merkle Proof
+//////////////////////////////////////////////////////////////////////////////
+
+const bridgeUtxos = await blockchainProvider.fetchAddressUTxOs(validatorAddress);
+const nft = findUTXOWithSpecificUnit(bridgeUtxos, mintingPolicyHash + stringToHex('SkyBridge'))
+
 const bountyUtxos = await blockchainProvider.fetchAddressUTxOs(bountyAddress);
 const bountyUtxo = bountyUtxos[0] // TBD for now claim only one of the UTXOs at bounty
-console.log(JSON.stringify(bountyUtxo))
 
 // ClientRedeemer
 const redeemer = {

@@ -28,6 +28,10 @@ import fs from 'node:fs'
 
 import { findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
 
+//////////////////////////////////////////////////////////////////////////////
+// Setup
+//////////////////////////////////////////////////////////////////////////////
+
 const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
 const blockchainProvider = new BlockfrostProvider(blockfrostKey)
 
@@ -80,6 +84,10 @@ const mintingPolicyHash = resolveScriptHash(
   mintingPolicy.version
 )
 
+//////////////////////////////////////////////////////////////////////////////
+// Create Data to Send to Bridge Contract
+//////////////////////////////////////////////////////////////////////////////
+
 function mkDataHash(hex) { return { alternative: 0, fields: [hex] } }
 function mkPubKey(hex) { return { alternative: 0, fields: [hex] } }
 
@@ -113,11 +121,13 @@ const redeemer = {
     ]
 }
 
-// Find NFT
+//////////////////////////////////////////////////////////////////////////////
+// Find Bridge NFT and Create Datum Updated With New Top Hash
+//////////////////////////////////////////////////////////////////////////////
+
 const utxos = await blockchainProvider.fetchAddressUTxOs(validatorAddress);
 const utxo = findUTXOWithSpecificUnit(utxos, mintingPolicyHash + stringToHex('SkyBridge'))
 
-// Updated NFT datum with new top hash
 const updatedDatum = {
     alternative: 0,
     fields: [
@@ -125,12 +135,15 @@ const updatedDatum = {
     ]
 };
 
+//////////////////////////////////////////////////////////////////////////////
+// Unlock NFT UTXO and send it back to bridge contract with updated datum
+//////////////////////////////////////////////////////////////////////////////
+
 const recipient = {
     address: validatorAddress,
     datum: { value: updatedDatum, inline: true }
 };
 
-// Unlock NFT UTXO and send it back to bridge contract with updated datum
 const tx = new Transaction({ initiator: wallet, verbose: true })
       .redeemValue({
 	  value: utxo,

@@ -48,6 +48,10 @@ import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, sha2_256)
 
+------------------------------------------------------------------------------
+-- Simplified Merkle Proof
+------------------------------------------------------------------------------
+
 -- Trivial form of Merkle proof for a left and a right data hash -
 -- i.e. a one-level binary Merkle tree.
 data SimplifiedMerkleProof =
@@ -58,7 +62,10 @@ data SimplifiedMerkleProof =
 PlutusTx.makeLift ''SimplifiedMerkleProof
 PlutusTx.makeIsDataSchemaIndexed ''SimplifiedMerkleProof [('SimplifiedMerkleProof, 0)]
 
--- Main parameters / initialization for client contract
+------------------------------------------------------------------------------
+-- Initialization parameters for client contract
+------------------------------------------------------------------------------
+
 data ClientParams = ClientParams
   { bountyNFTCurrencySymbol :: CurrencySymbol
     -- ^ Unique currency symbol (hash of minting policy) of the bridge contract NFT
@@ -71,7 +78,10 @@ data ClientParams = ClientParams
 PlutusTx.makeLift ''ClientParams
 PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 
--- Requests to contract
+------------------------------------------------------------------------------
+-- Redeemers for client contract
+------------------------------------------------------------------------------
+
 data ClientRedeemer
     = ClaimBounty -- Claim bounty by supplying Merkle proof and committee signature
         { proof :: SimplifiedMerkleProof
@@ -83,7 +93,10 @@ data ClientRedeemer
 PlutusTx.makeLift ''ClientRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 
--- Validates bounty/client transactions
+------------------------------------------------------------------------------
+-- Client contract validator
+------------------------------------------------------------------------------
+
 clientTypedValidator ::
     ClientParams ->
     () ->
@@ -102,7 +115,9 @@ clientTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
               merkleProofValid ctx (bountyNFTCurrencySymbol params) (bountyTargetHash params) multiSigPubKeyHash proof
             ]
 
---- UTILITIES
+------------------------------------------------------------------------------
+-- Merkle Proof Validation
+------------------------------------------------------------------------------
 
 -- Verify that merkle proof is valid by looking up NFT UTXO in the script context
 merkleProofValid :: ScriptContext -> CurrencySymbol -> DataHash -> DataHash -> SimplifiedMerkleProof -> Bool
@@ -131,7 +146,9 @@ merkleProofNFTHashValid nftTopHash targetHash multiSigPubKeyHash proof@(Simplifi
     (topHash proofHash multiSigPubKeyHash) PlutusTx.== nftTopHash PlutusTx.&&
     (targetHash PlutusTx.== leftHash PlutusTx.|| targetHash PlutusTx.== rightHash)
 
---- UNTYPED VALIDATOR
+------------------------------------------------------------------------------
+-- Untyped Validator
+------------------------------------------------------------------------------
 
 {-# INLINEABLE clientUntypedValidator #-}
 clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit

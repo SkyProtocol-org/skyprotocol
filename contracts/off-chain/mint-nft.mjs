@@ -18,6 +18,10 @@ import fs from 'node:fs'
 
 import { waitUntilTxReady } from "./util.mjs";
 
+//////////////////////////////////////////////////////////////////////////////
+// Setup
+//////////////////////////////////////////////////////////////////////////////
+
 const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
 const blockchainProvider = new BlockfrostProvider(blockfrostKey)
 
@@ -59,11 +63,15 @@ const mintingPolicy = {
   version: 'V2'
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// Mint NFT
+//////////////////////////////////////////////////////////////////////////////
+
 const datumOut = {
     alternative: 0,
     fields: [
 	{ alternative: 0,
-	  fields: ['0000'] // XXX fake value...
+	  fields: ['0000'] // Use all zero hash initially
 	}
     ]
 };

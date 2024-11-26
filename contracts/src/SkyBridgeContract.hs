@@ -48,7 +48,9 @@ import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, sha2_256)
 
---- CORE DATA TYPES
+------------------------------------------------------------------------------
+-- Core Data Types
+------------------------------------------------------------------------------
 
 -- A hash
 data DataHash = DataHash PlutusTx.BuiltinByteString
@@ -105,7 +107,10 @@ PlutusTx.makeLift ''MultiSigPubKey
 PlutusTx.makeLift ''SingleSig
 PlutusTx.makeLift ''MultiSig
 
--- Data stored in the bridge NFT UTXO's datum
+------------------------------------------------------------------------------
+-- Datum Stored in Bridge NFT
+------------------------------------------------------------------------------
+
 data BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: DataHash
   }
@@ -120,7 +125,10 @@ instance PlutusTx.Eq BridgeNFTDatum where
 PlutusTx.makeLift ''BridgeNFTDatum
 PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
 
--- Initialization parameters for the bridge contract:
+------------------------------------------------------------------------------
+-- Initialization parameters for the bridge contract
+------------------------------------------------------------------------------
+
 -- The currency symbol is the unique identifier of the NFT currency (= hash of minting script)
 data BridgeParams = BridgeParams
   { bridgeNFTCurrencySymbol :: CurrencySymbol
@@ -131,7 +139,10 @@ data BridgeParams = BridgeParams
 PlutusTx.makeLift ''BridgeParams
 PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 
--- Updates the bridge NFT
+------------------------------------------------------------------------------
+-- UpdateBridge Redeemer: Sent to contract to update bridge NFT
+------------------------------------------------------------------------------
+
 data BridgeRedeemer = UpdateBridge
   { bridgeCommittee :: MultiSigPubKey
   , bridgeOldDataHash :: DataHash
@@ -144,7 +155,9 @@ data BridgeRedeemer = UpdateBridge
 PlutusTx.makeLift ''BridgeRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
---- UTILITIES
+------------------------------------------------------------------------------
+-- NFT Utilities
+------------------------------------------------------------------------------
 
 -- Function to find an input UTXO with a specific CurrencySymbol
 findInputByCurrencySymbol :: CurrencySymbol -> [TxInInfo] -> Maybe TxInInfo
@@ -199,7 +212,9 @@ getRefBridgeNFTDatumFromContext currencySymbol scriptContext = do
     -- Get the BridgeNFTDatum from the datum
     getBridgeNFTDatum datum
 
---- BRIDGE CONTRACT
+------------------------------------------------------------------------------
+-- Bridge Contract
+------------------------------------------------------------------------------
 
 -- Validates bridge transactions
 bridgeTypedValidator ::
@@ -250,6 +265,10 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     nftUpdated newTopHash =
       bridgeNFTDatum PlutusTx.== Just (BridgeNFTDatum newTopHash)
 
+------------------------------------------------------------------------------
+-- Multisig Verification
+------------------------------------------------------------------------------
+
 -- Function that checks if a SingleSig is valid
 singleSigValid :: DataHash -> SingleSig -> Bool
 singleSigValid (DataHash topHash) (SingleSig (PubKey pubKey) sig) =
@@ -283,7 +302,9 @@ concatPubKeys (PubKey pk : rest) = -- assume at least one pubkey
     let restConcatenated = concatPubKeys rest
     in appendByteString pk restConcatenated
 
---- UNTYPED VALIDATOR
+------------------------------------------------------------------------------
+-- Untyped Validator
+------------------------------------------------------------------------------
 
 {-# INLINEABLE bridgeUntypedValidator #-}
 bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit

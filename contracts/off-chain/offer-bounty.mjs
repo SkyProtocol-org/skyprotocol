@@ -21,6 +21,10 @@ import fs from 'node:fs'
 
 import { waitUntilTxReady } from "./util.mjs";
 
+//////////////////////////////////////////////////////////////////////////////
+// Setup
+//////////////////////////////////////////////////////////////////////////////
+
 const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
 const blockchainProvider = new BlockfrostProvider(blockfrostKey)
 
@@ -49,14 +53,15 @@ const validator = {
 
 const validatorAddress = serializePlutusScript(validator).address
 
+//////////////////////////////////////////////////////////////////////////////
+// Send 10 Ada to Bounty Contract
+//////////////////////////////////////////////////////////////////////////////
+
 const recipient = {
     address: validatorAddress,
-    datum: { value: [], inline: true } // TBD is this correct? Should be () in Haskell?
+    datum: { value: [], inline: true }
 }
 
-console.log(recipient)
-
-// Send 10 ada to bounty
 const unsignedTx = await new Transaction({ initiator: wallet, verbose: true })
   .sendLovelace(recipient, '10000000')
   .build()
