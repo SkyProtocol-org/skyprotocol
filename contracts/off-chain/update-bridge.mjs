@@ -113,9 +113,11 @@ const redeemer = {
     ]
 }
 
+// Find NFT
 const utxos = await blockchainProvider.fetchAddressUTxOs(validatorAddress);
 const utxo = findUTXOWithSpecificUnit(utxos, mintingPolicyHash + stringToHex('SkyBridge'))
 
+// Updated NFT datum with new top hash
 const updatedDatum = {
     alternative: 0,
     fields: [
@@ -128,6 +130,7 @@ const recipient = {
     datum: { value: updatedDatum, inline: true }
 };
 
+// Unlock NFT UTXO and send it back to bridge contract with updated datum
 const tx = new Transaction({ initiator: wallet, verbose: true })
       .redeemValue({
 	  value: utxo,
