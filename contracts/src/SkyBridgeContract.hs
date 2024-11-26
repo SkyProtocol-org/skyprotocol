@@ -24,7 +24,7 @@
 {-# OPTIONS_GHC -fno-unbox-strict-fields #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
-module SkyContracts where
+module SkyBridgeContracts where
 
 import GHC.Generics (Generic)
 
@@ -282,4 +282,24 @@ concatPubKeys :: [PubKey] -> PlutusTx.BuiltinByteString
 concatPubKeys (PubKey pk : rest) = -- assume at least one pubkey
     let restConcatenated = concatPubKeys rest
     in appendByteString pk restConcatenated
+
+--- UNTYPED VALIDATOR
+
+{-# INLINEABLE bridgeUntypedValidator #-}
+bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
+bridgeUntypedValidator params datum redeemer ctx =
+    PlutusTx.check
+        ( bridgeTypedValidator
+            params
+            () -- ignore the untyped datum, it's unused
+            (PlutusTx.unsafeFromBuiltinData redeemer)
+            (PlutusTx.unsafeFromBuiltinData ctx)
+        )
+
+bridgeValidatorScript ::
+    BridgeParams ->
+    CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
+bridgeValidatorScript params =
+    $$(PlutusTx.compile [||bridgeUntypedValidator||])
+        `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
 

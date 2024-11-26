@@ -131,25 +131,7 @@ merkleProofNFTHashValid nftTopHash targetHash multiSigPubKeyHash proof@(Simplifi
     (topHash proofHash multiSigPubKeyHash) PlutusTx.== nftTopHash PlutusTx.&&
     (targetHash PlutusTx.== leftHash PlutusTx.|| targetHash PlutusTx.== rightHash)
 
---- UNTYPED VALIDATORS BOILERPLATE
-
-{-# INLINEABLE bridgeUntypedValidator #-}
-bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
-bridgeUntypedValidator params datum redeemer ctx =
-    PlutusTx.check
-        ( bridgeTypedValidator
-            params
-            () -- ignore the untyped datum, it's unused
-            (PlutusTx.unsafeFromBuiltinData redeemer)
-            (PlutusTx.unsafeFromBuiltinData ctx)
-        )
-
-bridgeValidatorScript ::
-    BridgeParams ->
-    CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
-bridgeValidatorScript params =
-    $$(PlutusTx.compile [||bridgeUntypedValidator||])
-        `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
+--- UNTYPED VALIDATOR
 
 {-# INLINEABLE clientUntypedValidator #-}
 clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
