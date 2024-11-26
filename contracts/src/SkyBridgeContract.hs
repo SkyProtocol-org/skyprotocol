@@ -24,7 +24,7 @@
 {-# OPTIONS_GHC -fno-unbox-strict-fields #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
-module SkyBridgeContracts where
+module SkyBridgeContract where
 
 import GHC.Generics (Generic)
 
