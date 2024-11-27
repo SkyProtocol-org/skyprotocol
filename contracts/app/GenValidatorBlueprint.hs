@@ -18,7 +18,7 @@
 
 module Main where
 
-import SkyContracts
+import SkyBridgeContract
 import Data.ByteString.Short qualified as Short
 import Data.Set qualified as Set
 import PlutusLedgerApi.Common (serialiseCompiledCode)

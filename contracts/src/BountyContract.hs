@@ -26,6 +26,7 @@
 
 module BountyContract where
 
+import SkyBridgeContract (BridgeNFTDatum (..), DataHash, getRefBridgeNFTDatumFromContext, pairHash)
 import GHC.Generics (Generic)
 
 import PlutusCore.Version (plcVersion100)

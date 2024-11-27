@@ -13,8 +13,9 @@ library scripts
   import:         options
   hs-source-dirs: src
   exposed-modules:
-    SkyContracts
+    SkyBridgeContract
     SkyMintingPolicy
+    BountyContract
 
   build-depends:
     , base
