@@ -3,7 +3,7 @@ module Types where
 import qualified Data.ByteString as BS
 import Data.IntMap.Strict (IntMap)
 
-newtype TopicId = TopicId {topicId :: BS.ByteString} deriving (Show, Eq)
+newtype TopicId = TopicId {topicId :: Int} deriving (Show, Eq)
 
 newtype TopicMetaData = TopicMetaData {topicMetaId :: TopicId} deriving (Show, Eq)
 

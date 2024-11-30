@@ -81,6 +81,7 @@ library sky-lib
         effectful-plugin,
         effectful-th,
         async,
+        text,
         bytestring,
         containers,
         -- resourcet,
