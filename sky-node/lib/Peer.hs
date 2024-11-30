@@ -1,4 +1,7 @@
-module Peer where
+module Peer
+  ( Peer (..),
+  )
+where
 
 -- | Aux data structure to keep info about 'Peer'.
 newtype Peer = Peer

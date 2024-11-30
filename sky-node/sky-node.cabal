@@ -59,7 +59,7 @@ common base
     build-depends:
         base ^>=4.18.2.1,
         yaml,
-        fast-logger
+        log-base,
 
 library sky-lib
     import: base, warnings
@@ -70,16 +70,27 @@ library sky-lib
         App.Env
         Config
         Peer
+        Peer.Handlers
+        Types
 
     build-depends:
         network,
-        -- effectful,
+        effectful,
+        effectful-core,
+        log-effectful,
+        effectful-plugin,
+        effectful-th,
+        async,
+        bytestring,
+        containers,
         -- resourcet,
+        -- mtl,
         unliftio,
-        mtl,
         exceptions,
         stm,
         data-default,
+
+    ghc-options: -fplugin=Effectful.Plugin
 
     hs-source-dirs: lib
 
