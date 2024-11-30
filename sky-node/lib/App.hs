@@ -1,31 +1,26 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
-module App (runApp, initApp) where
+module App (runApp) where
 
 import App.Env
 import Config (AppConfig (..))
-import Control.Monad.Reader (ReaderT (runReaderT), asks, liftIO)
 import Data.Functor (void)
+import Effectful
+import Effectful.Concurrent
+import Effectful.Log
+import Effectful.Reader.Static
 import qualified Network.Socket as S
-import System.Log.FastLogger (LoggerSet, pushLogStrLn, toLogStr)
 import UnliftIO.Concurrent (forkIO)
 import UnliftIO.Exception (bracket, finally)
 
-type AppM = ReaderT AppEnv IO
+type AppEffects = '[Reader AppEnv, Log, Concurrent, IOE]
 
-runApp :: AppEnv -> AppM a -> IO a
-runApp = flip runReaderT
-
--- | Runs the application with the default 'AppState'.
-initApp :: AppConfig -> LoggerSet -> IO ()
-initApp config logger = do
-  env <- initAppEnv config logger
-  runApp env runServer
-
-logMsg :: String -> AppM ()
-logMsg msg = do
-  logger <- asks envLogger
-  liftIO . pushLogStrLn logger $ toLogStr msg
+runApp :: Eff AppEffects a -> IO a
+runApp = do
+  env <- initAppEnv
+  runEff $ do
+    runLogStdout $ runConcurrent $ runReader env runServer
 
 -- | Runs the server. Binds socket to the address and accepts incoming connection.
 runServer :: AppM ()
@@ -55,10 +50,8 @@ acceptLoop sock = do
   void $
     forkIO $
       handlePeer conn `finally` do
+        logMsg $ "Closing connection to " <> show conn_addr
         liftIO $ S.close conn
-
--- loop until told to shutdown
--- when (continue == Continue) $ acceptLoop sock
 
 handlePeer :: S.Socket -> AppM ()
 handlePeer = undefined

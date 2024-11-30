@@ -9,19 +9,19 @@ where
 import Config
 import Control.Concurrent.STM (TVar, newTVarIO)
 import Data.Default
+import Data.IntMap.Strict (IntMap)
 import Peer
-import System.Log.FastLogger (LoggerSet)
+import Types
 
 data AppEnv = AppEnv
   { envConfig :: AppConfig,
-    envMessages :: TVar [Int],
-    envPeers :: TVar [Peer],
-    envLogger :: LoggerSet
+    envMessages :: TVar (IntMap Topic),
+    envPeers :: TVar [Peer]
   }
 
 -- | Initializes default node state.
-initAppEnv :: AppConfig -> LoggerSet -> IO AppEnv
-initAppEnv envConfig envLogger = do
+initAppEnv :: AppConfig -> IO AppEnv
+initAppEnv envConfig = do
   envPeers <- newTVarIO def
   envMessages <- newTVarIO def
   pure $ AppEnv {..}
