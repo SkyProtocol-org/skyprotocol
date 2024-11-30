@@ -66,7 +66,12 @@ library
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.18.2.1
+    build-depends:
+        base ^>=4.18.2.1,
+        cryptonite ==0.30,
+        bytestring
+        -- for future more optimized implementation consider using RLP from ethereum whitepaper
+        -- relapse ==1.0.0.1
 
     -- Directories containing source files.
     hs-source-dirs:   lib
