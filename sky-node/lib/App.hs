@@ -1,57 +1,56 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-module App (runApp) where
+module App (initApp) where
 
 import App.Env
 import Config (AppConfig (..))
-import Data.Functor (void)
+import Control.Monad (forever)
+import Data.Text (pack, unpack)
 import Effectful
 import Effectful.Concurrent
+import Effectful.Concurrent.Async
 import Effectful.Log
 import Effectful.Reader.Static
 import qualified Network.Socket as S
-import UnliftIO.Concurrent (forkIO)
-import UnliftIO.Exception (bracket, finally)
+import UnliftIO.Exception (bracket)
 
-type AppEffects = '[Reader AppEnv, Log, Concurrent, IOE]
+type AppEffects = '[Reader AppEnv, Concurrent, Log, IOE]
 
-runApp :: Eff AppEffects a -> IO a
-runApp = do
-  env <- initAppEnv
+initApp :: AppConfig -> Logger -> IO ()
+initApp config logger = do
+  env <- initAppEnv config
   runEff $ do
-    runLogStdout $ runConcurrent $ runReader env runServer
+    runLog "main" logger defaultLogLevel $
+      runConcurrent $
+        runReader env $ do
+          withSocketServer handlePeer
 
--- | Runs the server. Binds socket to the address and accepts incoming connection.
-runServer :: AppM ()
-runServer = do
-  logMsg "Starting Sky Node..."
+withSocketServer :: (S.Socket -> Eff AppEffects ()) -> Eff AppEffects ()
+withSocketServer handler = do
+  logInfo_ "Starting Sky Node..."
   config <- asks envConfig
-  addr <- resolve config.hostname config.port
-  bracket (liftIO $ S.openSocket addr) (liftIO . S.close) $ \sock -> do
-    liftIO $ do
-      S.setSocketOption sock S.ReuseAddr 1 -- easier for debugging
-      S.bind sock (S.addrAddress addr)
-      S.listen sock 10
-    logMsg $ "Node listening on port " <> config.port
-    acceptLoop sock
-  where
-    resolve :: String -> String -> AppM S.AddrInfo
-    resolve host p = do
-      let hints = S.defaultHints {S.addrSocketType = S.Stream}
-      addr : _ <- liftIO $ S.getAddrInfo (Just hints) (Just $ host <> ":" <> p) Nothing
-      pure addr
+  bracket setupServerSocket (liftIO . S.close) $ \sock -> do
+    logInfo_ $ "Node listening on " <> config.hostname <> ":" <> config.port
+    forever $ do
+      (conn, addr) <- liftIO $ S.accept sock
+      logInfo_ $ "Connection accepted from " <> pack (show addr)
+      -- using withAsync ensures proper thread handling in face of execption
+      withAsync (handler conn) $ \_ -> pure ()
 
--- | Loop handling new connections.
-acceptLoop :: S.Socket -> AppM ()
-acceptLoop sock = do
-  (conn, conn_addr) <- liftIO $ S.accept sock
-  logMsg $ "Accepted new connection from " <> show conn_addr
-  void $
-    forkIO $
-      handlePeer conn `finally` do
-        logMsg $ "Closing connection to " <> show conn_addr
-        liftIO $ S.close conn
+setupServerSocket :: Eff AppEffects S.Socket
+setupServerSocket = do
+  h <- asks $ hostname . envConfig
+  p <- asks $ port . envConfig
+  addrs <- liftIO $ S.getAddrInfo (Just S.defaultHints {S.addrSocketType = S.Stream}) (Just $ unpack h) (Just $ unpack p)
+  let addr = head addrs
+  sock <- liftIO $ S.openSocket addr
+  liftIO $ do
+    S.setSocketOption sock S.ReuseAddr 1 -- easier for debugging
+    S.bind sock (S.addrAddress addr)
+    S.listen sock 10
+  pure sock
 
-handlePeer :: S.Socket -> AppM ()
-handlePeer = undefined
+handlePeer :: S.Socket -> Eff AppEffects ()
+handlePeer sock = undefined

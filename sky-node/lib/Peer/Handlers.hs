@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
@@ -35,20 +36,20 @@ makeEffect ''PeerHandler
 
 runPeerHandlerIO :: (IOE :> es, Error String :> es, Reader AppEnv :> es) => Eff (PeerHandler : es) a -> Eff es a
 runPeerHandlerIO = interpret $ \_ -> \case
-  PublishBlock tId bData -> do
+  PublishBlock TopicId {..} bData -> do
     topics <- asks envMessages
     adapt $ atomically $ do
       tpcs <- readTVar topics
-      let tpcs' = IntMap.adjust (\tpc -> tpc {topicMessages = IntMap.insert (IntMap.size (topicMessages tpc)) bData (topicMessages tpc)}) (undefined {- this must be TopicId -}) tpcs
+      let tpcs' = IntMap.adjust (\tpc -> tpc {topicMessages = IntMap.insert (IntMap.size (topicMessages tpc)) bData (topicMessages tpc)}) topicId tpcs
       writeTVar topics tpcs'
     pure $ makeBlockCertificate bData
   GetTopics mtId -> adapt $ undefined
-  DescribeTopic tId -> do
+  DescribeTopic TopicId {..} -> do
     topics <- asks envMessages
     adapt $ do
       maybeMeta <- atomically $ do
         tpcs <- readTVar topics
-        let mTpc = topicMeta <$> (IntMap.!?) tpcs (undefined {- this must be TopicId -})
+        let mTpc = topicMeta <$> (IntMap.!?) tpcs topicId
         pure mTpc
       case maybeMeta of
         Just meta -> pure meta
