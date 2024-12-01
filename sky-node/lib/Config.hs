@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Config where
 
 import Data.Text (Text)
@@ -10,6 +7,6 @@ import GHC.Generics (Generic)
 -- | Node configuration
 data AppConfig = AppConfig
   { port :: Text,
-    hostname :: Text
+    host :: Text
   }
   deriving (Show, Generic, FromJSON)
