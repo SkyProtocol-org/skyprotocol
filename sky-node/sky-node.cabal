@@ -72,6 +72,7 @@ library sky-lib
         Peer
         Peer.Handlers
         Types
+        Utils
 
     build-depends:
         network,
@@ -90,6 +91,37 @@ library sky-lib
         exceptions,
         stm,
         data-default,
+
+    default-extensions:
+        -- enables {..} syntax for records
+        RecordWildCards,
+        -- enables {a} syntax to use instead of {a = a}
+        NamedFieldPuns,
+        -- doesn't generate field selector functions
+        NoFieldSelectors,
+        -- allows to have multiple fields with the same name(but no same name fields in one constructor!)
+        DuplicateRecordFields,
+        -- disambiguates between the same name fields in different records
+        DisambiguateRecordFields,
+        -- enables a.b syntax for records
+        OverloadedRecordDot,
+        -- allows to use "string" literals to get different string types(i.e. Text, String, ByteString)
+        OverloadedStrings,
+        -- some relaxing of GHC constraints on typeclass declaration/resolution
+        FlexibleContexts,
+        FlexibleInstances,
+        MultiParamTypeClasses,
+        -- relaxing of deriving mechanism to allow more types of deriving
+        DeriveAnyClass,
+        DeriveGeneric,
+        GeneralizedNewtypeDeriving,
+        StandaloneDeriving,
+        GADTs,
+        -- Convenience stuff
+        LambdaCase,
+        -- some HKT stuff
+        TypeOperators,
+        TypeApplications
 
     ghc-options: -fplugin=Effectful.Plugin
 

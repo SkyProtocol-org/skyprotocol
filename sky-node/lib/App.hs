@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module App (initApp) where
 
@@ -15,6 +13,7 @@ import Effectful.Log
 import Effectful.Reader.Static
 import qualified Network.Socket as S
 import UnliftIO.Exception (bracket)
+import Utils
 
 type AppEffects = '[Reader AppEnv, Concurrent, Log, IOE]
 
@@ -30,9 +29,9 @@ initApp config logger = do
 withSocketServer :: (S.Socket -> Eff AppEffects ()) -> Eff AppEffects ()
 withSocketServer handler = do
   logInfo_ "Starting Sky Node..."
-  config <- asks envConfig
+  config <- askFieldS @AppConfig
   bracket setupServerSocket (liftIO . S.close) $ \sock -> do
-    logInfo_ $ "Node listening on " <> config.hostname <> ":" <> config.port
+    logInfo_ $ "Node listening on " <> config.host <> ":" <> config.port
     forever $ do
       (conn, addr) <- liftIO $ S.accept sock
       logInfo_ $ "Connection accepted from " <> pack (show addr)
@@ -41,8 +40,8 @@ withSocketServer handler = do
 
 setupServerSocket :: Eff AppEffects S.Socket
 setupServerSocket = do
-  h <- asks $ hostname . envConfig
-  p <- asks $ port . envConfig
+  h <- (.host) <$> askFieldS @AppConfig
+  p <- (.port) <$> askFieldS @AppConfig
   addrs <- liftIO $ S.getAddrInfo (Just S.defaultHints {S.addrSocketType = S.Stream}) (Just $ unpack h) (Just $ unpack p)
   let addr = head addrs
   sock <- liftIO $ S.openSocket addr
