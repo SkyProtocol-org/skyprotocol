@@ -1,11 +1,11 @@
 /*
-  node update-bridge.mjs <wallet> <pubkey> <top-hash-hex> <sig>
+  node update-bridge.mjs <wallet> <pubkey> <old-data-hash-hex> <top-hash-hex> <sig>
 
   Updates the top hash stored in the bridge NFT.
   
   Wallet will be used to pay fees.
   Pubkey is the committee public key.
-  Top-hash-hex is hash of merkle root and committee fingerprint.
+  Top-hash-hex is new hash of merkle root and committee fingerprint.
   Sig is signature of tophash.
 */
 
@@ -45,8 +45,9 @@ const wallet = new MeshWallet({
 })
 
 const publicKeyHex = process.argv[3]
-const newTopHashHex = process.argv[4]
-const sigHex = process.argv[5]
+const oldDataHashHex = process.argv[4]
+const newTopHashHex = process.argv[5]
+const sigHex = process.argv[6]
 
 console.log(`Updating bridge with new top hash ${newTopHashHex}\nPublic key: ${publicKeyHex}\nSignature: ${sigHex}`);
 
