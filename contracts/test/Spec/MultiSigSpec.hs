@@ -21,6 +21,10 @@ dh1 = DataHash $ hex "CAFE"
 dh2 :: DataHash
 dh2 = DataHash $ hex "BABE"
 
+------------------------------------------------------------------------------
+-- Single sigs
+------------------------------------------------------------------------------
+
 -- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
 pk1 :: PubKey
 pk1 = PubKey $ hex "3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"
@@ -51,8 +55,40 @@ sig3 = hex "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744A
 ss3 :: SingleSig 
 ss3 = SingleSig pk3 sig3
 
+------------------------------------------------------------------------------
+-- Multi sigs
+------------------------------------------------------------------------------
+
+mpk1 :: MultiSigPubKey -- Require 2 of the 3 pks to sign
+mpk1 = MultiSigPubKey [pk1, pk2, pk3] 2
+
+msig1OK :: MultiSig
+msig1OK = MultiSig [ss1, ss2]
+
+msig2OK :: MultiSig
+msig2OK = MultiSig [ss1, ss2, ss3]
+
+msig3OK :: MultiSig
+msig3OK = MultiSig [ss2, ss3]
+
+msig4Err :: MultiSig -- no sigs at all
+msig4Err = MultiSig []
+
+msig5Err :: MultiSig -- too few sigs
+msig5Err = MultiSig [ss1]
+
+mpk2 :: MultiSigPubKey -- Require 2 of the 2 pks to sign
+mpk2 = MultiSigPubKey [pk1, pk2] 2
+
+msig6OK :: MultiSig
+msig6OK = MultiSig [ss1, ss2]
+
+msig7Err :: MultiSig -- pk3 is not in mpk2
+msig7Err = MultiSig [ss1, ss3]
+
 spec :: Spec
 spec = do
+
   describe "Single Sig operations" $ do
     
     it "single sig 1 should be valid" $ do
@@ -72,3 +108,32 @@ spec = do
 
     it "single sig 3 should not be valid for wrong hash" $ do
       (singleSigValid dh2 ss3) `shouldBe` False
+
+  describe "Multi Sig operations" $ do
+    
+    it "multi sig 1 should be valid" $ do
+      (multiSigValid mpk1 dh1 msig1OK) `shouldBe` True
+
+    it "multi sig 2 should be valid" $ do
+      (multiSigValid mpk1 dh1 msig2OK) `shouldBe` True
+
+    it "multi sig 3 should be valid" $ do
+      (multiSigValid mpk1 dh1 msig3OK) `shouldBe` True
+
+    it "multi sig 4 should be invalid" $ do
+      (multiSigValid mpk1 dh1 msig4Err) `shouldBe` False
+
+    it "multi sig 5 should be invalid" $ do
+      (multiSigValid mpk1 dh1 msig5Err) `shouldBe` False
+
+    it "multi sig 6 should be valid" $ do
+      (multiSigValid mpk2 dh1 msig6OK) `shouldBe` True
+
+    it "multi sig 7 should be invalid" $ do
+      (multiSigValid mpk2 dh1 msig7Err) `shouldBe` False
+
+    it "multi sig 3 should be invalid for wrong hash" $ do
+      (multiSigValid mpk1 dh2 msig3OK) `shouldBe` False
+
+    it "multi sig 6 should be invalid for wrong hash" $ do
+      (multiSigValid mpk2 dh2 msig6OK) `shouldBe` False
