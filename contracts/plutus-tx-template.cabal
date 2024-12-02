@@ -90,3 +90,13 @@ executable gen-top-hash
     , scripts
     , hex-text ^>=0.1.0.9
     , text ^>=2.0.2
+
+test-suite tests
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs: test
+  build-depends:
+      , base
+      , hspec >=2.9
+  default-language: Haskell2010
+
