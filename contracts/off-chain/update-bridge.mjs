@@ -45,7 +45,7 @@ const wallet = new MeshWallet({
 })
 
 const publicKeyHex = process.argv[3]
-const oldDataHashHex = process.argv[5]
+const oldDataHashHex = process.argv[4]
 const newTopHashHex = process.argv[5]
 const sigHex = process.argv[6]
 
