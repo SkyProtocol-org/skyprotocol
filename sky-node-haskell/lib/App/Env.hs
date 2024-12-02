@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
--- while looks scary, it's needed because GHC can't guarantee HasField instances. Just be careful when defining them.
 {-# LANGUAGE UndecidableInstances #-}
 
 module App.Env
