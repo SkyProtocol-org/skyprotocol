@@ -19,14 +19,13 @@ import {
 
 import fs from 'node:fs'
 
-import { waitUntilTxReady } from "./util.mjs";
+import { newProvider, waitUntilTxReady } from "./util.mjs";
 
 //////////////////////////////////////////////////////////////////////////////
 // Setup
 //////////////////////////////////////////////////////////////////////////////
 
-const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
-const blockchainProvider = new BlockfrostProvider(blockfrostKey)
+const blockchainProvider = newProvider();
 
 const wallet = new MeshWallet({
   networkId: 0,

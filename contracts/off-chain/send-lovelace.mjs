@@ -1,11 +1,10 @@
-import { BlockfrostProvider, MeshWallet, Transaction } from '@meshsdk/core'
+import { YaciProvider, MeshWallet, Transaction } from '@meshsdk/core'
 
 import fs from 'node:fs'
 
-import { waitUntilTxReady } from "./util.mjs";
+import { newProvider, waitUntilTxReady } from "./util.mjs";
 
-const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
-const blockchainProvider = new BlockfrostProvider(blockfrostKey)
+const blockchainProvider = newProvider();
 
 const senderSkey = fs.readFileSync(`${process.argv[2]}.skey`).toString().trim()
 const recipient = fs.readFileSync(`${process.argv[3]}.addr`).toString()
