@@ -91,6 +91,7 @@ library sky-lib
         exceptions,
         stm,
         data-default,
+        merkle-patricia-trie
 
     default-extensions:
         -- enables {..} syntax for records
