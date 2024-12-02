@@ -41,6 +41,16 @@ sig2 = hex "B7837207523B267F5B9AA0117C02773474A5F9F9FC4D6F48AEB2DC1B7A5796E60EE1
 ss2 :: SingleSig 
 ss2 = SingleSig pk2 sig2
 
+-- sk3: 9F664160D9DDCD27B5B9A0C619FC3978DDE6C51F4FEAF40688BF54281AA0D0CC
+pk3 :: PubKey
+pk3 = PubKey $ hex "22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
+
+sig3 :: BuiltinByteString -- signs dh1 with sk3
+sig3 = hex "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
+
+ss3 :: SingleSig 
+ss3 = SingleSig pk3 sig3
+
 spec :: Spec
 spec = do
   describe "Single Sig operations" $ do
@@ -51,8 +61,14 @@ spec = do
     it "single sig 2 should be valid" $ do
       (singleSigValid dh1 ss2) `shouldBe` True
 
+    it "single sig 3 should be valid" $ do
+      (singleSigValid dh1 ss3) `shouldBe` True
+
     it "single sig 1 should not be valid for wrong hash" $ do
       (singleSigValid dh2 ss1) `shouldBe` False
 
     it "single sig 2 should not be valid for wrong hash" $ do
       (singleSigValid dh2 ss2) `shouldBe` False
+
+    it "single sig 3 should not be valid for wrong hash" $ do
+      (singleSigValid dh2 ss3) `shouldBe` False
