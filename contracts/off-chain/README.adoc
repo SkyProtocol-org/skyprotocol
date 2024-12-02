@@ -1,4 +1,4 @@
-# Sky Protocol Project Catalyst Milestone 2
+# Sky Protocol Project Catalyst Milestone 3
 
 ## Abstract
 
@@ -76,7 +76,9 @@ one for this test for memorability).
 
 ### Important Files
 
-* link:../src/SkyContracts.hs[] -- Bridge and bounty contracts
+* link:../src/SkyBridgeContract.hs[] -- Bridge contract
+
+* link:../src/BountyContract.hs[] -- Client contract
 
 * link:../src/SkyMintingPolicy.hs[] -- Bridge NFT minting policy
 
@@ -117,14 +119,18 @@ Setting up requires two automated and two manual steps:
 
 ### Step 2: Manual configuration
 
-#### Step 2.1: Configure Blockfrost provider
+#### Step 2.1: Configure Yaci Devkit
 
-This requires a free Blockfrost API key from https://blockfrost.io/
-
-Replace `YOUR_BLOCKFROST_API_KEY` and call the following command:
+In the devkit directory, run:
 
 ```
-echo YOUR_BLOCKFROST_API_KEY > var/blockfrost.api-key
+sudo ./bin/devkit.sh start
+```
+
+In the Yaci CLI, run:
+
+```
+yaci-cli:>create-node -o --start
 ```
 
 #### Step 2.2: Get funds from testnet faucet
@@ -135,9 +141,11 @@ Find the admin address:
 cat var/admin.addr
 ```
 
-Go to https://docs.cardano.org/cardano-testnets/tools/faucet/
+In the Yaci CLI, run:
 
-Send funds to the admin address.
+```
+yaci-cli:>topup <admin-address> 10000
+```
 
 ### Step 3: Finalize setup (link:post-setup.sh[])
 
