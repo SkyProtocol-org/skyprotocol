@@ -26,14 +26,13 @@ import {
 
 import fs from 'node:fs'
 
-import { findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
+import { newProvider, findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
 
 //////////////////////////////////////////////////////////////////////////////
 // Setup
 //////////////////////////////////////////////////////////////////////////////
 
-const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
-const blockchainProvider = new BlockfrostProvider(blockfrostKey)
+const blockchainProvider = newProvider();
 
 const wallet = new MeshWallet({
   networkId: 0,

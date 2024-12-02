@@ -1,3 +1,11 @@
+import {
+  YaciProvider
+} from '@meshsdk/core'
+
+export function newProvider() {
+    return new YaciProvider('http://localhost:8080/api/v1/');
+}
+
 export function findUTXOWithSpecificUnit(utxos, unitToFind) {
     for (const utxo of utxos) {
         for (const amount of utxo.output.amount) {

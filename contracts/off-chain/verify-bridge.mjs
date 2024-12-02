@@ -22,10 +22,9 @@ import {
 
 import fs from 'node:fs'
 
-import { findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
+import { newProvider, findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
 
-const blockfrostKey = fs.readFileSync(`var/blockfrost.api-key`).toString().trim()
-const blockchainProvider = new BlockfrostProvider(blockfrostKey)
+const blockchainProvider = newProvider();
 
 const topHashHex = process.argv[2]
 
