@@ -1,0 +1,182 @@
+# Sky Protocol Project Catalyst Milestone 2
+
+## Abstract
+
+This repository demonstrates the interplay between a bridge contract
+that stores the root hash of a data availability merkle tree, and a
+client contract that uses the root hash stored in the bridge to lock
+and pay out a bounty prize.
+
+The root hash is stored in an NFT UTXO and must be signed by a
+committee of data availability providers.
+
+## Acceptance criteria
+
+Reference: https://milestones.projectcatalyst.io/projects/1200203/milestones/2
+
+### Criterium 1
+
+[quote]
+The deliverable is to demonstrate the basic infrastructure for
+stateful interaction with and between two smart contracts, one for the
+DA bridge, one for a DA client
+
+The file link:../src/SkyContracts.hs[] contains the bridge
+(`bridgeTypedValidator`) and client (bounty) contracts
+(`clientTypedValidator`).
+
+### Criterium 2
+
+[quote]
+The smart contracts should build, and the tests shall pass
+
+See setup and testing instructions, below.
+
+### Criterium 3
+
+[quote]
+The tests shall actually have a private Cardano network
+execute the on-chain smart contract flows of a Data Availability
+interaction
+
+The tests, below, execute on the Cardano Preview testnet.
+
+### Criterium 4
+
+[quote]
+Since they must actually run on-chain, the smart contracts must be
+written in a language that supports Cardano, whichever language we may
+choose.
+
+We use PlutusTx for the on-chain contracts, and the MeshJS
+framework for the off-chain parts.
+
+## Contracts Overview
+
+The general idea is that the bridge NFT contains a hash, called the
+_top hash_ of both the root hash of the DA merkle tree as well as the
+fingerprint of the data providers' committee multisig.
+
+Updating the top hash requires supplying a signature by the DA committee.
+
+A client contract may depend on the top hash by using the bridge NFT
+as a CIP-31 reference input.
+
+An example of a client contract is a so-called bounty contract, which
+locks some funds, and pays them out if a claimant can prove that a
+particular datum is stored in the DA merkle tree.
+
+The claimant does this by supplying a merkle proof of data inclusion,
+as well as the fingerprint of the current committee multisig.
+
+In our example, the bounty prize will be paid out if the claimant can
+prove that a datum with the hash `1111` is stored in the DA network.
+(Our system supports hashes of any length, we just use such a simple
+one for this test for memorability).
+
+### Important Files
+
+* link:../src/SkyContracts.hs[] -- Bridge and bounty contracts
+
+* link:../src/SkyMintingPolicy.hs[] -- Bridge NFT minting policy
+
+* link:../app[] -- Blueprint generators for contracts and minting policy
+
+## Simplifying assumptions
+
+* Per non-criterium 1: Instead of a committee multisig, only a single
+  public key is used.  This will be extended to a real multisig for
+  the next milestone.
+
+* Per non-criterium 1: Instead of a full Merkle proof, this uses a
+  reduced 1-level, 2-arm Merkle proof.  Only the left or right hash
+  has to be supplied.  This will be extended for the next milestone.
+
+* The bounty fund locking mechanism used for testing is very simple -
+  we always assume a single UTXO with 10 Ada will be the bounty prize.
+
+* The NFT is not a "real", UTXO-based NFT and instead uses the
+  construction from the
+  https://github.com/IntersectMBO/plutus-tx-template where NFT minting
+  is guarded by a private key, and simply only a single one is ever
+  created.
+
+# Testing the contracts
+
+Requirements: Debian/Ubuntu Linux box.
+
+## Setup
+
+Setting up requires two automated and two manual steps:
+
+### Step 1: Install dependencies and generate keys (link:pre-setup.sh[])
+
+```
+./pre-setup.sh
+```
+
+### Step 2: Manual configuration
+
+#### Step 2.1: Configure Blockfrost provider
+
+This requires a free Blockfrost API key from https://blockfrost.io/
+
+Replace `YOUR_BLOCKFROST_API_KEY` and call the following command:
+
+```
+echo YOUR_BLOCKFROST_API_KEY > var/blockfrost.api-key
+```
+
+#### Step 2.2: Get funds from testnet faucet
+
+Find the admin address:
+
+```
+cat var/admin.addr
+```
+
+Go to https://docs.cardano.org/cardano-testnets/tools/faucet/
+
+Send funds to the admin address.
+
+### Step 3: Finalize setup (link:post-setup.sh[])
+
+```
+./post-setup.sh
+```
+
+## Test 1: Updating the Bridge
+
+This test demonstrates updating the bridge UTXO NFT with two different
+merkle root hashes in sequence, and verifying (by querying the
+blockchain) after each step that the updates have indeed happened.
+
+Check out the link:test-1.sh[] file for a more detailed description.
+
+```
+./test-1.sh
+```
+
+This uses the files:
+
+* link:update-bridge.mjs[] to update the bridge NFT
+* link:verify-bridge.mjs[] to verify the bridge NFT's current value
+
+## Test 2: Offering and claiming a bounty
+
+This test demonstrates offering a bounty that will be paid out if a
+claimant can demonstrate that a particular datum is stored in the
+merkle tree by providing a merkle proof.
+
+Check out the link:test-2.sh[] file for a more detailed description.
+
+```
+./test-2.sh
+```
+
+This uses the files:
+
+* link:offer-bounty.mjs[] to lock some funds at the bounty contract
+* link:verify-bounty-offered.mjs[] to verify that some funds are locked at the contract
+* link:claim-bounty.mjs[] to claim the bounty (i.e. unlock the locked funds)
+* link:verify-bounty-claimed.mjs[] to verify that the locked funds have be claimed
