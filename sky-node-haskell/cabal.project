@@ -1,8 +1,0 @@
-packages: ./*.cabal
-documentation: True
-
-source-repository-package
-	type: git
-	location: https://github.com/SkyProtocol-org/skyprotocol/
-	tag: 6be2686e0f53b6f2ba31e557090bd5bf4f56289a
-	subdir: merkle-patricia-trie

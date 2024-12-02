@@ -10,8 +10,8 @@
     let
       pkgs = import nixpkgs { inherit system; };
       overlay = final: prev: {
-        sky-node = final.callCabal2nix "sky-node" ./. { };
-        merkle-trie = final.callCabal2nix "merkle-patricia-trie" merkle-trie.src { };
+        merkle-patricia-trie = prev.callCabal2nix "merkle-patricia-trie" "${merkle-trie}" { };
+        sky-node = prev.callCabal2nix "sky-node" ./. { };
       };
       haskPkgs = pkgs.haskellPackages.extend overlay;
     in
@@ -19,7 +19,6 @@
       devShells.default = haskPkgs.shellFor {
         packages = p: [
           p.sky-node
-          p.merkle-patricia-trie
         ];
         nativeBuildInputs = with haskPkgs; [
           cabal-install
