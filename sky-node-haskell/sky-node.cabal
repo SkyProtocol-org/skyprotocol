@@ -70,11 +70,14 @@ library sky-lib
         App.Env
         Config
         Peer
-        Peer.Handlers
+        Effect
+        Effect.PeerEff
+        Effect.SocketEff
         Types
         Utils
 
     build-depends:
+        binary,
         network,
         effectful,
         effectful-core,
@@ -117,6 +120,7 @@ library sky-lib
         DeriveGeneric,
         GeneralizedNewtypeDeriving,
         StandaloneDeriving,
+        DerivingStrategies,
         GADTs,
         -- Convenience stuff
         LambdaCase,

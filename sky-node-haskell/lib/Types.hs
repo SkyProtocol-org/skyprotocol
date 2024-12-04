@@ -1,24 +1,36 @@
 module Types where
 
+import Data.Binary
 import qualified Data.ByteString as BS
 import Data.IntMap.Strict (IntMap)
+import GHC.Generics
 
-newtype TopicId = TopicId {id :: Int} deriving (Show, Eq)
+newtype TopicId = TopicId {id :: Int}
+  deriving stock (Show, Eq, Generic)
 
-newtype TopicMetaData = TopicMetaData {id :: TopicId} deriving (Show, Eq)
+instance Binary TopicId
+
+newtype TopicMetaData = TopicMetaData {id :: TopicId}
+  deriving stock (Show, Eq, Generic)
+
+instance Binary TopicMetaData
 
 data Topic = Topic
   { metadata :: TopicMetaData,
     messages :: IntMap BlockData
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq, Generic)
+
+instance Binary Topic
 
 data Block
 
-newtype BlockData = BlockData {blockData :: BS.ByteString} deriving (Show, Eq)
+newtype BlockData = BlockData {blockData :: BS.ByteString}
+  deriving stock (Show, Eq, Generic)
 
-newtype Certificate a = Certificate {cert :: BS.ByteString} deriving (Show, Eq)
+instance Binary BlockData
 
--- TODO for now it's a stub
-makeBlockCertificate :: BlockData -> Certificate Block
-makeBlockCertificate = undefined
+newtype Certificate = Certificate {cert :: BS.ByteString}
+  deriving stock (Show, Eq, Generic)
+
+instance Binary Certificate
