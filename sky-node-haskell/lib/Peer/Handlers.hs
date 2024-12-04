@@ -37,7 +37,7 @@ runPeerHandlerIO = interpret $ \_ -> \case
     topics <- askFieldS @Topics
     adapt $ atomically $ do
       tpcs <- readTVar topics
-      let tpcs' = IntMap.adjust (\tpc -> tpc {topicMessages = IntMap.insert (IntMap.size tpc.topicMessages) bData tpc.topicMessages}) topicId tpcs
+      let tpcs' = IntMap.adjust (\tpc -> tpc {messages = IntMap.insert (IntMap.size tpc.messages) bData tpc.messages}) id tpcs
       writeTVar topics tpcs'
     pure $ makeBlockCertificate bData
   GetTopics mtId -> adapt $ undefined
@@ -46,7 +46,7 @@ runPeerHandlerIO = interpret $ \_ -> \case
     adapt $ do
       maybeMeta <- atomically $ do
         tpcs <- readTVar topics
-        let mTpc = (.topicMeta) <$> (IntMap.!?) tpcs topicId
+        let mTpc = (.metadata) <$> (IntMap.!?) tpcs id
         pure mTpc
       case maybeMeta of
         Just meta -> pure meta

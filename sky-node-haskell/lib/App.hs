@@ -35,7 +35,7 @@ withSocketServer handler = do
     forever $ do
       (conn, addr) <- liftIO $ S.accept sock
       logInfo_ $ "Connection accepted from " <> pack (show addr)
-      -- using withAsync ensures proper thread handling in face of execption
+      -- using withAsync ensures proper thread handling in the face of execption
       withAsync (handler conn) $ \_ -> pure ()
 
 setupServerSocket :: Eff AppEffects S.Socket
