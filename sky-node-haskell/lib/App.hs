@@ -6,25 +6,32 @@ import App.Env
 import Config (AppConfig (..))
 import Control.Monad (forever)
 import Data.Text (pack, unpack)
+import Effect.PeerEff
 import Effectful
 import Effectful.Concurrent
 import Effectful.Concurrent.Async
+import Effectful.Error.Static (Error, runError)
 import Effectful.Log
 import Effectful.Reader.Static
 import qualified Network.Socket as S
 import UnliftIO.Exception (bracket)
 import Utils
 
-type AppEffects = '[Reader AppEnv, Concurrent, Log, IOE]
+type AppEffects = '[Reader AppEnv, Concurrent, Error String, Log, IOE]
 
 initApp :: AppConfig -> Logger -> IO ()
 initApp config logger = do
   env <- initAppEnv config
   runEff $ do
-    runLog "main" logger defaultLogLevel $
-      runConcurrent $
-        runReader env $ do
-          withSocketServer handlePeer
+    runLog "main" logger defaultLogLevel $ do
+      -- we don't want handlers to interrupt the node with it's exceptions
+      eRes <- runError $
+        runConcurrent $
+          runReader env $ do
+            withSocketServer handlePeer
+      case eRes of
+        Left err -> logAttention_ $ pack $ show err
+        Right res -> logInfo_ $ pack $ show res
 
 withSocketServer :: (S.Socket -> Eff AppEffects ()) -> Eff AppEffects ()
 withSocketServer handler = do
@@ -52,4 +59,5 @@ setupServerSocket = do
   pure sock
 
 handlePeer :: S.Socket -> Eff AppEffects ()
-handlePeer sock = undefined
+handlePeer sock = runPeerEffIO sock $ do
+  undefined

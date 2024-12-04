@@ -1,11 +1,9 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 
-module Peer.Handlers where
+module Effect.PeerEff where
 
 import App.Env (Topics)
 import Control.Concurrent.STM (atomically, readTVar, writeTVar)
@@ -16,37 +14,38 @@ import Effectful.Dispatch.Dynamic
 import Effectful.Error.Static
 import Effectful.Reader.Static (Reader)
 import Effectful.TH (makeEffect)
+import qualified Network.Socket as S
 import Types
 import UnliftIO (catchIO, throwString)
 import Utils
 
-data PeerHandler :: Effect where
-  PublishBlock :: TopicId -> BlockData -> PeerHandler m (Certificate Block)
-  GetTopics :: Maybe TopicId -> PeerHandler m [TopicId]
-  DescribeTopic :: TopicId -> PeerHandler m TopicMetaData
-  PollTopic :: TopicId -> PeerHandler m (Word64, Certificate Block)
-  GetTopicBlockCertificate :: TopicId -> Word64 -> PeerHandler m (Certificate Block)
-  ReadTopic :: TopicId -> Word64 -> PeerHandler m [BlockData]
+data PeerEff :: Effect where
+  PublishBlock :: TopicId -> BlockData -> PeerEff m Certificate
+  GetTopics :: Maybe TopicId -> PeerEff m [TopicId]
+  DescribeTopic :: TopicId -> PeerEff m TopicMetaData
+  PollTopic :: TopicId -> PeerEff m (Word64, Certificate)
+  GetTopicBlockCertificate :: TopicId -> Word64 -> PeerEff m Certificate
+  ReadTopic :: TopicId -> Word64 -> PeerEff m [BlockData]
 
 -- TODO replace with makeEffect_ and add docs for type sigs, or add docs to the GADT
-makeEffect ''PeerHandler
+makeEffect ''PeerEff
 
-runPeerHandlerIO :: (Has Topics env, IOE :> es, Error String :> es, Reader env :> es) => Eff (PeerHandler : es) a -> Eff es a
-runPeerHandlerIO = interpret $ \_ -> \case
-  PublishBlock TopicId {..} bData -> do
+runPeerEffIO :: (Has Topics env, IOE :> es, Error String :> es, Reader env :> es) => S.Socket -> Eff (PeerEff : es) a -> Eff es a
+runPeerEffIO sock = interpret $ \_ -> \case
+  PublishBlock tId bData -> do
     topics <- askFieldS @Topics
     adapt $ atomically $ do
       tpcs <- readTVar topics
-      let tpcs' = IntMap.adjust (\tpc -> tpc {messages = IntMap.insert (IntMap.size tpc.messages) bData tpc.messages}) id tpcs
+      let tpcs' = IntMap.adjust (\tpc -> tpc {messages = IntMap.insert (IntMap.size tpc.messages) bData tpc.messages}) tId.id tpcs
       writeTVar topics tpcs'
-    pure $ makeBlockCertificate bData
+    pure $ Certificate ""
   GetTopics mtId -> adapt $ undefined
-  DescribeTopic TopicId {..} -> do
+  DescribeTopic tId -> do
     topics <- askFieldS @Topics
     adapt $ do
       maybeMeta <- atomically $ do
         tpcs <- readTVar topics
-        let mTpc = (.metadata) <$> (IntMap.!?) tpcs id
+        let mTpc = (.metadata) <$> (IntMap.!?) tpcs tId.id
         pure mTpc
       case maybeMeta of
         Just meta -> pure meta
