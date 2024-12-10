@@ -57,13 +57,16 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Data.MerkleTrie
+    exposed-modules:
+        Data.MerkleTrie
+        Data.Trie
 
     -- Modules included in this library but not exported.
     -- other-modules:
 
     -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
+    other-extensions:
+        NoImplicitPrelude
 
     -- Other library packages from which modules are imported.
     build-depends:
