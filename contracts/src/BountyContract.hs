@@ -67,11 +67,21 @@ PlutusTx.makeIsDataSchemaIndexed ''SimplifiedMerkleProof [('SimplifiedMerkleProo
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
 
+-- Use bytestring for now, might be integer later
+data TopicID = TopicID BuiltinByteString
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+PlutusTx.makeLift ''TopicID
+PlutusTx.makeIsDataSchemaIndexed ''TopicID [('TopicID, 0)]
+
 data ClientParams = ClientParams
   { bountyNFTCurrencySymbol :: CurrencySymbol
     -- ^ Unique currency symbol (hash of minting policy) of the bridge contract NFT
   , bountyTargetHash :: DataHash
-    -- ^ Hash of data that must be proven to be present in storage trie
+    -- ^ Hash of data that must be proven to be present in DA
+  , bountyTopicID :: TopicID
+    -- ^ ID of topic in which data must be published
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -84,9 +94,15 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 ------------------------------------------------------------------------------
 
 data ClientRedeemer
-    = ClaimBounty -- Claim bounty by supplying Merkle proof and committee signature
-        { proof :: SimplifiedMerkleProof
-        , multiSigPubKeyHash :: DataHash
+    = ClaimBounty
+        { messageInTopicProof :: SimplifiedMerkleProof
+          -- ^ Proof that data is included in topic
+        , topicInDAProof :: SimplifiedMerkleProof
+          -- ^ Proof that topic is included in DA root
+        , topicCommitteeFingerprint :: DataHash
+          -- ^ Fingerprint of topic committee multisig
+        , mainCommitteeFingerprint :: DataHash
+          -- ^ Fingerprint of main DA committee multisig
         }
     deriving stock (Generic)
     deriving anyclass (HasBlueprintDefinition)
