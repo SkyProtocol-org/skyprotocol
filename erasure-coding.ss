@@ -1,5 +1,6 @@
 (export #t)
 ;; Reed-Solomon erasure coding for blocks of data
+;; TODO: maybe instead use more efficient XOR codes as in https://arxiv.org/pdf/2108.05982 ?
 
 (import
   (group-in :std/cli getopt multicall print-exit)
