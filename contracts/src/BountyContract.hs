@@ -26,7 +26,7 @@
 
 module BountyContract where
 
-import SkyBridgeContract (BridgeNFTDatum (..), DataHash, getRefBridgeNFTDatumFromContext, pairHash)
+import SkyBridgeContract (BridgeNFTDatum (..), DataHash (..), getRefBridgeNFTDatumFromContext, pairHash)
 import GHC.Generics (Generic)
 
 import PlutusCore.Version (plcVersion100)
@@ -114,52 +114,56 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- Client contract validator
 ------------------------------------------------------------------------------
 
+-- top_hash = hash(main_committee_fingerprint ++ main_root_hash)
+-- main_root_hash = hash(left_topic_top_hash ++ right_topic_top_hash)
+-- left_topic_top_hash = hash(left_topic_id ++ left_committee_fingerprint ++ left_topic_root_hash)
+-- (same for right topic committee)
+
 clientTypedValidator ::
     ClientParams ->
     () ->
     ClientRedeemer ->
     ScriptContext ->
     Bool
-clientTypedValidator ClientParams{bountyNFTCurrencySymbol, bountyMessageHash, bountyTopicID} () redeemer ctx@(ScriptContext txInfo _) =
+clientTypedValidator params () claim@ClaimBounty{} ctx@(ScriptContext txInfo _) =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
-    conditions = case redeemer of
-        -- Claim the bounty
-        ClaimBounty{messageInTopicProof, topicInDAProof, topicCommitteeFingerprint} ->
-            [
-              -- The bounty's message hash is in the topic
-              hashInMerkleProof messageInTopicProof bountyMessageHash
-              -- The topic's top hash is in the DA
-            , hashInMerkleProof topicInDAProof topicTopHash
-              -- The claimed top hash matches the one stored in the NFT
-            , topHash PlutusTx.== nftTopHash
-            ]
+    conditions =
+      [ -- The bounty's message hash is in the topic
+        hashInMerkleProof (messageInTopicProof claim) (bountyMessageHash params)
+        -- The topic's top hash is in the DA
+      , hashInMerkleProof (topicInDAProof claim) topicTopHash
+        -- The claimed top hash matches the one stored in the NFT
+      , topHash PlutusTx.== nftTopHash
+      ]
     -- Root hash of topic trie produced by claim
     topicRootHash :: DataHash
-    topicRootHash = merkleProofToDataHash messageInTopicProofHash
+    topicRootHash = merkleProofToDataHash (messageInTopicProof claim)
     -- Topic top hash produced by claim
     topicTopHash :: DataHash
-    topicTopHash = makeTopicTopHash bountyTopicID topicCommitteeFingerprint topicRootHash
+    topicTopHash = makeTopicTopHash (bountyTopicID params) (topicCommitteeFingerprint claim) topicRootHash
     -- Main root hash produced by claim
     mainRootHash :: DataHash
-    mainRootHash = merkleProofToDataHash topicInDAProof
+    mainRootHash = merkleProofToDataHash (topicInDAProof claim)
     -- Top hash produced by claim
     topHash :: DataHash
-    topHash = pairHash mainRootHash topicTopHash
+    topHash = pairHash (mainCommitteeFingerprint claim) mainRootHash
     -- Top hash stored in NFT
     nftTopHash :: DataHash
-    nftTopHash = case getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx of
+    nftTopHash = case getRefBridgeNFTDatumFromContext (bountyNFTCurrencySymbol params) ctx of
                    Nothing -> PlutusTx.traceError "bridge NFT not found"
                    Just (BridgeNFTDatum th) -> th
 
-messageHashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
-messageHashInMerkleProof (SimplifiedMerkleProof leftHash rightHash) messageHash =
-  (messageHash PlutusTx.== leftHash PlutusTx.|| messageHash PlutusTx.== rightHash)
+-- Verify whether a (leaf) hash is included in a Merkle proof
+hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
+hashInMerkleProof (SimplifiedMerkleProof leftHash rightHash) hash =
+  (hash PlutusTx.== leftHash PlutusTx.|| hash PlutusTx.== rightHash)
 
+-- The topic top hash includes the topic ID, topic committee fingerprint, and topic root hash
 makeTopicTopHash :: TopicID -> DataHash -> DataHash -> DataHash
 makeTopicTopHash (TopicID topicID) (DataHash committeeFingerprint) (DataHash topicRootHash) =
-  sha2_256 (appendByteString topicID (appendByteString committeeFingerprint topicRootHash))
+  DataHash (sha2_256 (appendByteString topicID (appendByteString committeeFingerprint topicRootHash)))
 
 -- Hashes a merkle proof to produce the root data hash
 merkleProofToDataHash :: SimplifiedMerkleProof -> DataHash
