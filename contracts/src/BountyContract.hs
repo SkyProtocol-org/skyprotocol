@@ -120,17 +120,33 @@ clientTypedValidator ::
     ClientRedeemer ->
     ScriptContext ->
     Bool
-clientTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
+clientTypedValidator ClientParams{bountyNFTCurrencySymbol, bountyTargetHash, bountyTopicID} () redeemer ctx@(ScriptContext txInfo _) =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
     conditions = case redeemer of
         -- Claim the bounty
-        ClaimBounty proof multiSigPubKeyHash ->
+        ClaimBounty{messageInTopicProof, topicInDAProof, topicCommitteeFingerprint} ->
             [
-              -- The Merkle proof must match the root hash stored in the NFT
-              merkleProofValid ctx (bountyNFTCurrencySymbol params) (bountyTargetHash params) multiSigPubKeyHash proof
+              -- The bounty's target hash is in the topic
+              hashInMerkleProof messageInTopicProof bountyTargetHash
+              -- 
+            , hashInMerkleProof topicInDAProof topicTopHash
             ]
+    -- Root hash of topic trie
+    messageInTopicProofHash :: DataHash
+    messageInTopicProofHash = merkleProofToDataHash messageInTopicProofHash
+    -- Topic top hash
+    topicTopHash :: DataHash
+    topicTopHash = makeTopicTopHash bountyTopicID topicCommitteeFingerprint messageInTopicProofHash
+
+targetHashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
+targetHashInMerkleProof (SimplifiedMerkleProof leftHash rightHash) hash =
+  (targetHash PlutusTx.== leftHash PlutusTx.|| targetHash PlutusTx.== rightHash)
+
+makeTopicTopHash :: TopicID -> DataHash -> DataHash -> DataHash
+makeTopicTopHash topicID committeeFringeprint rootHash =
+  ...
 
 ------------------------------------------------------------------------------
 -- Merkle Proof Validation
@@ -138,10 +154,10 @@ clientTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
 
 -- Verify that merkle proof is valid by looking up NFT UTXO in the script context
 merkleProofValid :: ScriptContext -> CurrencySymbol -> DataHash -> DataHash -> SimplifiedMerkleProof -> Bool
-merkleProofValid ctx csym targetHash multiSigPubKeyHash proof =
+merkleProofValid ctx csym targetHash multiSigFingerprint proof =
   case getRefBridgeNFTDatumFromContext csym ctx of
     Nothing -> PlutusTx.traceError "bridge NFT not found"
-    Just (BridgeNFTDatum topHash) -> merkleProofNFTHashValid topHash targetHash multiSigPubKeyHash proof
+    Just (BridgeNFTDatum topHash) -> merkleProofNFTHashValid topHash targetHash multiSigFingerprint proof
 
 -- Hashes a merkle proof to produce the root data hash
 merkleProofToDataHash :: SimplifiedMerkleProof -> DataHash
@@ -150,17 +166,17 @@ merkleProofToDataHash (SimplifiedMerkleProof leftHash rightHash) =
 
 -- Computes the top hash from the data trie hash and the committe hash
 topHash :: DataHash -> DataHash -> DataHash
-topHash trieHash multiSigPubKeyHash =
-  pairHash trieHash multiSigPubKeyHash
+topHash trieHash multiSigFingerprint =
+  pairHash trieHash multiSigFingerprint
 
 -- The main function to validate the Merkle proof against the root
 -- data hash stored in the NFT: Check that the merkle proof and
 -- multisig hash hashes to the top hash, and either the left or right
 -- child of the merkle proof is the bounty's target data hash.
 merkleProofNFTHashValid :: DataHash -> DataHash -> DataHash -> SimplifiedMerkleProof -> Bool
-merkleProofNFTHashValid nftTopHash targetHash multiSigPubKeyHash proof@(SimplifiedMerkleProof leftHash rightHash) =
+merkleProofNFTHashValid nftTopHash targetHash multiSigFingerprint proof@(SimplifiedMerkleProof leftHash rightHash) =
   let proofHash = merkleProofToDataHash proof in
-    (topHash proofHash multiSigPubKeyHash) PlutusTx.== nftTopHash PlutusTx.&&
+    (topHash proofHash multiSigFingerprint) PlutusTx.== nftTopHash PlutusTx.&&
     (targetHash PlutusTx.== leftHash PlutusTx.|| targetHash PlutusTx.== rightHash)
 
 ------------------------------------------------------------------------------
