@@ -60,6 +60,8 @@ library
     exposed-modules:
         Data.MerkleTrie
         Data.Trie
+        Data.Trie.Internal
+        Data.Trie.Zipper
 
     -- Modules included in this library but not exported.
     -- other-modules:
