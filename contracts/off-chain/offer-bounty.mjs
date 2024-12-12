@@ -8,7 +8,6 @@
 
 import cbor from 'cbor'
 import {
-  BlockfrostProvider,
   MeshWallet,
   Transaction,
   serializePlutusScript,

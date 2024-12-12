@@ -6,7 +6,6 @@
 
 import cbor from 'cbor'
 import {
-  YaciProvider,
   MeshWallet,
   Transaction,
   serializePlutusScript,
