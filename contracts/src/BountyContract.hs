@@ -78,10 +78,10 @@ PlutusTx.makeIsDataSchemaIndexed ''TopicID [('TopicID, 0)]
 data ClientParams = ClientParams
   { bountyNFTCurrencySymbol :: CurrencySymbol
     -- ^ Unique currency symbol (hash of minting policy) of the bridge contract NFT
-  , bountyMessageHash :: DataHash
-    -- ^ Hash of data that must be proven to be present in DA
   , bountyTopicID :: TopicID
     -- ^ ID of topic in which data must be published
+  , bountyMessageHash :: DataHash
+    -- ^ Hash of data that must be proven to be present in DA
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
