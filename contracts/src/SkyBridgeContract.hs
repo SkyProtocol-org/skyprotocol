@@ -91,7 +91,7 @@ instance Eq SingleSig where
 instance PlutusTx.Eq SingleSig where
   (SingleSig pubKey1 sig1) == (SingleSig pubKey2 sig2) = pubKey1 == pubKey2 && sig1 == sig2
 
--- Signatures produced by data operators for top hash, must be in same order as multi-sig pubkeys
+-- Signatures produced by data operators for top hash
 data MultiSig = MultiSig [SingleSig]
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -229,7 +229,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     conditions :: [Bool]
     conditions = case redeemer of
         -- Update the bridge state
-        UpdateBridge committee oldDataHash newTopHash sig ->
+        UpdateBridge committee oldRootHash newTopHash sig ->
             [
               -- The top hash must be signed by the committee
               multiSigValid committee newTopHash sig,
@@ -238,7 +238,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
               -- The NFT's data must have been updated
               nftUpdated newTopHash,
               -- The hash of pair(multisig-hash, old-data-hash) must be = old-top-hash
-              oldTopHashMatches committee oldDataHash 
+              oldTopHashMatches committee oldRootHash 
             ]
 
     ownOutput :: TxOut
@@ -256,9 +256,9 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     bridgeNFTDatum = getBridgeNFTDatumFromTxOut ownOutput ctx
 
     oldTopHashMatches :: MultiSigPubKey -> DataHash -> Bool
-    oldTopHashMatches committee oldDataHash =
+    oldTopHashMatches committee oldRootHash =
       let (Just (BridgeNFTDatum oldTopHash)) = bridgeNFTDatum in
-        oldTopHash PlutusTx.== pairHash oldDataHash (multiSigToDataHash committee)
+        oldTopHash PlutusTx.== pairHash (multiSigToDataHash committee) oldRootHash
 
     -- The NFT UTXO's datum must match the new values for the root hashes
     nftUpdated :: DataHash -> Bool
