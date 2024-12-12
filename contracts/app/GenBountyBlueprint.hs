@@ -95,6 +95,10 @@ writeBlueprintToFile csym topicID messageHash path = writeBlueprint path (client
 main :: IO ()
 main =
   getArgs >>= \case
-    [csym, topicID, messageHash, path] -> writeBlueprintToFile (CurrencySymbol (fromJust (hexStringToBuiltinByteString (pack csym)))) (TopicID (fromJust (hexStringToBuiltinByteString (pack topicID)))) (DataHash (fromJust (hexStringToBuiltinByteString (pack messageHash)))) path
+    [csym, topicID, messageHash, path] ->
+      writeBlueprintToFile
+        (CurrencySymbol (fromJust (hexStringToBuiltinByteString (pack csym))))
+        (TopicID (fromJust (hexStringToBuiltinByteString (pack topicID))))
+        (DataHash (fromJust (hexStringToBuiltinByteString (pack messageHash)))) path
     args -> fail $ "Expects arguments: currency symbol, topic ID, message hash, and path.  Got: " <> show (length args)
 
