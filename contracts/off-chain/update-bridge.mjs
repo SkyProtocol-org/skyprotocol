@@ -1,5 +1,5 @@
 /*
-  node update-bridge.mjs <wallet> <pubkey> <old-data-hash-hex> <top-hash-hex> <sig>
+  node update-bridge.mjs <wallet> <pubkey> <old-root-hash-hex> <top-hash-hex> <sig>
 
   Updates the top hash stored in the bridge NFT.
   
@@ -44,7 +44,7 @@ const wallet = new MeshWallet({
 })
 
 const publicKeyHex = process.argv[3]
-const oldDataHashHex = process.argv[4]
+const oldRootHashHex = process.argv[4]
 const newTopHashHex = process.argv[5]
 const sigHex = process.argv[6]
 
@@ -114,7 +114,7 @@ const redeemer = {
     alternative: 0,
     fields: [
 	msPublicKey,
-	mkDataHash(oldDataHashHex),
+	mkDataHash(oldRootHashHex),
 	mkDataHash(newTopHashHex),
 	ms
     ]
