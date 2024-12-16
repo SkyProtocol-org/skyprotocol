@@ -62,6 +62,7 @@ library
         Data.Trie
         Data.Trie.Internal
         Data.Trie.Zipper
+        Data.Utils
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -74,7 +75,8 @@ library
     build-depends:
         base ^>=4.18.2.1,
         cryptonite ==0.30,
-        bytestring
+        bytestring,
+        wide-word
         -- for future more optimized implementation consider using RLP from ethereum whitepaper
         -- relapse ==1.0.0.1
 

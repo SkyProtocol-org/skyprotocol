@@ -1,24 +1,46 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Data.Trie.Internal where
 
 import Data.Bits
 import Data.Kind (Type)
+import Data.WideWord (Word256)
+import Data.Word (Word8)
 import Prelude hiding (lookup)
 
-data Trie (f :: Type -> Type) k a
+data Trie' (w :: Type -> Type) k h a
   = Empty
-  | Leaf k (f a)
-  | Branch k k (Trie f k a) (Trie f k a)
+  | Leaf k (w a)
+  | Branch k k (Trie' w k h a) (Trie' w k h a)
+  deriving (Functor)
+
+-- | This will allow us to enforce the height of the trie depending on it's key
+type family TrieHeight key where
+  TrieHeight (LEK Word256) = Word8
+  TrieHeight (BEK Word256) = Word8
+
+-- | This will ensure, that when someone tries to create a Trie, the height will be automagically supplied
+type Trie w k a = Trie' w k (TrieHeight k) a
+
+type LittleTrie w k a = Trie w (LEK k) a
+
+type BigTrie w k a = Trie w (BEK k) a
 
 class (Bits k, Num k, Integral k) => TrieKey k where
   -- | Discards bits before/after(depending on endianess) branching bit
   mask :: k -> k -> k
 
-  -- | Leaves only the branching bit(so key 0b1001101 becomes 0b0001000, if 4th bit was branching)
+  -- | Leaves only the branching bit(so key 0b1001101 becomes 0b0001000, if 4th bit was a branching bit)
   branchingBit :: k -> k -> k
+
+  matchPrefix :: k -> k -> k -> Bool
+  matchPrefix bBit prefix key = mask bBit key == prefix
+
+  zeroBit :: k -> k -> Bool
+  zeroBit a b = (a .&. b) == 0
 
 newtype LEK a = LittleEndian a deriving (Enum, Eq, Ord, Real, Bits, Num, Integral)
 
@@ -37,16 +59,10 @@ instance (Bits k, Num k, Integral k) => TrieKey (BEK k) where
   -- since it needs more args than just a and b(it also needs prefixes)
   branchingBit _ _ = undefined
 
-matchPrefix :: (TrieKey k) => k -> k -> k -> Bool
-matchPrefix k prefix key = mask k key == prefix
-
-zeroBit :: (TrieKey k) => k -> k -> Bool
-zeroBit a b = (a .&. b) == 0
-
-join :: (TrieKey k) => k -> Trie f k a -> k -> Trie f k a -> Trie f k a
+join :: (TrieKey k) => k -> Trie w k a -> k -> Trie w k a -> Trie w k a
 join p1 t1 p2 t2 =
-  if zeroBit p1 commonPrefix
-    then Branch (mask p1 commonPrefix) commonPrefix t1 t2
-    else Branch (mask p1 commonPrefix) commonPrefix t2 t1
+  if zeroBit p1 bBit
+    then Branch bBit (mask p1 bBit) t1 t2
+    else Branch bBit (mask p1 bBit) t2 t1
   where
-    commonPrefix = branchingBit p1 p2
+    bBit = branchingBit p1 p2
