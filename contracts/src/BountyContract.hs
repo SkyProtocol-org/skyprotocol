@@ -119,13 +119,9 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- left_topic_top_hash = hash(left_topic_id ++ left_committee_fingerprint ++ left_topic_root_hash)
 -- (same for right topic committee)
 
-clientTypedValidator ::
-    ClientParams ->
-    () ->
-    ClientRedeemer ->
-    ScriptContext ->
-    Bool
-clientTypedValidator params () claim@ClaimBounty{} ctx@(ScriptContext txInfo _) =
+-- Validator function without logic for fetching NFT from script context, for easy testing
+clientTypedValidatorCore :: ClientParams -> ClientRedeemer -> DataHash -> Bool
+clientTypedValidatorCore params claim@ClaimBounty{} nftTopHash =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
@@ -149,11 +145,22 @@ clientTypedValidator params () claim@ClaimBounty{} ctx@(ScriptContext txInfo _) 
     -- Top hash produced by claim
     topHash :: DataHash
     topHash = pairHash (mainCommitteeFingerprint claim) mainRootHash
+
+-- Main validator function
+clientTypedValidator ::
+    ClientParams ->
+    () ->
+    ClientRedeemer ->
+    ScriptContext ->
+    Bool
+clientTypedValidator params () redeemer ctx =
+    clientTypedValidatorCore params redeemer nftTopHash
+  where
     -- Top hash stored in NFT
     nftTopHash :: DataHash
     nftTopHash = case getRefBridgeNFTDatumFromContext (bountyNFTCurrencySymbol params) ctx of
                    Nothing -> PlutusTx.traceError "bridge NFT not found"
-                   Just (BridgeNFTDatum th) -> th
+                   Just (BridgeNFTDatum topHash) -> topHash
 
 -- Verify whether a (leaf) hash is included in a Merkle proof
 hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
