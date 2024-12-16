@@ -120,14 +120,14 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- (same for right topic committee)
 
 -- Validator function without logic for fetching NFT from script context, for easy testing
-clientTypedValidatorCore :: ClientParams -> ClientRedeemer -> DataHash -> Bool
-clientTypedValidatorCore params claim@ClaimBounty{} nftTopHash =
+clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
+clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
-        hashInMerkleProof (messageInTopicProof claim) (bountyMessageHash params)
+        hashInMerkleProof (messageInTopicProof claim) bountyMessageHash
         -- The topic's top hash is in the DA
       , hashInMerkleProof (topicInDAProof claim) topicTopHash
         -- The claimed top hash matches the one stored in the NFT
@@ -138,7 +138,7 @@ clientTypedValidatorCore params claim@ClaimBounty{} nftTopHash =
     topicRootHash = merkleProofToDataHash (messageInTopicProof claim)
     -- Topic top hash produced by claim
     topicTopHash :: DataHash
-    topicTopHash = makeTopicTopHash (bountyTopicID params) (topicCommitteeFingerprint claim) topicRootHash
+    topicTopHash = makeTopicTopHash bountyTopicID (topicCommitteeFingerprint claim) topicRootHash
     -- Main root hash produced by claim
     mainRootHash :: DataHash
     mainRootHash = merkleProofToDataHash (topicInDAProof claim)
@@ -154,7 +154,7 @@ clientTypedValidator ::
     ScriptContext ->
     Bool
 clientTypedValidator params () redeemer ctx =
-    clientTypedValidatorCore params redeemer nftTopHash
+    clientTypedValidatorCore redeemer (bountyTopicID params) (bountyMessageHash params) nftTopHash
   where
     -- Top hash stored in NFT
     nftTopHash :: DataHash
