@@ -1,4 +1,4 @@
-module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec) where
+module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec) where
 
 import Test.Hspec
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
@@ -196,6 +196,8 @@ merkleSpec = do
     bytes rootHash1 `shouldBe` hex "65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971"
 
 ------------------------------------------------------------------------------
+-- Topic Top Hash
+------------------------------------------------------------------------------
 
 topic1 :: TopicID
 topic1 = TopicID $ hex "00"
@@ -212,7 +214,7 @@ topic1TopHash = makeTopicTopHash topic1 topic1CommitteeFP rootHash1
 topicSpec :: Spec
 topicSpec = do
 
-  it "topic top hash should be correct" $ do
+  it "topic 1 top hash should be correct" $ do
     -- Sha256 of concatenation of topic1 ++ topic1CommitteeFP ++ rootHash1:
     -- 00 ++ b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767 ++ 65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971
     bytes topic1TopHash `shouldBe` hex "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f"
@@ -221,15 +223,22 @@ topicSpec = do
 -- Bounty Contract
 ------------------------------------------------------------------------------
 
-{-
+topic2TopHash :: DataHash
+topic2TopHash = DataHash $ hex "0000"
 
-mainCommitteeFP, topic1CommitteeFP :: DataHash
+mainCommitteeFP :: DataHash
 mainCommitteeFP = mfp1
-topic1CommitteeFP = mfp2
 
-topic1InDAProof :: SimplifiedMerkleProof
-topic1InDAProof = SimplifiedMerkleProof
+topicInDAProof1 :: SimplifiedMerkleProof
+topicInDAProof1 = SimplifiedMerkleProof topic1TopHash topic2TopHash
 
-claim1 :: ClientRedeemer
-claim1 = ClaimBounty dh1InTopic1Proof
--}
+mainRootHash1 :: DataHash
+mainRootHash1 = merkleProofToDataHash topicInDAProof1
+
+bountySpec :: Spec
+bountySpec = do
+
+  it "main root hash should be correct" $ do
+    -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
+    -- 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f ++ 0000
+    bytes mainRootHash1 `shouldBe` hex "9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"
