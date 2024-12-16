@@ -145,7 +145,7 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 
 data BridgeRedeemer = UpdateBridge
   { bridgeCommittee :: MultiSigPubKey
-  , bridgeOldDataHash :: DataHash
+  , bridgeOldRootHash :: DataHash
   , bridgeNewTopHash :: DataHash
   , bridgeSig :: MultiSig -- signature over new top hash
   }
