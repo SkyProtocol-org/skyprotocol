@@ -1,4 +1,4 @@
-module Spec.SkySpec (signatureSpec, fingerprintSpec) where
+module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec) where
 
 import Test.Hspec
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
@@ -170,11 +170,43 @@ fingerprintSpec = do
       bytes (multiSigToDataHash mpk2) `shouldBe` bytes mfp2
 
 ------------------------------------------------------------------------------
+-- Merkle Proof
+------------------------------------------------------------------------------
+
+proof1 :: SimplifiedMerkleProof
+proof1 = SimplifiedMerkleProof dh1 dh2
+
+merkleSpec :: Spec
+merkleSpec = do
+
+  it "hash 1 should be in proof" $ do
+    hashInMerkleProof proof1 dh1 `shouldBe` True
+
+------------------------------------------------------------------------------
 -- Bounty Contract
 ------------------------------------------------------------------------------
 
+  {-
 topic1 :: TopicID
 topic1 = TopicID $ hex "0"
 
 topic2 :: TopicID
 topic2 = TopicID $ hex "1"
+
+mainCommitteeFP, topic1CommitteeFP :: DataHash
+mainCommitteeFP = mfp1
+topic1CommitteeFP = mfp2
+
+dh1InTopic1Proof :: SimplifiedMerkleProof
+dh1InTopic1Proof = SimplifiedMerkleProof dh1 dh2
+
+-- sha256 of dh1 ++ dh2: CAFEBABE
+topic1RootHash :: DataHash
+topic1RootHash = merkleProofToDataHash dh1InTopic1Proof
+
+topic1InDAProof :: SimplifiedMerkleProof
+topic1InDAProof = SimplifiedMerkleProof (hex "0000") (makeTopicTopHash topic1 topic1CommitteeFP
+
+claim1 :: ClientRedeemer
+claim1 = ClaimBounty dh1InTopic1Proof
+-}
