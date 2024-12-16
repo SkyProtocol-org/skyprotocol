@@ -251,3 +251,24 @@ bountySpec = do
     -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
     -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
     bytes topHash1 `shouldBe` hex "41f011893595e8cf96f9effee819310d41f9038c7adfb0d3d7b1b5ddfaac6710"
+
+  it "contract should accept claim for dh1" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` True
+
+  it "contract should accept claim for dh2" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh2 topHash1 `shouldBe` True
+
+  it "contract should not accept claim for wrong topic" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic2 dh1 topHash1 `shouldBe` False
+
+  it "contract should not accept claim for wrong data in topic proof" $ do
+    clientTypedValidatorCore (ClaimBounty (SimplifiedMerkleProof topHash1 topHash1) topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
+
+  it "contract should not accept claim for wrong topic in DA proof" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 (SimplifiedMerkleProof topHash1 topHash1) topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
+
+  it "contract should not accept claim for wrong topic committee" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 mainCommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
+
+  it "contract should not accept claim for wrong top hash" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 mainCommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
