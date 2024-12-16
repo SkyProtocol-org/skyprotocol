@@ -270,5 +270,8 @@ bountySpec = do
   it "contract should not accept claim for wrong topic committee" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 mainCommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
 
+  it "contract should not accept claim for wrong main committee" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP topic1CommitteeFP) topic1 dh1 topHash1 `shouldBe` False
+
   it "contract should not accept claim for wrong top hash" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 mainCommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 dh1 `shouldBe` False
