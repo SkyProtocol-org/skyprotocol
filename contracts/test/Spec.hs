@@ -1,8 +1,8 @@
 module Main (main) where
 
 import Test.Hspec
-import Spec.MultiSigSpec (spec)
+import Spec.SkySpec (spec)
 
 main :: IO ()
 main = hspec $ do
-  describe "Multisig Tests" Spec.MultiSigSpec.spec
+  describe "Tests" Spec.SkySpec.spec

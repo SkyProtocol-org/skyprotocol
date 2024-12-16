@@ -1,4 +1,4 @@
-module Spec.MultiSigSpec (spec) where
+module Spec.SkySpec (spec) where
 
 import Test.Hspec
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
@@ -6,6 +6,7 @@ import Text.Hex (Text, ByteString, decodeHex)
 import Data.Text (pack)
 import Data.Maybe (fromJust)
 import SkyBridgeContract
+import BountyContract
 
 hexStringToBuiltinByteString :: Text -> Maybe BuiltinByteString
 hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
@@ -42,7 +43,7 @@ pk2 = PubKey $ hex "42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A413
 sig2 :: BuiltinByteString -- signs dh1 with sk2
 sig2 = hex "B7837207523B267F5B9AA0117C02773474A5F9F9FC4D6F48AEB2DC1B7A5796E60EE17C1F5C81D43C1973C0536932FB328897B341A7F8B3B86CB66ACEF459B405"
 
-ss2 :: SingleSig 
+ss2 :: SingleSig
 ss2 = SingleSig pk2 sig2
 
 -- sk3: 9F664160D9DDCD27B5B9A0C619FC3978DDE6C51F4FEAF40688BF54281AA0D0CC
@@ -52,7 +53,7 @@ pk3 = PubKey $ hex "22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205D
 sig3 :: BuiltinByteString -- signs dh1 with sk3
 sig3 = hex "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
 
-ss3 :: SingleSig 
+ss3 :: SingleSig
 ss3 = SingleSig pk3 sig3
 
 ------------------------------------------------------------------------------
@@ -90,7 +91,7 @@ spec :: Spec
 spec = do
 
   describe "Single Sig operations" $ do
-    
+
     it "single sig 1 should be valid" $ do
       (singleSigValid dh1 ss1) `shouldBe` True
 
@@ -110,7 +111,7 @@ spec = do
       (singleSigValid dh2 ss3) `shouldBe` False
 
   describe "Multi Sig operations" $ do
-    
+
     it "multi sig 1 should be valid" $ do
       (multiSigValid mpk1 dh1 msig1OK) `shouldBe` True
 
@@ -137,3 +138,10 @@ spec = do
 
     it "multi sig 6 should be invalid for wrong hash" $ do
       (multiSigValid mpk2 dh2 msig6OK) `shouldBe` False
+
+------------------------------------------------------------------------------
+-- Bounty Contract
+------------------------------------------------------------------------------
+
+topic1 :: TopicID
+topic1 = TopicID $ hex "0"
