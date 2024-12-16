@@ -1,4 +1,4 @@
-module Spec.SkySpec (spec) where
+module Spec.SkySpec (signatureSpec, fingerprintSpec) where
 
 import Test.Hspec
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
@@ -13,6 +13,9 @@ hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
 
 hex :: [Char] -> BuiltinByteString
 hex s = fromJust (hexStringToBuiltinByteString (pack s))
+
+bytes :: DataHash -> BuiltinByteString
+bytes (DataHash bytes) = bytes
 
 -- Keys generated via https://cyphr.me/ed25519_tool/ed.html
 
@@ -87,8 +90,8 @@ msig6OK = MultiSig [ss1, ss2]
 msig7Err :: MultiSig -- pk3 is not in mpk2
 msig7Err = MultiSig [ss1, ss3]
 
-spec :: Spec
-spec = do
+signatureSpec :: Spec
+signatureSpec = do
 
   describe "Single Sig operations" $ do
 
@@ -140,8 +143,38 @@ spec = do
       (multiSigValid mpk2 dh2 msig6OK) `shouldBe` False
 
 ------------------------------------------------------------------------------
+-- Fingerprints
+------------------------------------------------------------------------------
+
+-- Concatenation of pk1, pk2, pk3:
+-- 3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF6542FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73
+-- sha256: 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
+
+mfp1 :: DataHash
+mfp1 = DataHash $ hex "5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f"
+
+-- Concatenation of pk1, pk2:
+-- 3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF6542FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE
+-- sha256: b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767
+
+mfp2 :: DataHash
+mfp2 = DataHash $ hex "b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767"
+
+fingerprintSpec :: Spec
+fingerprintSpec = do
+
+    it "multi sig 1 fingerprint should match" $ do
+      bytes (multiSigToDataHash mpk1) `shouldBe` bytes mfp1
+
+    it "multi sig 2 fingerprint should match" $ do
+      bytes (multiSigToDataHash mpk2) `shouldBe` bytes mfp2
+
+------------------------------------------------------------------------------
 -- Bounty Contract
 ------------------------------------------------------------------------------
 
 topic1 :: TopicID
 topic1 = TopicID $ hex "0"
+
+topic2 :: TopicID
+topic2 = TopicID $ hex "1"

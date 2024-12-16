@@ -238,7 +238,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
               -- The NFT's data must have been updated
               nftUpdated newTopHash,
               -- The hash of pair(multisig-hash, old-data-hash) must be = old-top-hash
-              oldTopHashMatches committee oldRootHash 
+              oldTopHashMatches committee oldRootHash
             ]
 
     ownOutput :: TxOut
@@ -289,18 +289,20 @@ multiSigValid (MultiSigPubKey pubKeys minSigs) topHash (MultiSig singleSigs) =
 
 -- Create fingerprint of a multisig pubkey
 multiSigToDataHash :: MultiSigPubKey -> DataHash
-multiSigToDataHash (MultiSigPubKey pubKeys _) = 
-    let -- Step 1: Concatenate the public keys manually
-        concatenated = concatPubKeys pubKeys
-        -- Step 2: Apply sha2_256 to the concatenated byte string
-        hashed = sha2_256 concatenated
-    in DataHash hashed
+multiSigToDataHash (MultiSigPubKey pubKeys _) =
+  let
+    -- Step 1: Concatenate the public keys manually
+    concatenated = concatPubKeys pubKeys
+    -- Step 2: Apply sha2_256 to the concatenated byte string
+    hashed = sha2_256 concatenated
+  in DataHash hashed
 
 -- Helper function to concatenate a list of PubKey byte strings
 concatPubKeys :: [PubKey] -> PlutusTx.BuiltinByteString
-concatPubKeys (PubKey pk : rest) = -- assume at least one pubkey
-    let restConcatenated = concatPubKeys rest
+concatPubKeys (PubKey pk : rest) =
+  let restConcatenated = concatPubKeys rest
     in appendByteString pk restConcatenated
+concatPubKeys [] = PlutusTx.emptyByteString
 
 ------------------------------------------------------------------------------
 -- Untyped Validator
@@ -323,4 +325,3 @@ bridgeValidatorScript ::
 bridgeValidatorScript params =
     $$(PlutusTx.compile [||bridgeUntypedValidator||])
         `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
-
