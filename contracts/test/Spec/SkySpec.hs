@@ -1,4 +1,4 @@
-module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec) where
+module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec) where
 
 import Test.Hspec
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
@@ -176,36 +176,59 @@ fingerprintSpec = do
 proof1 :: SimplifiedMerkleProof
 proof1 = SimplifiedMerkleProof dh1 dh2
 
+rootHash1 :: DataHash
+rootHash1 = merkleProofToDataHash proof1
+
 merkleSpec :: Spec
 merkleSpec = do
 
   it "hash 1 should be in proof" $ do
     hashInMerkleProof proof1 dh1 `shouldBe` True
 
+  it "hash 2 should be in proof" $ do
+    hashInMerkleProof proof1 dh2 `shouldBe` True
+
+  it "other hash should not be in proof" $ do
+    hashInMerkleProof proof1 mfp1 `shouldBe` False
+
+  it "proof root hash should be concatenation of hashes" $ do
+    -- sha256 of dh1 ++ dh2: CAFEBABE
+    bytes rootHash1 `shouldBe` hex "65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971"
+
+------------------------------------------------------------------------------
+
+topic1 :: TopicID
+topic1 = TopicID $ hex "00"
+
+topic2 :: TopicID
+topic2 = TopicID $ hex "01"
+
+topic1CommitteeFP :: DataHash
+topic1CommitteeFP = mfp2
+
+topic1TopHash :: DataHash
+topic1TopHash = makeTopicTopHash topic1 topic1CommitteeFP rootHash1
+
+topicSpec :: Spec
+topicSpec = do
+
+  it "topic top hash should be correct" $ do
+    -- Sha256 of concatenation of topic1 ++ topic1CommitteeFP ++ rootHash1:
+    -- 00 ++ b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767 ++ 65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971
+    bytes topic1TopHash `shouldBe` hex "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f"
+
 ------------------------------------------------------------------------------
 -- Bounty Contract
 ------------------------------------------------------------------------------
 
-  {-
-topic1 :: TopicID
-topic1 = TopicID $ hex "0"
-
-topic2 :: TopicID
-topic2 = TopicID $ hex "1"
+{-
 
 mainCommitteeFP, topic1CommitteeFP :: DataHash
 mainCommitteeFP = mfp1
 topic1CommitteeFP = mfp2
 
-dh1InTopic1Proof :: SimplifiedMerkleProof
-dh1InTopic1Proof = SimplifiedMerkleProof dh1 dh2
-
--- sha256 of dh1 ++ dh2: CAFEBABE
-topic1RootHash :: DataHash
-topic1RootHash = merkleProofToDataHash dh1InTopic1Proof
-
 topic1InDAProof :: SimplifiedMerkleProof
-topic1InDAProof = SimplifiedMerkleProof (hex "0000") (makeTopicTopHash topic1 topic1CommitteeFP
+topic1InDAProof = SimplifiedMerkleProof
 
 claim1 :: ClientRedeemer
 claim1 = ClaimBounty dh1InTopic1Proof
