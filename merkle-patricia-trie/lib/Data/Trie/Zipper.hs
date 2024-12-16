@@ -1,23 +1,26 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module Data.Trie.Zipper (TrieZipper, left, right, up, lookupZipper, zipper) where
+module Data.Trie.Zipper (TrieZipper, left, right, up, focus, zipper) where
 
--- import Control.Monad.Identity (Identity (..))
 import Data.Kind (Type)
+import Data.Maybe (fromMaybe)
 import Data.Trie.Internal
+import Data.Utils
 
-data Cxt (f :: Type -> Type) k a
+data Cxt (w :: Type -> Type) k a
   = Top
-  | L k k (Cxt f k a) (Trie f k a)
-  | R k k (Trie f k a) (Cxt f k a)
+  | L k k (Cxt w k a) (Trie w k a)
+  | R k k (Trie w k a) (Cxt w k a)
+  deriving (Functor)
 
-newtype TrieZipper (f :: Type -> Type) k a = TrieZipper {getZipper :: (Trie f k a, Cxt f k a)}
+newtype TrieZipper (w :: Type -> Type) k a = TrieZipper {getZipper :: (Trie w k a, Cxt w k a)} deriving (Functor)
 
-zipper :: (TrieKey k, Functor f) => Trie f k a -> TrieZipper f k a
+zipper :: (TrieKey k, Wrapper w) => Trie w k a -> TrieZipper w k a
 zipper t = TrieZipper (t, Top)
 
-left, right, up :: (TrieKey k) => TrieZipper f k a -> Maybe (TrieZipper f k a)
+left, right, up :: (TrieKey k) => TrieZipper w k a -> Maybe (TrieZipper w k a)
 -- nowhere to go if we're at the leaf or in an empty tree
 left (getZipper -> (Empty, _)) = Nothing
 left (getZipper -> (Leaf _ _, _)) = Nothing
@@ -31,23 +34,27 @@ up (getZipper -> (_, Top)) = Nothing
 up (getZipper -> (t, L bBit pref c r)) = Just $ TrieZipper (Branch bBit pref t r, c)
 up (getZipper -> (t, R bBit pref l c)) = Just $ TrieZipper (Branch bBit pref l t, c)
 
--- TODO not sure if this is what we want, need more research
+modify :: (Wrapper w) => (Trie w k a -> Trie w k a) -> TrieZipper w k a -> TrieZipper w k a
+modify f (getZipper -> (t, c)) = TrieZipper (f t, c)
 
--- | Supplied function '(k -> a -> b)' takes key 'k' and value 'a' and returns 'b'
--- upmostWith :: (TrieKey k, Functor f, Applicative f) => (k -> a -> b) -> TrieZipper f k a -> f (TrieZipper f k a)
--- upmostWith _ z@(getZipper -> (_, Top)) = pure z
--- upmostWith _ z@(getZipper -> (Empty, _)) = pure z
--- upmostWith f z@(getZipper -> (Leaf key fa, c)) = undefined
--- upmostWith f z@(getZipper -> (Branch bBit pref l r, c)) = undefined
+-- | Move focus to the top of the trie applying `(k -> a -> a)` along the way
+-- Supplied function '(k -> a -> a)' takes key 'k' and value 'a' and returns 'a'
+unfocusWith :: (TrieKey k, Wrapper w) => (k -> a -> b) -> TrieZipper w k a -> TrieZipper w k b
+unfocusWith f z@(getZipper -> (_, Top)) = fmap f z
+unfocusWith f z@(getZipper -> (Empty, _)) = fmap f z
+unfocusWith f z@(getZipper -> (Leaf key fa, c)) = unfocusWith f . fromMaybe z . up $ TrieZipper (Leaf key $ fmap (f key) fa, fmap f c)
+unfocusWith f z@(getZipper -> (Branch bBit pref l r, c)) = unfocusWith f . fromMaybe z $ up z
 
--- upmost :: (TrieKey k) => TrieZipper Identity k a -> TrieZipper Identity k a
--- upmost = runIdentity . upmostWith const
+-- | Move focus to the top of the trie
+unfocus :: (TrieKey k, Wrapper w) => TrieZipper w k a -> TrieZipper w k a
+unfocus = upmostWith (const id)
 
-lookupZipper :: (TrieKey k, Functor f) => k -> Trie f k a -> Maybe (TrieZipper f k a)
-lookupZipper _ Empty = Nothing
-lookupZipper key1 t = go key1 $ TrieZipper (t, Top)
+-- | Create a `TrieZipper` focused on given key `k` in a trie `Trie w k a`
+focus :: (TrieKey k, Wrapper w) => k -> Trie w k a -> Maybe (TrieZipper w k a)
+focus _ Empty = Nothing
+focus key1 t = go key1 $ TrieZipper (t, Top)
   where
-    go :: (TrieKey k, Functor f) => k -> TrieZipper f k a -> Maybe (TrieZipper f k a)
+    go :: (TrieKey k, Wrapper w) => k -> TrieZipper w k a -> Maybe (TrieZipper w k a)
     go _ (getZipper -> (Empty, _)) = Nothing
     go key z@(getZipper -> (Leaf k _, _)) = if key == k then Just z else Nothing
     go key z@(getZipper -> (Branch bBit pref _ _, _))
