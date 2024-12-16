@@ -235,6 +235,9 @@ topicInDAProof1 = SimplifiedMerkleProof topic1TopHash topic2TopHash
 mainRootHash1 :: DataHash
 mainRootHash1 = merkleProofToDataHash topicInDAProof1
 
+topHash1 :: DataHash
+topHash1 = pairHash mainCommitteeFP mainRootHash1
+
 bountySpec :: Spec
 bountySpec = do
 
@@ -242,3 +245,9 @@ bountySpec = do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
     -- 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f ++ 0000
     bytes mainRootHash1 `shouldBe` hex "9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"
+
+  it "top hash should be correct" $ do
+    -- Sha256 of concatenation of mainCommitteeFP ++ mainRootHash1
+    -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
+    -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
+    bytes topHash1 `shouldBe` hex "41f011893595e8cf96f9effee819310d41f9038c7adfb0d3d7b1b5ddfaac6710"
