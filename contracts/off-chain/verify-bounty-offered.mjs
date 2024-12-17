@@ -3,7 +3,6 @@
 */
 
 import {
-    BlockfrostProvider,
     MeshWallet,
     MeshTxBuilder,
     Transaction,

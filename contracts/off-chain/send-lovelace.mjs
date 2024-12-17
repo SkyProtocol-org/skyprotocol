@@ -1,4 +1,4 @@
-import { YaciProvider, MeshWallet, Transaction } from '@meshsdk/core'
+import { MeshWallet, Transaction } from '@meshsdk/core'
 
 import fs from 'node:fs'
 

@@ -75,25 +75,10 @@ executable gen-minting-policy-blueprint
     , hex-text ^>=0.1.0.9
     , text ^>=2.0.2
 
-executable gen-top-hash
-  import:           options
-  hs-source-dirs:   app
-  main-is:          GenTopHash.hs
-  build-depends:
-    , base
-    , bytestring
-    , containers
-    , plutus-core ^>=1.34.1.0
-    , plutus-ledger-api ^>=1.34.1.0
-    , plutus-tx ^>=1.34.1.0
-    , plutus-tx-plugin ^>=1.34.1.0
-    , scripts
-    , hex-text ^>=0.1.0.9
-    , text ^>=2.0.2
-
 test-suite tests
   type: exitcode-stdio-1.0
   main-is: Spec.hs
+  other-modules: Spec.SkySpec
   hs-source-dirs: test
   build-depends:
     , base
@@ -106,4 +91,3 @@ test-suite tests
     , plutus-tx-plugin ^>=1.34.1.0
     , scripts
   default-language: Haskell2010
-

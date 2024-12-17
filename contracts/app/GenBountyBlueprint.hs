@@ -35,19 +35,20 @@ import Data.Text (pack)
 hexStringToBuiltinByteString :: Text -> Maybe BuiltinByteString
 hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
 
-clientParams :: CurrencySymbol -> DataHash -> ClientParams
-clientParams csym targetHash =
+clientParams :: CurrencySymbol -> TopicID -> DataHash -> ClientParams
+clientParams csym topicID messageHash =
   ClientParams
     { bountyNFTCurrencySymbol = csym
-    , bountyTargetHash = targetHash
+    , bountyTopicID = topicID
+    , bountyMessageHash = messageHash
     }
 
-clientContractBlueprint :: CurrencySymbol -> DataHash -> ContractBlueprint
-clientContractBlueprint csym targetHash =
+clientContractBlueprint :: CurrencySymbol -> TopicID -> DataHash -> ContractBlueprint
+clientContractBlueprint csym topicID messageHash =
   MkContractBlueprint
     { contractId = Just "client-validator"
     , contractPreamble = clientPreamble
-    , contractValidators = Set.singleton (myClientValidator csym targetHash)
+    , contractValidators = Set.singleton (myClientValidator csym topicID messageHash)
     , contractDefinitions = deriveDefinitions @[ClientParams, ClientRedeemer]
     }
 
@@ -61,8 +62,8 @@ clientPreamble =
     , preambleLicense = Just "MIT"
     }
 
-myClientValidator :: CurrencySymbol -> DataHash -> ValidatorBlueprint referencedTypes
-myClientValidator csym targetHash =
+myClientValidator :: CurrencySymbol -> TopicID -> DataHash -> ValidatorBlueprint referencedTypes
+myClientValidator csym topicID messageHash =
   MkValidatorBlueprint
     { validatorTitle = "Client Validator"
     , validatorDescription = Just "Plutus script validating auction transactions"
@@ -83,16 +84,21 @@ myClientValidator csym targetHash =
           }
     , validatorDatum = Nothing
     , validatorCompiled = do
-        let script = clientValidatorScript (clientParams csym targetHash)
+        let script = clientValidatorScript (clientParams csym topicID messageHash)
         let code = Short.fromShort (serialiseCompiledCode script)
         Just (compiledValidator PlutusV2 code)
     }
 
-writeBlueprintToFile :: CurrencySymbol -> DataHash -> FilePath -> IO ()
-writeBlueprintToFile csym targetHash path = writeBlueprint path (clientContractBlueprint csym targetHash)
+writeBlueprintToFile :: CurrencySymbol -> TopicID -> DataHash -> FilePath -> IO ()
+writeBlueprintToFile csym topicID messageHash path = writeBlueprint path (clientContractBlueprint csym topicID messageHash)
 
 main :: IO ()
 main =
   getArgs >>= \case
-    [csym, targetHash, path] -> writeBlueprintToFile (CurrencySymbol (fromJust (hexStringToBuiltinByteString (pack csym)))) (DataHash (fromJust (hexStringToBuiltinByteString (pack targetHash)))) path
-    args -> fail $ "Expects 3 argument, currency symbol, target hash and path, got " <> show (length args)
+    [csym, topicID, messageHash, path] ->
+      writeBlueprintToFile
+        (CurrencySymbol (fromJust (hexStringToBuiltinByteString (pack csym))))
+        (TopicID (fromJust (hexStringToBuiltinByteString (pack topicID))))
+        (DataHash (fromJust (hexStringToBuiltinByteString (pack messageHash)))) path
+    args -> fail $ "Expects arguments: currency symbol, topic ID, message hash, and path.  Got: " <> show (length args)
+

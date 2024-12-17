@@ -1,12 +1,10 @@
 /*
-  node claim-bounty.mjs <left> <right> <fingerprint>
+  node claim-bounty.mjs
 
-  Claims the bounty funds by supplying a Merkle proof with left and
-  right arms, and the fingerprint of the committee multisig.
+  Claims the bounty funds by supplying a Merkle proof
 */
 
 import {
-    BlockfrostProvider,
     MeshWallet,
     MeshTxBuilder,
     Transaction,
@@ -45,14 +43,6 @@ const wallet = new MeshWallet({
 const recipient = {
     address: fs.readFileSync(`${principal}.addr`).toString().trim()
 };
-
-const leftHex = process.argv[3]
-const rightHex = process.argv[4]
-const multiSigPubKeyHashHex = process.argv[5]
-
-console.log(`Left ${leftHex}`);
-console.log(`Right ${rightHex}`);
-console.log(`Committee hash ${multiSigPubKeyHashHex}`);
 
 const validatorBlueprint = JSON.parse(
   fs.readFileSync('./var/sky-bridge-validator.json')
@@ -112,21 +102,32 @@ const nft = findUTXOWithSpecificUnit(bridgeUtxos, mintingPolicyHash + stringToHe
 const bountyUtxos = await blockchainProvider.fetchAddressUTxOs(bountyAddress);
 const bountyUtxo = bountyUtxos[0] // TBD for now claim only one of the UTXOs at bounty
 
-// ClientRedeemer
+// ClaimBounty
 const redeemer = {
     alternative: 0,
     fields: [
-	// SimplifiedMerkleProof
+	// messageInTopicProof :: SimplifiedMerkleProof
 	{ alternative: 0,
 	  fields: [
 	      // DataHash
-	      { alternative: 0, fields: [ leftHex ] },
+	      { alternative: 0, fields: [ "CAFE" ] },
 	      // DataHash
-	      { alternative: 0, fields: [ rightHex ] }
+	      { alternative: 0, fields: [ "BABE" ] }
 	  ]
 	},
-	// DataHash
-	{ alternative: 0, fields: [ multiSigPubKeyHashHex ] }
+	// topicInDAProof :: SimplifiedMerkleProof
+	{ alternative: 0,
+	  fields: [
+	      // DataHash
+	      { alternative: 0, fields: [ "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f" ] }, // topic 1 top hash
+	      // DataHash
+	      { alternative: 0, fields: [ "0000" ] } // topic 2 top hash
+	  ]
+	},
+	// topicCommitteeFingerprint :: DataHash
+	{ alternative: 0, fields: [ "b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767" ] }, // topic 1 committee fp
+	// mainCommitteeFingerprint :: DataHash
+	{ alternative: 0, fields: [ "5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f" ] } // main committee fingerprint
     ]
 }
 

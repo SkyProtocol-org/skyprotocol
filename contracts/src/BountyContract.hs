@@ -26,7 +26,7 @@
 
 module BountyContract where
 
-import SkyBridgeContract (BridgeNFTDatum (..), DataHash, getRefBridgeNFTDatumFromContext, pairHash)
+import SkyBridgeContract (BridgeNFTDatum (..), DataHash (..), getRefBridgeNFTDatumFromContext, pairHash)
 import GHC.Generics (Generic)
 
 import PlutusCore.Version (plcVersion100)
@@ -67,11 +67,21 @@ PlutusTx.makeIsDataSchemaIndexed ''SimplifiedMerkleProof [('SimplifiedMerkleProo
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
 
+-- Use bytestring for now, might be integer later
+data TopicID = TopicID BuiltinByteString
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+PlutusTx.makeLift ''TopicID
+PlutusTx.makeIsDataSchemaIndexed ''TopicID [('TopicID, 0)]
+
 data ClientParams = ClientParams
   { bountyNFTCurrencySymbol :: CurrencySymbol
     -- ^ Unique currency symbol (hash of minting policy) of the bridge contract NFT
-  , bountyTargetHash :: DataHash
-    -- ^ Hash of data that must be proven to be present in storage trie
+  , bountyTopicID :: TopicID
+    -- ^ ID of topic in which data must be published
+  , bountyMessageHash :: DataHash
+    -- ^ Hash of data that must be proven to be present in DA
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -84,9 +94,15 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 ------------------------------------------------------------------------------
 
 data ClientRedeemer
-    = ClaimBounty -- Claim bounty by supplying Merkle proof and committee signature
-        { proof :: SimplifiedMerkleProof
-        , multiSigPubKeyHash :: DataHash
+    = ClaimBounty
+        { messageInTopicProof :: SimplifiedMerkleProof
+          -- ^ Proof that data is included in topic
+        , topicInDAProof :: SimplifiedMerkleProof
+          -- ^ Proof that topic is included in DA root
+        , topicCommitteeFingerprint :: DataHash
+          -- ^ Fingerprint of topic committee multisig
+        , mainCommitteeFingerprint :: DataHash
+          -- ^ Fingerprint of main DA committee multisig
         }
     deriving stock (Generic)
     deriving anyclass (HasBlueprintDefinition)
@@ -98,54 +114,68 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- Client contract validator
 ------------------------------------------------------------------------------
 
+-- top_hash = hash(main_committee_fingerprint ++ main_root_hash)
+-- main_root_hash = hash(left_topic_top_hash ++ right_topic_top_hash)
+-- left_topic_top_hash = hash(left_topic_id ++ left_committee_fingerprint ++ left_topic_root_hash)
+-- (same for right topic committee)
+
+-- Validator function without logic for fetching NFT from script context, for easy testing
+clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
+clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
+    PlutusTx.and conditions
+  where
+    conditions :: [Bool]
+    conditions =
+      [ -- The bounty's message hash is in the topic
+        hashInMerkleProof (messageInTopicProof claim) bountyMessageHash
+        -- The topic's top hash is in the DA
+      , hashInMerkleProof (topicInDAProof claim) topicTopHash
+        -- The claimed top hash matches the one stored in the NFT
+      , topHash PlutusTx.== nftTopHash
+      ]
+    -- Root hash of topic trie produced by claim
+    topicRootHash :: DataHash
+    topicRootHash = merkleProofToDataHash (messageInTopicProof claim)
+    -- Topic top hash produced by claim
+    topicTopHash :: DataHash
+    topicTopHash = makeTopicTopHash bountyTopicID (topicCommitteeFingerprint claim) topicRootHash
+    -- Main root hash produced by claim
+    mainRootHash :: DataHash
+    mainRootHash = merkleProofToDataHash (topicInDAProof claim)
+    -- Top hash produced by claim
+    topHash :: DataHash
+    topHash = pairHash (mainCommitteeFingerprint claim) mainRootHash
+
+-- Main validator function
 clientTypedValidator ::
     ClientParams ->
     () ->
     ClientRedeemer ->
     ScriptContext ->
     Bool
-clientTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
-    PlutusTx.and conditions
+clientTypedValidator params () redeemer ctx =
+    clientTypedValidatorCore redeemer (bountyTopicID params) (bountyMessageHash params) nftTopHash
   where
-    conditions :: [Bool]
-    conditions = case redeemer of
-        -- Claim the bounty
-        ClaimBounty proof multiSigPubKeyHash ->
-            [
-              -- The Merkle proof must match the root hash stored in the NFT
-              merkleProofValid ctx (bountyNFTCurrencySymbol params) (bountyTargetHash params) multiSigPubKeyHash proof
-            ]
+    -- Top hash stored in NFT
+    nftTopHash :: DataHash
+    nftTopHash = case getRefBridgeNFTDatumFromContext (bountyNFTCurrencySymbol params) ctx of
+                   Nothing -> PlutusTx.traceError "bridge NFT not found"
+                   Just (BridgeNFTDatum topHash) -> topHash
 
-------------------------------------------------------------------------------
--- Merkle Proof Validation
-------------------------------------------------------------------------------
+-- Verify whether a (leaf) hash is included in a Merkle proof
+hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
+hashInMerkleProof (SimplifiedMerkleProof leftHash rightHash) hash =
+  (hash PlutusTx.== leftHash PlutusTx.|| hash PlutusTx.== rightHash)
 
--- Verify that merkle proof is valid by looking up NFT UTXO in the script context
-merkleProofValid :: ScriptContext -> CurrencySymbol -> DataHash -> DataHash -> SimplifiedMerkleProof -> Bool
-merkleProofValid ctx csym targetHash multiSigPubKeyHash proof =
-  case getRefBridgeNFTDatumFromContext csym ctx of
-    Nothing -> PlutusTx.traceError "bridge NFT not found"
-    Just (BridgeNFTDatum topHash) -> merkleProofNFTHashValid topHash targetHash multiSigPubKeyHash proof
+-- The topic top hash includes the topic ID, topic committee fingerprint, and topic root hash
+makeTopicTopHash :: TopicID -> DataHash -> DataHash -> DataHash
+makeTopicTopHash (TopicID topicID) (DataHash committeeFingerprint) (DataHash topicRootHash) =
+  DataHash (sha2_256 (appendByteString topicID (appendByteString committeeFingerprint topicRootHash)))
 
 -- Hashes a merkle proof to produce the root data hash
 merkleProofToDataHash :: SimplifiedMerkleProof -> DataHash
 merkleProofToDataHash (SimplifiedMerkleProof leftHash rightHash) =
   pairHash leftHash rightHash
-
--- Computes the top hash from the data trie hash and the committe hash
-topHash :: DataHash -> DataHash -> DataHash
-topHash trieHash multiSigPubKeyHash =
-  pairHash trieHash multiSigPubKeyHash
-
--- The main function to validate the Merkle proof against the root
--- data hash stored in the NFT: Check that the merkle proof and
--- multisig hash hashes to the top hash, and either the left or right
--- child of the merkle proof is the bounty's target data hash.
-merkleProofNFTHashValid :: DataHash -> DataHash -> DataHash -> SimplifiedMerkleProof -> Bool
-merkleProofNFTHashValid nftTopHash targetHash multiSigPubKeyHash proof@(SimplifiedMerkleProof leftHash rightHash) =
-  let proofHash = merkleProofToDataHash proof in
-    (topHash proofHash multiSigPubKeyHash) PlutusTx.== nftTopHash PlutusTx.&&
-    (targetHash PlutusTx.== leftHash PlutusTx.|| targetHash PlutusTx.== rightHash)
 
 ------------------------------------------------------------------------------
 -- Untyped Validator
