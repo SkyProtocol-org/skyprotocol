@@ -55,7 +55,7 @@ data SingleSig = SingleSig PubKey PlutusTx.BuiltinByteString
 [quote]
 The bridge contract should be able to follow a chain of committees.
 
-The file link:test-bridge.mjs[], described in more detail below,
+The file link:test-bridge.sh[], described in more detail below,
 demonstrates updating the top hash stored in the bridge NFT, thereby
 updating the committee multisig pubkey.
 
@@ -66,9 +66,9 @@ The client contract should be able to verify an attestation wherein
 data was accepted by a topic committee itself attested by the main DA
 committee.
 
-The file link:test-bounty.mjs[], described in more detail below,
-demonstrates offering and claiming bounty for a message hash attested
-by a topic committee itself attested by the main committee.
+The file link:test-bounty.sh[], described in more detail below,
+demonstrates offering and claiming a bounty for a message hash
+attested by a topic committee itself attested by the main committee.
 
 ## Contracts Overview (Repeated from Milestone 2)
 
@@ -179,7 +179,7 @@ This uses the files:
 * link:claim-bounty.mjs[] to claim the bounty (i.e. unlock the locked funds).
   This is the main part of the test.
 
-* link:verify-bounty-claimed.mjs[] to verify that the locked funds have be claimed
+* link:verify-bounty-claimed.mjs[] to verify that the locked funds have be claimed.
 
 The following data is sent from the off-chain script
 link:claim-bounty.mjs[] to the on-chain bounty contract.  See
@@ -226,8 +226,8 @@ const redeemer = {
 ```
 
 This test demonstrates updating the bridge UTXO NFT with a different
-top hash in sequence, and verifying (by querying the blockchain)
-afterwards that the update has indeed happened.
+top hash, and verifying (by querying the blockchain) afterwards that
+the update has indeed happened.
 
 This uses the files:
 
