@@ -346,3 +346,15 @@ bridgeSpec = do
 
   it "bridge accepts top hash 2" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` True
+
+  it "bridge doesn't accept top hash 2 with wrong committee" $ do
+    (bridgeTypedValidatorCore topic1CommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` False
+
+  it "bridge doesn't accept top hash 2 with wrong old root hash" $ do
+    (bridgeTypedValidatorCore mainCommitteePK mainRootHash2 topHash2 topHash2Sig topHash1) `shouldBe` False
+
+  it "bridge doesn't accept top hash 2 with wrong signature" $ do
+    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 msig1OK topHash1) `shouldBe` False
+
+  it "bridge doesn't accept top hash 2 with wring old top hash" $ do
+    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig dh1) `shouldBe` False
