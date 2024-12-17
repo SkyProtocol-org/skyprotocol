@@ -1,4 +1,4 @@
-module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec) where
+module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
 
 import Test.Hspec
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
@@ -272,6 +272,32 @@ bountySpec = do
 
   it "contract should not accept claim for wrong main committee" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP topic1CommitteeFP) topic1 dh1 topHash1 `shouldBe` False
+
+  it "contract should not accept claim for wrong top hash" $ do
+    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 dh1 `shouldBe` False
+
+------------------------------------------------------------------------------
+-- Bridge Contract
+------------------------------------------------------------------------------
+
+-- Top hash 2 has same committee as top hash 1 but different root hash
+
+topicInDAProof2 :: SimplifiedMerkleProof
+topicInDAProof2 = SimplifiedMerkleProof topic2TopHash topic1TopHash -- switch order
+
+mainRootHash2 :: DataHash
+mainRootHash2 = merkleProofToDataHash topicInDAProof2
+
+topHash2 :: DataHash
+topHash2 = pairHash mainCommitteeFP mainRootHash2
+
+-- Top hash 3 has different committee as top hash 1 but same root hash
+
+topHash3 :: DataHash
+topHash3 = pairHash topic1CommitteeFP mainRootHash1
+
+bridgeSpec :: Spec
+bridgeSpec = do
 
   it "contract should not accept claim for wrong top hash" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 dh1 `shouldBe` False

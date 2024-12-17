@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Test.Hspec
-import Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec)
+import Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec)
 
 main :: IO ()
 main = hspec $ do
@@ -10,3 +10,4 @@ main = hspec $ do
   describe "Merkle Proof Tests" Spec.SkySpec.merkleSpec
   describe "Topic Tests" Spec.SkySpec.topicSpec
   describe "Bounty Tests" Spec.SkySpec.bountySpec
+  describe "Bridge Tests" Spec.SkySpec.bridgeSpec
