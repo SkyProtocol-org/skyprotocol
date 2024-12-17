@@ -317,14 +317,23 @@ mainCommitteePK, topic1CommitteePK :: MultiSigPubKey
 mainCommitteePK = mpk1
 topic1CommitteePK = mpk2
 
--- top hash 2 signed by sk1 and sk2 of main committee
+-- top hash 2 signed by sk1
 -- th2: 3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1
 -- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
 topHash2Sig1 :: SingleSig
 topHash2Sig1 = SingleSig pk1 (hex "87E894C503E40A8CB98DEB8618DC068323092871C717D4781D56FCBBE10FCD6B1965ADE766FFDFAF8F7B2964F3ED8A6066703DD9AA68F583055ED53FBA27A90E")
 
+-- top hash 2 signed by sk2
+-- th2: 3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1
+-- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
+topHash2Sig2 :: SingleSig
+topHash2Sig2 = SingleSig pk2 (hex "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003")
+
 bridgeSpec :: Spec
-bridgeSpec =
+bridgeSpec = do
 
   it "topHash2Sig1 valid" $ do
-     (singleSigValid topHash2 topHash2Sig1) `shouldBe` True
+    (singleSigValid topHash2 topHash2Sig1) `shouldBe` True
+
+  it "topHash2Sig2 valid" $ do
+    (singleSigValid topHash2 topHash2Sig2) `shouldBe` True
