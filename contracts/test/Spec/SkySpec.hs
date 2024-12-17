@@ -329,6 +329,9 @@ topHash2Sig1 = SingleSig pk1 (hex "87E894C503E40A8CB98DEB8618DC068323092871C717D
 topHash2Sig2 :: SingleSig
 topHash2Sig2 = SingleSig pk2 (hex "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003")
 
+topHash2Sig :: MultiSig
+topHash2Sig = MultiSig [topHash2Sig1, topHash2Sig2]
+
 bridgeSpec :: Spec
 bridgeSpec = do
 
@@ -337,3 +340,6 @@ bridgeSpec = do
 
   it "topHash2Sig2 valid" $ do
     (singleSigValid topHash2 topHash2Sig2) `shouldBe` True
+
+  it "topHash2Sig valid" $ do
+    (multiSigValid mainCommitteePK topHash2 topHash2Sig) `shouldBe` True
