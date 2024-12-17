@@ -267,6 +267,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
       assetClassValueOf (txOutValue ownOutput) assetClass PlutusTx.== 1
 
 -- Core validation function, for easy testing
+bridgeTypedValidatorCore :: MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
 bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldTopHash =
   PlutusTx.and
     [ multiSigValid committee newTopHash sig

@@ -343,3 +343,6 @@ bridgeSpec = do
 
   it "topHash2Sig valid" $ do
     (multiSigValid mainCommitteePK topHash2 topHash2Sig) `shouldBe` True
+
+  it "bridge accepts top hash 2" $ do
+    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` True
