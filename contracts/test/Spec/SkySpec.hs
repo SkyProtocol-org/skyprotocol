@@ -332,6 +332,21 @@ topHash2Sig2 = SingleSig pk2 (hex "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC1
 topHash2Sig :: MultiSig
 topHash2Sig = MultiSig [topHash2Sig1, topHash2Sig2]
 
+-- top hash 3 signed by sk1
+-- th3: 9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce
+-- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
+topHash3Sig1 :: SingleSig
+topHash3Sig1 = SingleSig pk1 (hex "9286F3C3FCA4ADC044013E343089829AB9EB68C96B407B7C4D400B63B8E9B5A551C4FACB948615ADAC3C47833FD1320BEA76B09A90D7B2982D511E1C4B6A010F")
+
+-- top hash 3 signed by sk2
+-- th3: 9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce
+-- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
+topHash3Sig2 :: SingleSig
+topHash3Sig2 = SingleSig pk2 (hex "A5CF5C46F3DB920896E93ECBC726EECA8F488B6ED1A3E2D7122AE0E067DC9A1A24FC8EDD22DDDD329CFFB6791D5840BD0F95BF27463711F99225B5162719E20E")
+
+topHash3Sig :: MultiSig
+topHash3Sig = MultiSig [topHash3Sig1, topHash3Sig2]
+
 bridgeSpec :: Spec
 bridgeSpec = do
 
@@ -344,8 +359,20 @@ bridgeSpec = do
   it "topHash2Sig valid" $ do
     (multiSigValid mainCommitteePK topHash2 topHash2Sig) `shouldBe` True
 
+  it "topHash3Sig1 valid" $ do
+    (singleSigValid topHash3 topHash3Sig1) `shouldBe` True
+
+  it "topHash3Sig2 valid" $ do
+    (singleSigValid topHash3 topHash3Sig2) `shouldBe` True
+
+  it "topHash3Sig valid" $ do
+    (multiSigValid mainCommitteePK topHash3 topHash3Sig) `shouldBe` True
+
   it "bridge accepts top hash 2" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` True
+
+  it "bridge accepts top hash 3" $ do
+    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash3 topHash3Sig topHash1) `shouldBe` True
 
   it "bridge doesn't accept top hash 2 with wrong committee" $ do
     (bridgeTypedValidatorCore topic1CommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` False
@@ -356,5 +383,5 @@ bridgeSpec = do
   it "bridge doesn't accept top hash 2 with wrong signature" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 msig1OK topHash1) `shouldBe` False
 
-  it "bridge doesn't accept top hash 2 with wring old top hash" $ do
+  it "bridge doesn't accept top hash 2 with wrong old top hash" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig dh1) `shouldBe` False
