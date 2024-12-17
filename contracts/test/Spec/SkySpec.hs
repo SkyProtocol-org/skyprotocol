@@ -313,8 +313,18 @@ bountySpec = do
 -- Bridge Contract
 ------------------------------------------------------------------------------
 
-bridgeSpec :: Spec
-bridgeSpec = it "foo" $ True `shouldBe` True
+mainCommitteePK, topic1CommitteePK :: MultiSigPubKey
+mainCommitteePK = mpk1
+topic1CommitteePK = mpk2
 
---  it "bridge should accept update of top hash" $ do
---    bridgeTypedValidatorCore (UpdateBridge mpk1 mainRootHash1 topHash2 ) topic1 dh1 dh1 `shouldBe` False
+-- top hash 2 signed by sk1 and sk2 of main committee
+-- th2: 3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1
+-- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
+topHash2Sig1 :: SingleSig
+topHash2Sig1 = SingleSig pk1 (hex "87E894C503E40A8CB98DEB8618DC068323092871C717D4781D56FCBBE10FCD6B1965ADE766FFDFAF8F7B2964F3ED8A6066703DD9AA68F583055ED53FBA27A90E")
+
+bridgeSpec :: Spec
+bridgeSpec =
+
+  it "topHash2Sig1 valid" $ do
+     (singleSigValid topHash2 topHash2Sig1) `shouldBe` True
