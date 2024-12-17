@@ -61,6 +61,8 @@ library
         Data.MerkleTrie
         Data.Trie
         Data.Trie.Internal
+        Data.Trie.LittleEndian
+        Data.Trie.BigEndian
         Data.Trie.Zipper
         Data.Utils
 
