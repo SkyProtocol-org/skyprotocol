@@ -230,15 +230,12 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     conditions = case redeemer of
         -- Update the bridge state
         UpdateBridge committee oldRootHash newTopHash sig ->
-            [
-              -- The top hash must be signed by the committee
-              multiSigValid committee newTopHash sig,
+            [ -- Core validation, below
+              bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldNFTTopHash
               -- The NFT must be again included in the outputs
-              outputHasNFT,
+            , outputHasNFT
               -- The NFT's data must have been updated
-              nftUpdated newTopHash,
-              -- The hash of pair(multisig-hash, old-data-hash) must be = old-top-hash
-              oldTopHashMatches committee oldRootHash
+            , nftUpdated newTopHash
             ]
 
     ownOutput :: TxOut
@@ -246,24 +243,38 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
         [o] -> o
         _   -> PlutusTx.traceError "expected exactly one output"
 
+    oldBridgeNFTDatum :: BridgeNFTDatum
+    (Just oldBridgeNFTDatum) = getBridgeNFTDatumFromTxOut ownOutput ctx
+
+    newBridgeNFTDatum :: BridgeNFTDatum
+    (Just newBridgeNFTDatum) = getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx
+
+    oldNFTTopHash :: DataHash
+    (BridgeNFTDatum oldNFTTopHash) = oldBridgeNFTDatum
+
+    newNFTTopHash :: DataHash
+    (BridgeNFTDatum newNFTTopHash) = newBridgeNFTDatum
+
+    -- The output NFT UTXO's datum must match the new values for the root hashes
+    nftUpdated :: DataHash -> Bool
+    nftUpdated newTopHash =
+      newNFTTopHash PlutusTx.== newTopHash
+
     -- There must be exactly one output UTXO with our NFT's unique currency symbol
     outputHasNFT :: Bool
     outputHasNFT =
       let assetClass = (AssetClass ((bridgeNFTCurrencySymbol params), TokenName "SkyBridge")) in
       assetClassValueOf (txOutValue ownOutput) assetClass PlutusTx.== 1
 
-    bridgeNFTDatum :: Maybe BridgeNFTDatum
-    bridgeNFTDatum = getBridgeNFTDatumFromTxOut ownOutput ctx
-
-    oldTopHashMatches :: MultiSigPubKey -> DataHash -> Bool
-    oldTopHashMatches committee oldRootHash =
-      let (Just (BridgeNFTDatum oldTopHash)) = bridgeNFTDatum in
-        oldTopHash PlutusTx.== pairHash (multiSigToDataHash committee) oldRootHash
-
-    -- The NFT UTXO's datum must match the new values for the root hashes
-    nftUpdated :: DataHash -> Bool
-    nftUpdated newTopHash =
-      bridgeNFTDatum PlutusTx.== Just (BridgeNFTDatum newTopHash)
+-- Core validation function, for easy testing
+bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldTopHash =
+  PlutusTx.and
+    [ multiSigValid committee newTopHash sig
+      -- ^ The new top hash must be signed by the committee
+    , oldTopHash PlutusTx.== pairHash (multiSigToDataHash committee) oldRootHash
+      -- ^ The old top hash must be the hash of the concatenation of committee fingerprint
+      --   and old root hash
+    ]
 
 ------------------------------------------------------------------------------
 -- Multisig Verification
