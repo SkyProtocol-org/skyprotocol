@@ -25,7 +25,8 @@ import { newProvider, findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.
 
 const blockchainProvider = newProvider();
 
-const topHashHex = process.argv[2]
+// top hash 2
+const topHashHex = "3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1";
 
 const validatorBlueprint = JSON.parse(
   fs.readFileSync('./var/sky-bridge-validator.json')
@@ -72,4 +73,4 @@ if (nftTopHashHex.toLowerCase() === topHashHex.toLowerCase()) {
     console.log("Top Hash valid");
 } else {
     throw `Top hash in NFT ${nftTopHashHex} doesn't match argument hash ${topHashHex}`;
-}
+g}

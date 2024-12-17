@@ -244,10 +244,10 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
         _   -> PlutusTx.traceError "expected exactly one output"
 
     oldBridgeNFTDatum :: BridgeNFTDatum
-    (Just oldBridgeNFTDatum) = getBridgeNFTDatumFromTxOut ownOutput ctx
+    (Just oldBridgeNFTDatum) = getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx
 
     newBridgeNFTDatum :: BridgeNFTDatum
-    (Just newBridgeNFTDatum) = getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx
+    (Just newBridgeNFTDatum) = getBridgeNFTDatumFromTxOut ownOutput ctx
 
     oldNFTTopHash :: DataHash
     (BridgeNFTDatum oldNFTTopHash) = oldBridgeNFTDatum

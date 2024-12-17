@@ -72,6 +72,7 @@ const mintingPolicy = {
 const datumOut = {
     alternative: 0,
     fields: [
+	// DataHash
 	{ alternative: 0,
 	  fields: [TOPHASH1]
 	}

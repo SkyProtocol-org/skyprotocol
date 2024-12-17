@@ -1,12 +1,9 @@
 /*
-  node update-bridge.mjs <wallet> <pubkey> <old-root-hash-hex> <top-hash-hex> <sig>
+  node update-bridge.mjs <wallet>
 
   Updates the top hash stored in the bridge NFT.
-  
+
   Wallet will be used to pay fees.
-  Pubkey is the committee public key.
-  Top-hash-hex is new hash of merkle root and committee fingerprint.
-  Sig is signature of tophash.
 */
 
 import cbor from 'cbor'
@@ -42,13 +39,6 @@ const wallet = new MeshWallet({
       bech32: fs.readFileSync(`${process.argv[2]}.skey`).toString().trim()
   }
 })
-
-const publicKeyHex = process.argv[3]
-const oldRootHashHex = process.argv[4]
-const newTopHashHex = process.argv[5]
-const sigHex = process.argv[6]
-
-console.log(`Updating bridge with new top hash ${newTopHashHex}\nPublic key: ${publicKeyHex}\nSignature: ${sigHex}`);
 
 const validatorBlueprint = JSON.parse(
   fs.readFileSync('./var/sky-bridge-validator.json')
@@ -90,12 +80,16 @@ const mintingPolicyHash = resolveScriptHash(
 function mkDataHash(hex) { return { alternative: 0, fields: [hex] } }
 function mkPubKey(hex) { return { alternative: 0, fields: [hex] } }
 
-// Create MultiSigPubKey
+const pk1 = mkPubKey("3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65");
+const pk2 = mkPubKey("42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE");
+const pk3 = mkPubKey("22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73");
+
+// Create main committee MultiSigPubKey
 const msPublicKey = {
     alternative: 0,
     fields: [
-	[ mkPubKey(publicKeyHex) ], // List of public keys in signatures
-	1 // Number of public keys that must sign
+	[ pk1, pk2, pk3 ],
+	2 // Number of public keys that must sign
     ]
 }
 
@@ -104,18 +98,23 @@ const ms = {
     alternative: 0,
     fields: [
 	// [SingleSig]
-	[ { alternative: 0,
-	    fields: [ sigHex ] } ]
+	[ { alternative: 0, // top hash 2 sig 1
+	    fields: [ pk1, "87E894C503E40A8CB98DEB8618DC068323092871C717D4781D56FCBBE10FCD6B1965ADE766FFDFAF8F7B2964F3ED8A6066703DD9AA68F583055ED53FBA27A90E" ] },
+	  { alternative: 0, // top hash 2 sig 2
+	    fields: [ pk2, "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003" ] }
+	]
     ]
 }
+
+const TOPHASH2 = mkDataHash("3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"); // top hash 2
 
 // Create UpdateBridge redeemer
 const redeemer = {
     alternative: 0,
     fields: [
 	msPublicKey,
-	mkDataHash(oldRootHashHex),
-	mkDataHash(newTopHashHex),
+	mkDataHash("9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"), // main root hash 1
+	TOPHASH2,
 	ms
     ]
 }
@@ -130,7 +129,7 @@ const utxo = findUTXOWithSpecificUnit(utxos, mintingPolicyHash + stringToHex('Sk
 const updatedDatum = {
     alternative: 0,
     fields: [
-	mkDataHash(newTopHashHex)
+	TOPHASH2
     ]
 };
 
