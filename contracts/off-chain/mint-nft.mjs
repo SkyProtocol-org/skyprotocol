@@ -21,6 +21,9 @@ import { newProvider, waitUntilTxReady } from "./util.mjs";
 // Setup
 //////////////////////////////////////////////////////////////////////////////
 
+// Construction explained in ../test/Spec/SkySpec.hs
+const TOPHASH1 = "41f011893595e8cf96f9effee819310d41f9038c7adfb0d3d7b1b5ddfaac6710"
+
 const blockchainProvider = newProvider();
 
 const wallet = new MeshWallet({
@@ -65,11 +68,12 @@ const mintingPolicy = {
 // Mint NFT
 //////////////////////////////////////////////////////////////////////////////
 
+// BridgeNFTDatum
 const datumOut = {
     alternative: 0,
     fields: [
 	{ alternative: 0,
-	  fields: ['0000'] // Use all zero hash initially
+	  fields: [TOPHASH1]
 	}
     ]
 };

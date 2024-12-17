@@ -12,7 +12,7 @@ committee of data availability providers.
 
 ## Acceptance criteria
 
-Reference: https://milestones.projectcatalyst.io/projects/1200203/milestones/2
+Reference: https://milestones.projectcatalyst.io/projects/1200203/milestones/3
 
 ### Criterium 1
 

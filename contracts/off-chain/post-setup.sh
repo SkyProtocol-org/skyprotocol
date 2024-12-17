@@ -14,7 +14,7 @@ cabal run gen-validator-blueprint -- "$(cat var/sky-minting-policy.hash)" var/sk
 cat var/sky-bridge-validator.json | jq -r '.validators[0].hash' > var/sky-bridge-validator.hash
 # Mint the bridge NFT
 node mint-nft.mjs var/admin
-# Generate Bounty validator with our desired target hash 1111
-cabal run gen-bounty-blueprint -- "$(cat var/sky-minting-policy.hash)" 1111 var/sky-bounty-validator.json
+# Generate Bounty validator with our desired topic ID 00 and target hash CAFE
+cabal run gen-bounty-blueprint -- "$(cat var/sky-minting-policy.hash)" 00 CAFE var/sky-bounty-validator.json
 
 echo OK
