@@ -3,9 +3,9 @@ set -eux
 
 # Distribute some Ada to offerer and claimant
 node send-lovelace.mjs var/admin var/offerer 2500
-sleep 5
+sleep 1
 node send-lovelace.mjs var/admin var/claimant 2500
-sleep 5
+sleep 1
 # Create minting policy
 cabal run gen-minting-policy-blueprint -- "$(cat var/admin.pkh)" var/sky-minting-policy.json
 cat var/sky-minting-policy.json | jq -r '.validators[0].hash' > var/sky-minting-policy.hash
