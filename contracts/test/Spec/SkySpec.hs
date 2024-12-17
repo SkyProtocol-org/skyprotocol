@@ -249,6 +249,11 @@ mainRootHash2 = merkleProofToDataHash topicInDAProof2
 topHash2 :: DataHash
 topHash2 = pairHash mainCommitteeFP mainRootHash2
 
+-- Top hash 3 has different committee as top hash 2 but same root hash
+
+topHash3 :: DataHash
+topHash3 = pairHash topic1CommitteeFP mainRootHash1
+
 bountySpec :: Spec
 bountySpec = do
 
@@ -273,6 +278,12 @@ bountySpec = do
     -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
     -- ++ 9445c184e34e8e672e574e51141b1a88df56f692598811a3c31aab6d6727a10f
     bytes topHash2 `shouldBe` hex "3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"
+
+  it "top hash 3 should be correct" $ do
+    -- Sha256 of concatenation of topic1CommitteeFP ++ mainRootHash1
+    -- b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767
+    -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
+    bytes topHash3 `shouldBe` hex "9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce"
 
   it "contract should accept claim for dh1" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` True
@@ -301,11 +312,6 @@ bountySpec = do
 ------------------------------------------------------------------------------
 -- Bridge Contract
 ------------------------------------------------------------------------------
-
--- Top hash 3 has different committee as top hash 1 but same root hash
-
-topHash3 :: DataHash
-topHash3 = pairHash topic1CommitteeFP mainRootHash1
 
 bridgeSpec :: Spec
 bridgeSpec = it "foo" $ True `shouldBe` True
