@@ -2,13 +2,7 @@
 
 ## Abstract
 
-This repository demonstrates the interplay between a bridge contract
-that stores the root hash of a data availability merkle tree, and a
-client contract that uses the root hash stored in the bridge to lock
-and pay out a bounty prize.
-
-The root hash is stored in an NFT UTXO and must be signed by a
-committee of data availability providers.
+This document describes the achievement of the acceptance criteria for Milestone 3.
 
 ## Acceptance criteria
 
@@ -17,41 +11,66 @@ Reference: https://milestones.projectcatalyst.io/projects/1200203/milestones/3
 ### Criterium 1
 
 [quote]
-The deliverable is to demonstrate the basic infrastructure for
-stateful interaction with and between two smart contracts, one for the
-DA bridge, one for a DA client
+The deliverable is all about extending the previous one to
+support more decentralization in the DA service roughly
+corresponding to sections 1)b) and 1)c) of the specification from
+Milestone 1. All other details are subordinate to the implementation
+and validation of this support for decentralization.
 
-The file link:../src/SkyContracts.hs[] contains the bridge
-(`bridgeTypedValidator`) and client (bounty) contracts
-(`clientTypedValidator`).
+This deliverable extends the previous Milestone 2 with support for
+multi-signatures instead of just single signatures (criterium 3,
+below), updating the committee signatures (criterium 4), and
+delegation of topics to subordinate committees (criterium 5).
 
 ### Criterium 2
 
 [quote]
-The smart contracts should build, and the tests shall pass
+Again, the smart contracts should build, and the tests shall
+pass at the specified commit, run against a private Cardano
+network, and execute the on-chain smart contract flows of a Data
+Availability interaction including bridge updates and client
+validations.
 
-See setup and testing instructions, below.
+The tests, below, run on the Yaci Devkit, available at
+link:https://github.com/bloxbean/yaci-devkit[].
 
 ### Criterium 3
 
 [quote]
-The tests shall actually have a private Cardano network
-execute the on-chain smart contract flows of a Data Availability
-interaction
+The smart contracts should accept multisigs against a varying
+set of public keys, rather than a simple signature against a fixed
+public key.
 
-The tests, below, execute on the Cardano Preview testnet.
+The contracts now use simple multi-signatures made up of lists of
+single signatures, see link:../src/SkyBridgeContract.hs[].
+
+```
+data PubKey = PubKey PlutusTx.BuiltinByteString
+data MultiSigPubKey = MultiSigPubKey [PubKey] Integer
+data SingleSig = SingleSig PubKey PlutusTx.BuiltinByteString
+```
 
 ### Criterium 4
 
 [quote]
-Since they must actually run on-chain, the smart contracts must be
-written in a language that supports Cardano, whichever language we may
-choose.
+The bridge contract should be able to follow a chain of committees.
 
-We use PlutusTx for the on-chain contracts, and the MeshJS
-framework for the off-chain parts.
+The file link:test-bridge.mjs[], described in more detail below,
+demonstrates updating the top hash stored in the bridge NFT, thereby
+updating the committee multisig pubkey.
 
-## Contracts Overview
+### Criterium 5
+
+[quote]
+The client contract should be able to verify an attestation wherein
+data was accepted by a topic committee itself attested by the main DA
+committee.
+
+The file link:test-bounty.mjs[], described in more detail below,
+demonstrates offering and claiming bounty for a message hash attested
+by a topic committee itself attested by the main committee.
+
+## Contracts Overview (Repeated from Milestone 2)
 
 The general idea is that the bridge NFT contains a hash, called the
 _top hash_ of both the root hash of the DA merkle tree as well as the
@@ -70,7 +89,7 @@ The claimant does this by supplying a merkle proof of data inclusion,
 as well as the fingerprint of the current committee multisig.
 
 In our example, the bounty prize will be paid out if the claimant can
-prove that a datum with the hash `1111` is stored in the DA network.
+prove that a datum with the hash `0xCAFE` is stored in the DA network.
 (Our system supports hashes of any length, we just use such a simple
 one for this test for memorability).
 
@@ -84,32 +103,13 @@ one for this test for memorability).
 
 * link:../app[] -- Blueprint generators for contracts and minting policy
 
-## Simplifying assumptions
-
-* Per non-criterium 1: Instead of a committee multisig, only a single
-  public key is used.  This will be extended to a real multisig for
-  the next milestone.
-
-* Per non-criterium 1: Instead of a full Merkle proof, this uses a
-  reduced 1-level, 2-arm Merkle proof.  Only the left or right hash
-  has to be supplied.  This will be extended for the next milestone.
-
-* The bounty fund locking mechanism used for testing is very simple -
-  we always assume a single UTXO with 10 Ada will be the bounty prize.
-
-* The NFT is not a "real", UTXO-based NFT and instead uses the
-  construction from the
-  https://github.com/IntersectMBO/plutus-tx-template where NFT minting
-  is guarded by a private key, and simply only a single one is ever
-  created.
-
 # Testing the contracts
 
 Requirements: Debian/Ubuntu Linux box.
 
 ## Setup
 
-Setting up requires two automated and two manual steps:
+Setting up requires the following steps:
 
 ### Step 1: Install dependencies and generate keys (link:pre-setup.sh[])
 
@@ -153,38 +153,126 @@ yaci-cli:>topup <admin-address> 10000
 ./post-setup.sh
 ```
 
-## Test 1: Updating the Bridge
-
-This test demonstrates updating the bridge UTXO NFT with two different
-merkle root hashes in sequence, and verifying (by querying the
-blockchain) after each step that the updates have indeed happened.
-
-Check out the link:test-1.sh[] file for a more detailed description.
+## Test: Offering and Claiming a Bounty (link:test-bounty.sh[])
 
 ```
-./test-1.sh
+./test-bounty.sh
 ```
+
+This test demonstrates offering a bounty that will be paid out if a
+claimant can demonstrate that a particular message hash is stored
+under a particular topic ID in the merkle tree by providing a merkle
+proof.
+
+Specifically, the topic ID must be `0x00` and the message hash must be
+`0xCAFE`.  These parameters are set when the bounty contract is
+created with link:../app/GenBountyBlueprint.hs[].
+
+This uses the files:
+
+* link:offer-bounty.mjs[] to lock some funds at the bounty contract.
+  This is a very simple script that simply sends Ada to the bounty contract.
+
+* link:verify-bounty-offered.mjs[] to verify that some funds are locked at the contract.
+  Another simple script that verifies that there are indeed Ada at the contract.
+
+* link:claim-bounty.mjs[] to claim the bounty (i.e. unlock the locked funds).
+  This is the main part of the test.
+
+* link:verify-bounty-claimed.mjs[] to verify that the locked funds have be claimed
+
+The following data is sent from the off-chain script
+link:claim-bounty.mjs[] to the on-chain bounty contract.  See
+link:../test/Spec/SkySpec.hs[] for the construction of these hashes.
+
+The redeemer proves inclusion of the hash `0xCAFE` in the topic and
+inclusion of the topic ID in the DA, and includes the main and topic committee fingerprints.
+
+```
+// ClaimBounty redeemer
+const redeemer = {
+    alternative: 0,
+    fields: [
+	// messageInTopicProof :: SimplifiedMerkleProof
+	{ alternative: 0,
+	  fields: [
+	      // DataHash
+	      { alternative: 0, fields: [ "CAFE" ] },
+	      // DataHash
+	      { alternative: 0, fields: [ "BABE" ] }
+	  ]
+	},
+	// topicInDAProof :: SimplifiedMerkleProof
+	{ alternative: 0,
+	  fields: [
+	      // DataHash
+	      { alternative: 0, fields: [ "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f" ] }, // topic 1 top hash
+	      // DataHash
+	      { alternative: 0, fields: [ "0000" ] } // topic 2 top hash
+	  ]
+	},
+	// topicCommitteeFingerprint :: DataHash
+	{ alternative: 0, fields: [ "b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767" ] }, // topic 1 committee fp
+	// mainCommitteeFingerprint :: DataHash
+	{ alternative: 0, fields: [ "5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f" ] } // main committee fingerprint
+    ]
+}
+```
+
+## Test: Updating the Bridge (link:test-bridge.sh[])
+
+```
+./test-bridge.sh
+```
+
+This test demonstrates updating the bridge UTXO NFT with a different
+top hash in sequence, and verifying (by querying the blockchain)
+afterwards that the update has indeed happened.
 
 This uses the files:
 
 * link:update-bridge.mjs[] to update the bridge NFT
+
 * link:verify-bridge.mjs[] to verify the bridge NFT's current value
 
-## Test 2: Offering and claiming a bounty
+Updating the bridge (link:update-bridge.mjs[]) sends the following
+data to the bridge contract.  Again, see link:../test/Spec/SkySpec.hs[] for
+the construction of these hashes.
 
-This test demonstrates offering a bounty that will be paid out if a
-claimant can demonstrate that a particular datum is stored in the
-merkle tree by providing a merkle proof.
-
-Check out the link:test-2.sh[] file for a more detailed description.
+The redeemer proves that the new top hash is signed by the main committee.
 
 ```
-./test-2.sh
+// UpdateBridge redeemer
+const redeemer = {
+    alternative: 0,
+    fields: [
+        // bridgeCommittee :: MultiSigPubKey
+	{
+ 	    alternative: 0,
+            fields: [
+                [
+          	     mkPubKey("3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"),
+		     mkPubKey("42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE"),
+		     mkPubKey("22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73")
+                ]
+                2 // Number of public keys that must sign
+            ]
+        },
+	// bridgeOldRootHash :: DataHash
+	mkDataHash("9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"), // main root hash 1
+	// bridgeNewTopHash :: DataHash
+	mkDataHash("3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"), // top hash 2
+	// bridgeSig :: MultiSig
+	{
+            alternative: 0,
+            fields: [
+	    	[ { alternative: 0, // top hash 2 sig 1
+	    	    fields: [ pk1, "87E894C503E40A8CB98DEB8618DC068323092871C717D4781D56FCBBE10FCD6B1965ADE766FFDFAF8F7B2964F3ED8A6066703DD9AA68F583055ED53FBA27A90E" ] },
+                  { alternative: 0, // top hash 2 sig 2
+                    fields: [ pk2, "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003" ] }
+                ]
+            ]
+        }
+    ]
+}
 ```
-
-This uses the files:
-
-* link:offer-bounty.mjs[] to lock some funds at the bounty contract
-* link:verify-bounty-offered.mjs[] to verify that some funds are locked at the contract
-* link:claim-bounty.mjs[] to claim the bounty (i.e. unlock the locked funds)
-* link:verify-bounty-claimed.mjs[] to verify that the locked funds have be claimed
