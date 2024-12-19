@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -13,32 +14,57 @@ import Data.WideWord (Word256)
 import Data.Word (Word8)
 import Prelude hiding (lookup)
 
+-- 0000010
+
 data Trie' k h a
   = Empty
-  | Leaf {key :: k, val :: a}
-  | Branch {bBit :: h, pref :: k, left :: Trie' k h a, right :: Trie' k h a}
+  | Leaf {key :: k, value :: a}
+  | -- | Branch node stores branching bit `bBit` and longest common prefix `pref`
+    Branch {branchingBit :: h, prefix :: k, left :: Trie' k h a, right :: Trie' k h a}
   deriving (Show, Eq, Functor)
 
-class (Bits k, Num k, Integral k) => TrieKey k where
+-- | Constraint for Trie key and height. Includes default implementation for little endian Tries
+-- TODO replace default with big endian Trie
+class (Bits k, Num k, Integral k, Integral (TrieHeight k)) => TrieKey k where
   -- | This will allow us to enforce the height of the trie depending on it's key
   type TrieHeight k :: Type
 
-  -- | Discards bits before/after(depending on endianess) branching bit
+  -- | Discards bits not in the mask
   mask :: k -> k -> k
+  mask k m = k .&. (m - 1)
 
-  -- | Leaves only the branching bit(so key 0b1001101 becomes 0b0001000, if 4th bit was a branching bit)
-  branchingBit :: k -> k -> k
+  -- | Finds the first bit on which prefixes disagree.
+  commonBranchingBit :: k -> k -> k
+  commonBranchingBit p1 p2 = lowestBit (p1 `xor` p2)
+    where
+      lowestBit :: k -> k
+      lowestBit x = x .&. complement x
 
+  -- | Masks key using supplied branching bit and compares to prefix
   matchPrefix :: k -> k -> k -> Bool
-  matchPrefix bBit prefix key = mask bBit key == prefix
+  matchPrefix key prefix m = mask key m == prefix
 
+  -- | Converts height 'TrieHeight k' into the branching bit 'k'
+  heightToBBit :: TrieHeight k -> k
+  heightToBBit h = 2 ^ h
+
+  -- | Converts branching bit 'k' into height 'TrieHeight k'
+  bBitToHeight :: k -> TrieHeight k
+  bBitToHeight = floor . logBase 2.0 . fromIntegral
+
+  -- | Tests whether the desired bit is zero
   zeroBit :: k -> k -> Bool
-  zeroBit a b = (a .&. b) == 0
+  zeroBit k m = (k .&. m) == 0
 
-join :: (TrieKey k) => k -> Trie' k h a -> k -> Trie' k h a -> Trie' k h a
+type Trie k a = Trie' k (TrieHeight k) a
+
+branch :: (TrieKey k) => k -> k -> Trie k a -> Trie k a -> Trie k a
+branch bBit = Branch (bBitToHeight bBit)
+
+join :: (TrieKey k) => k -> Trie k a -> k -> Trie k a -> Trie k a
 join p1 t1 p2 t2 =
   if zeroBit p1 bBit
-    then Branch bBit (mask p1 bBit) t1 t2
-    else Branch bBit (mask p1 bBit) t2 t1
+    then branch bBit (mask p1 bBit) t1 t2
+    else branch bBit (mask p1 bBit) t2 t1
   where
-    bBit = branchingBit p1 p2
+    bBit = commonBranchingBit p1 p2
