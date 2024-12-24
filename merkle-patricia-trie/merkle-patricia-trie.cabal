@@ -68,8 +68,13 @@ library
     -- other-modules:
 
     -- LANGUAGE extensions used by modules in this package.
-    other-extensions:
-        NoImplicitPrelude
+    default-extensions:
+        GeneralizedNewtypeDeriving
+        OverloadedRecordDot
+        RecordWildCards
+        ScopedTypeVariables
+        DeriveFunctor
+        FlexibleContexts
 
     -- Other library packages from which modules are imported.
     build-depends:

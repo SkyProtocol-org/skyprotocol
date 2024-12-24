@@ -1,26 +1,17 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedRecordDot #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Data.Trie.Internal where
 
 import Data.Bits
 import Data.Kind (Type)
-import Data.WideWord (Word256)
-import Data.Word (Word8)
 import Prelude hiding (lookup)
-
--- 0000010
 
 data Trie' k h a
   = Empty
   | Leaf {key :: k, value :: a}
   | -- | Branch node stores branching bit `bBit` and longest common prefix `pref`
-    Branch {branchingBit :: h, prefix :: k, left :: Trie' k h a, right :: Trie' k h a}
+    Branch {height :: h, prefix :: k, left :: Trie' k h a, right :: Trie' k h a}
   deriving (Show, Eq, Functor)
 
 -- | Constraint for Trie key and height. Includes default implementation for little endian Tries
