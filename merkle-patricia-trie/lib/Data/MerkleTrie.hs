@@ -23,6 +23,11 @@ computeNodeHash Branch {..} = computeHash (height, prefix, left, right)
 type MerkleProof = (Digest SHA256, [Digest SHA256])
 
 -- | Generate a Merkle proof for a given key in the trie
+-- TODO: check the implementation. Right now it's going through the whole trie and picks the hashes of the nodes
+-- that match the key. In the branch, when the branch is one of the branches that lead to the root, it computes
+-- the hash using the hash of the leaf and the trie on the other side. Is this right?
+-- If not, might need to use paramorphism here, as it allows to see the nodes we're operating on alongside the accumulator.
+-- That will allow us to properly calculate the hash of the trie from where we came to the current branch.
 proof :: forall k v. (Show k, Show (TrieHeight k), Show v, TrieKey k) => k -> Trie k v -> Maybe MerkleProof
 proof k t = cata go t
   where
