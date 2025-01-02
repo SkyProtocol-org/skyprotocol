@@ -1,6 +1,6 @@
 module Data.Internal.RecursionSchemes where
 
-import Control.Arrow ((&&&), (<<<), (>>>))
+import Control.Arrow ((&&&))
 
 -- | Y-combinator or fixed point combinator for types
 newtype Term f = In {out :: f (Term f)}

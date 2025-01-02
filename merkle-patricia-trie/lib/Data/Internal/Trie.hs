@@ -48,8 +48,11 @@ class (FiniteBits k, Bits k, Num k, Integral k, Integral (TrieHeight k), Bits (T
   zeroBit :: k -> k -> Bool
   zeroBit k m = not (k `testBit` (fromIntegral (bBitToHeight m)))
 
+-- | Type alias for TrieF
+type TrieF' k v = TrieF k (TrieHeight k) v
+
 -- | Type alias for Trie
-type Trie k v = Term (TrieF k (TrieHeight k) v)
+type Trie k v = Term (TrieF' k v)
 
 -- | Smart constructor for Branch node
 branch :: (TrieKey k, h ~ TrieHeight k) => k -> k -> a -> a -> TrieF k h v a

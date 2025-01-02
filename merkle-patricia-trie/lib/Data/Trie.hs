@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Data.Trie (TrieF (..), Trie, TrieKey (..), lookup, insertWith, insert, singleton, empty, module X) where
+module Data.Trie (TrieF (..), TrieF', Trie, TrieKey (..), lookup, insertWith, insert, singleton, empty, module X) where
 
 -- importing like this to re-export
 
