@@ -60,8 +60,10 @@ library
     exposed-modules:
         Data.MerkleTrie
         Data.Trie
-        Data.Trie.Internal
-        Data.Trie.Zipper
+        -- Data.Internal
+        Data.Internal.Trie
+        Data.Internal.Zipper
+        Data.Internal.RecursionSchemes
         Data.Utils
 
     -- Modules included in this library but not exported.
@@ -89,4 +91,16 @@ library
     hs-source-dirs:   lib
 
     -- Base language which the package is written in.
+    default-language: Haskell2010
+
+test-suite test
+    type: exitcode-stdio-1.0
+    hs-source-dirs: test
+    main-is: Spec.hs
+    build-depends:
+        base,
+        merkle-patricia-trie,
+        hspec,
+        wide-word,
+        QuickCheck
     default-language: Haskell2010

@@ -1,43 +1,47 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Data.Trie (Trie' (..), Trie, TrieKey (..), lookup, insertWith, insert, singleton, empty, module X) where
+module Data.Trie (TrieF (..), Trie, TrieKey (..), lookup, insertWith, insert, singleton, empty, module X) where
 
-import Data.Trie.Internal
-import Data.Trie.Zipper as X -- importing like this to re-export
+-- importing like this to re-export
+
+import Data.Internal.RecursionSchemes as X
+import Data.Internal.Trie
+-- import Data.Internal.Zipper as X
 import Prelude hiding (lookup)
 
--- TODO do we want to unwrap value here or return it wrapped? Maybe 2 different functions for these cases?
-lookup :: (TrieKey k) => k -> Trie k a -> Maybe a
-lookup _ Empty = Nothing
-lookup k Leaf {..} = if k == key then Just value else Nothing
-lookup k Branch {..}
+lookup :: (TrieKey k) => k -> Trie k v -> Maybe v
+lookup _ (In Empty) = Nothing
+lookup k (In Leaf {..}) = if k == key then Just value else Nothing
+lookup k (In Branch {..})
   | not (matchPrefix k prefix (heightToBBit height)) = Nothing
-  | zeroBit k (heightToBBit height) = lookup k left
+  | k <= heightToBBit height = lookup k left
   | otherwise = lookup k right
 
-insertWith :: forall k a. (TrieKey k) => (a -> a -> a) -> k -> a -> Trie k a -> Trie k a
+-- | Inserts new value in the trie resolving possible conflicts using `(v -> v -> v)`.
+-- | Values are supplied in the following order: new value -> old value.
+insertWith :: forall k v. (TrieKey k) => (v -> v -> v) -> k -> v -> Trie k v -> Trie k v
 insertWith resolve k v t = go t
   where
-    go :: Trie k a -> Trie k a
-    go Empty = Leaf k v
-    go Leaf {..} =
+    go :: Trie k v -> Trie k v
+    go (In Empty) = In $ Leaf k v
+    go (In Leaf {..}) =
       if k == key
-        then Leaf k $ resolve v value
-        else join k (Leaf k v) key t
-    go Branch {..} =
-      if matchPrefix k prefix (heightToBBit height)
+        then In $ Leaf k $ resolve v value
+        else join k (In $ Leaf k v) key t
+    go (In Branch {..}) =
+      if matchPrefix k prefix $ heightToBBit height
         then
-          if zeroBit k (heightToBBit height)
-            then Branch height prefix (go left) right
-            else Branch height prefix left (go right)
-        else join k (Leaf k v) prefix t
+          if k <= heightToBBit height
+            then In $ Branch height prefix (go left) right
+            else In $ Branch height prefix left (go right)
+        else join k (In $ Leaf k v) prefix t
 
-insert :: (TrieKey k) => k -> v -> Trie k v -> Trie k v
+insert :: forall k v. (TrieKey k) => k -> v -> Trie k v -> Trie k v
 insert = insertWith const
 
-singleton :: (TrieKey k) => k -> a -> Trie k a
+singleton :: forall k v. (TrieKey k) => k -> v -> Trie k v
 singleton k v = insert k v empty
 
-empty :: (TrieKey k) => Trie k a
-empty = Empty
+empty :: forall k v. (TrieKey k) => Trie k v
+empty = In Empty
