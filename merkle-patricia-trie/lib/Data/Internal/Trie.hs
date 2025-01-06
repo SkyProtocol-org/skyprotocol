@@ -16,21 +16,21 @@ data TrieF k h v a
     Branch {height :: h, prefix :: k, left :: a, right :: a}
   deriving (Show, Eq, Functor)
 
--- | Constraint for Trie key and height. Includes default implementation for big endian Tries
+-- | Constraint for Trie key and height. Provides default methods for calculating neccessary info.
 class (FiniteBits k, Bits k, Num k, Integral k, Integral (TrieHeight k), Bits (TrieHeight k), Num (TrieHeight k)) => TrieKey k where
   -- | This will allow us to enforce the height of the trie depending on it's key
   type TrieHeight k :: Type
 
   -- | Discards bits not in the mask
   mask :: k -> k -> k
-  mask k m = (k .|. (m - 1)) .&. (-m)
+  mask k m = k .&. (m - 1)
 
   -- | Finds the first bit on which prefixes disagree.
   commonBranchingBit :: k -> k -> k
-  commonBranchingBit p1 p2 = highestBit (p1 `xor` p2)
+  commonBranchingBit p1 p2 = lowesBit (p1 `xor` p2)
     where
-      highestBit :: k -> k
-      highestBit x = x .&. complement (x - 1)
+      lowesBit :: k -> k
+      lowesBit x = x .&. (-x)
 
   -- | Masks key using supplied branching bit and compares to prefix
   matchPrefix :: k -> k -> k -> Bool
@@ -38,15 +38,15 @@ class (FiniteBits k, Bits k, Num k, Integral k, Integral (TrieHeight k), Bits (T
 
   -- | Converts height 'TrieHeight k' into the branching bit 'k'
   heightToBBit :: TrieHeight k -> k
-  heightToBBit h = 2 ^ (finiteBitSize (undefined :: k) - fromIntegral h - 1)
+  heightToBBit = (2 ^)
 
   -- | Converts branching bit 'k' into height 'TrieHeight k'
   bBitToHeight :: k -> TrieHeight k
-  bBitToHeight = fromIntegral . (finiteBitSize (undefined :: k) - 1 -) . floor . logBase (2.0 :: Double) . fromIntegral
+  bBitToHeight = floor . logBase (2.0 :: Double) . fromIntegral
 
   -- | Tests whether the desired bit is zero
   zeroBit :: k -> k -> Bool
-  zeroBit k m = not (k `testBit` (fromIntegral (bBitToHeight m)))
+  zeroBit k m = not (k `testBit` fromIntegral (bBitToHeight m))
 
 -- | Type alias for TrieF
 type TrieF' k v = TrieF k (TrieHeight k) v

@@ -62,7 +62,6 @@ library
         Data.Trie
         -- Data.Internal
         Data.Internal.Trie
-        Data.Internal.Zipper
         Data.Internal.RecursionSchemes
         Data.Utils
 

@@ -22,30 +22,30 @@ spec :: Spec
 spec = do
   describe "TrieKey typeclass" $ do
     it "mask should discard bits not in the mask" $ do
-      mask @Word256 0b1101 0b0 `shouldBe` 0b0 -- zero mask should return zero
-      mask @Word256 0b1101 0b0100 `shouldBe` 0b1100
-      mask @Word256 0b1101 0b0010 `shouldBe` 0b1100
-      mask @Word256 0b1101 0b0001 `shouldBe` 0b1101
+      mask @Word256 0b1101 0b1000 `shouldBe` 0b0101
+      mask @Word256 0b1101 0b0100 `shouldBe` 0b0001
+      mask @Word256 0b1101 0b0010 `shouldBe` 0b0001
 
     it "commonBranchingBit should find the first bit on which prefixes disagree" $ do
       commonBranchingBit @Word256 0b1100 0b1000 `shouldBe` 0b0100
-      commonBranchingBit @Word256 0b1100 0b1110 `shouldBe` 0b0010
+      commonBranchingBit @Word256 0b1100 0b0100 `shouldBe` 0b1000
 
     it "matchPrefix should mask the key using supplied branching bit and compare to prefix" $ do
-      matchPrefix @Word256 0b1101 0b1100 0b0100 `shouldBe` True
-      matchPrefix @Word256 0b1101 0b1000 0b0100 `shouldBe` False
+      matchPrefix @Word256 0b1101 0b101 0b1000 `shouldBe` True
+      matchPrefix @Word256 0b1101 0b101 0b0100 `shouldBe` False
+      matchPrefix @Word256 0b1101 0b001 0b0100 `shouldBe` True
 
     it "heightToBBit should convert height Word256 to the branching bit" $ do
-      heightToBBit @Word256 0 `shouldBe` setBit 0 255
-      heightToBBit @Word256 1 `shouldBe` setBit 0 254
+      heightToBBit @Word256 1 `shouldBe` 0b00010
+      heightToBBit @Word256 4 `shouldBe` 0b10000
 
     it "bBitToHeight should convert branching bit Word256 to height" $ do
-      bBitToHeight @Word256 (setBit 0 255) `shouldBe` 0
-      bBitToHeight @Word256 (setBit 0 254) `shouldBe` 1
+      bBitToHeight @Word256 0b100 `shouldBe` 2
+      bBitToHeight @Word256 0b010 `shouldBe` 1
 
     it "zeroBit should test whether the desired bit is zero" $ do
-      zeroBit @Word256 0b1101 (heightToBBit @Word256 1) `shouldBe` True
-      zeroBit @Word256 0b1101 (heightToBBit @Word256 2) `shouldBe` False
+      zeroBit @Word256 0b1101 0b0100 `shouldBe` False
+      zeroBit @Word256 0b1101 0b0010 `shouldBe` True
 
     it "QuickCheck property: heightToBBit and bBitToHeight should be inverses" $
       property $

@@ -51,10 +51,18 @@ histo h = attribute . go
 cata :: (Functor f) => Algebra f a -> Term f -> a
 cata f = histo (f . fmap attribute)
 
+-- | Helper function to transform 'Term f -> f a -> a' into 'RAlgebra f a'
+transform :: forall f a. (Functor f) => (Term f -> f a -> a) -> RAlgebra f a
+transform h fta = h term fa
+  where
+    term = In $ fmap fst fta
+    fa = fmap snd fta
+
 -- | Paramorphism
-para :: (Functor f) => RAlgebra f a -> Term f -> a
+para :: forall f a. (Functor f) => RAlgebra f a -> Term f -> a
 para f = histo (f . fmap go)
   where
+    go :: Attr f a -> (Term f, a)
     go (Attr a h) = (In (fmap (fst . go) h), a)
 
 -- | Futumorphism
