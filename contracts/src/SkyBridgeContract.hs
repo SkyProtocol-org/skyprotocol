@@ -239,7 +239,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
             ]
 
     ownOutput :: TxOut
-    ownOutput = case getContinuingOutputs ctx of
+    ownOutput = case txInfoOutputs (scriptContextTxInfo ctx) of
         [o] -> o
         _   -> PlutusTx.traceError "expected exactly one output"
 
