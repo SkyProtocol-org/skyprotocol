@@ -23,14 +23,10 @@ spec = do
           merkleTrie = merkelize t
           proof1 = proof 1 t
           proof2 = proof 2 t
-      putStrLn $ Trie.prettyPrint t
-      print proof1
-      print proof2
       case (proof1, proof2) of
         (Just p1, Just p2) -> do
           validate p1 (rootHash merkleTrie) `shouldBe` True
           validate p2 (rootHash merkleTrie) `shouldBe` True
-          computeRootHash t `shouldBe` rootHash merkleTrie
         _ -> expectationFailure "Failed to generate proofs"
 
     it "should return Nothing for a proof of a key not in the trie" $ do

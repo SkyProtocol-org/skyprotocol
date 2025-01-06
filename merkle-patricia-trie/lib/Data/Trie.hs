@@ -6,7 +6,6 @@ module Data.Trie
     TrieF',
     Trie,
     TrieKey (..),
-    prettyPrint,
     lookup,
     insertWith,
     insert,
@@ -19,25 +18,6 @@ where
 import Data.Internal.RecursionSchemes as X
 import Data.Internal.Trie
 import Prelude hiding (lookup)
-
-prettyPrint :: forall k v. (TrieKey k, Show k, Show (TrieHeight k), Show v) => Trie k v -> String
-prettyPrint = cata go
-  where
-    go :: Algebra (TrieF' k v) String
-    go Empty = "()"
-    go Leaf {..} = "(" <> show key <> ", " <> show value <> ")"
-    go Branch {..} =
-      "{h:"
-        <> show height
-        <> ", p:"
-        <> show prefix
-        <> "}\n"
-        <> "/"
-        <> replicate 20 ' '
-        <> "\\\n"
-        <> left
-        <> replicate 10 ' '
-        <> right
 
 lookup :: (TrieKey k) => k -> Trie k v -> Maybe v
 lookup _ (In Empty) = Nothing

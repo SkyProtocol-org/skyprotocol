@@ -1,10 +1,11 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module TrieSpec (spec) where
 
-import qualified Data.Trie as Trie
+import Data.Trie qualified as Trie
 import Data.WideWord (Word256)
 import Data.Word (Word, Word8)
 import Test.Hspec
@@ -59,3 +60,7 @@ spec = do
     it "insertWith should handle conflicts correctly" $ do
       let t = Trie.insertWith @Word256 @_ (++) 1 "value1" $ Trie.insertWith (++) 1 "value2" Trie.empty
       Trie.lookup 1 t `shouldBe` Just "value1value2"
+
+    it "QuickCheck property: insert/lookup roundtrip for randomly generated tries" $ property $ \(keys :: [Word]) -> do
+      let t = foldr (\k tr -> Trie.insert @Word256 @_ (fromIntegral k) (show k) tr) Trie.empty keys
+      all (\k -> Trie.lookup (fromIntegral k) t == Just (show k)) keys `shouldBe` True
