@@ -27,13 +27,13 @@ prettyPrint = cata go
     go Empty = "()"
     go Leaf {..} = "(" <> show key <> ", " <> show value <> ")"
     go Branch {..} =
-      "{"
+      "{h:"
         <> show height
-        <> ", "
+        <> ", p:"
         <> show prefix
         <> "}\n"
         <> "/"
-        <> replicate 10 ' '
+        <> replicate 20 ' '
         <> "\\\n"
         <> left
         <> replicate 10 ' '

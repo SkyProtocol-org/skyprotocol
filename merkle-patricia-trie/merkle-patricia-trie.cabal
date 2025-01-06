@@ -63,7 +63,6 @@ library
         -- Data.Internal
         Data.Internal.Trie
         Data.Internal.RecursionSchemes
-        Data.Utils
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -96,6 +95,10 @@ test-suite test
     type: exitcode-stdio-1.0
     hs-source-dirs: test
     main-is: Spec.hs
+    other-modules:
+        MerkleTrieSpec
+        TrieSpec
+        TrieKeySpec
     build-depends:
         base,
         merkle-patricia-trie,
