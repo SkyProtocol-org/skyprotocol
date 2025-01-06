@@ -30,8 +30,8 @@ import SkyBridgeContract (BridgeNFTDatum (..), DataHash (..), getRefBridgeNFTDat
 import GHC.Generics (Generic)
 
 import PlutusCore.Version (plcVersion100)
-import PlutusLedgerApi.V1 (Lovelace, POSIXTime, PubKeyHash)
-import PlutusLedgerApi.V1.Address (toPubKeyHash)
+import PlutusLedgerApi.V1 (Lovelace, POSIXTime, PubKeyHash (..),
+                           Credential(PubKeyCredential), addressCredential)
 import PlutusLedgerApi.V1.Interval (contains)
 import PlutusLedgerApi.V1.Value (lovelaceValueOf, valueOf, flattenValue,
                                  assetClassValueOf, AssetClass (..))
@@ -78,6 +78,8 @@ PlutusTx.makeIsDataSchemaIndexed ''TopicID [('TopicID, 0)]
 data ClientParams = ClientParams
   { bountyNFTCurrencySymbol :: CurrencySymbol
     -- ^ Unique currency symbol (hash of minting policy) of the bridge contract NFT
+  , bountyClaimantPubKeyHash :: PubKeyHash
+    -- ^ Credential of claimant (bounty prize can only be sent to this credential)
   , bountyTopicID :: TopicID
     -- ^ ID of topic in which data must be published
   , bountyMessageHash :: DataHash
@@ -161,6 +163,14 @@ clientTypedValidator params () redeemer ctx =
     nftTopHash = case getRefBridgeNFTDatumFromContext (bountyNFTCurrencySymbol params) ctx of
                    Nothing -> PlutusTx.traceError "bridge NFT not found"
                    Just (BridgeNFTDatum topHash) -> topHash
+    -- Bounty prize funds are sent to pre-configured bounty claimant
+    outputs :: [TxOut]
+    outputs = txInfoOutputs (scriptContextTxInfo ctx)
+    allPaidToCredential :: Bool
+    allPaidToCredential =
+      PlutusTx.all (\o -> addressCredential (txOutAddress o)
+                          PlutusTx.== PubKeyCredential (bountyClaimantPubKeyHash params))
+                   outputs
 
 -- Verify whether a (leaf) hash is included in a Merkle proof
 hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
