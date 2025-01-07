@@ -36,6 +36,7 @@ deriving instance (Eq k, Eq v, Eq (TrieHeight k)) => Eq (MerkleProof k v)
 
 deriving instance (Show k, Show v, Show (TrieHeight k)) => Show (MerkleProof k v)
 
+-- TODO: replace the 'show' with binary serialization
 computeHash :: (Show a) => a -> Digest Blake2b_256
 computeHash = hash . pack . show
 
