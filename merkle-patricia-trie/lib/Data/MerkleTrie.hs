@@ -40,6 +40,11 @@ deriving instance (Show k, Show v, Show (TrieHeight k)) => Show (MerkleProof k v
 computeHash :: (Show a) => a -> Digest Blake2b_256
 computeHash = hash . pack . show
 
+{-
+nullHash :: Digest Blake2b_256
+nullHash = hash (pack "") -- TODO use an all-zero hash instead? how?
+-}
+
 computeRootHash :: forall k v. (Show k, Show v, Show (TrieHeight k)) => Trie k v -> Digest Blake2b_256
 computeRootHash = cata go
   where

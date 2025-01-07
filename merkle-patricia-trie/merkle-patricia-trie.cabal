@@ -63,6 +63,9 @@ library
         -- Data.Internal
         Data.Internal.Trie
         Data.Internal.RecursionSchemes
+        -- Fare:
+        Data.MyTrie
+        Data.Utils
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -81,7 +84,8 @@ library
         base ^>=4.18.2.1,
         cryptonite ==0.30,
         bytestring,
-        wide-word
+        wide-word,
+        binary
         -- for future more optimized implementation consider using RLP from ethereum whitepaper
         -- relapse ==1.0.0.1
 

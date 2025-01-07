@@ -52,7 +52,7 @@ class (FiniteBits k, Bits k, Num k, Integral k, Integral (TrieHeight k), Bits (T
 type TrieF' k v = TrieF k (TrieHeight k) v
 
 -- | Type alias for Trie
-type Trie k v = Term (TrieF' k v)
+type Trie k v = Fix (TrieF' k v)
 
 -- | Smart constructor for Branch node
 branch :: (TrieKey k, h ~ TrieHeight k) => k -> k -> a -> a -> TrieF k h v a
