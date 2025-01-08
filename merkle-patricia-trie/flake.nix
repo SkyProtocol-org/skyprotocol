@@ -13,6 +13,7 @@
     in
     {
       packages.default = haskPkgs.merkle-patricia-trie;
+      overlays.default = overlay;
       devShells.default = haskPkgs.shellFor {
         packages = p: [
           p.merkle-patricia-trie
