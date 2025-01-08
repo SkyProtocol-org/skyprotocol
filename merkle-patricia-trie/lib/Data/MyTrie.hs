@@ -153,7 +153,22 @@ zipUp synth z@(TrieZip t p) =
     Nothing -> z
 
 ofZipper :: (TrieKey h k {-, Binary c-}) => TrieZipper h k v -> Trie h k v
-ofZipper z = case zipUp stepUp z of TrieZip t p -> TrieTop (triePathHeight p) t
+ofZipper z = case zipUp stepUp z of TrieZip t p -> trieTop (triePathHeight p) t
+
+trieTop :: TrieKey h k => Int -> TrieNode h k c -> Trie h k c
+trieTop h x =
+  case x of
+    Skip hh mm c ->
+      let hhi = fromIntegral hh in
+      if testBit mm hhi then
+        TrieTop h x
+      else
+        -- topiary: prune unnecessary zero key bits at the Trie top
+        let l = integerLength mm
+            hh' = fromIntegral (l - 1)
+            h' = h + hhi - l in
+        TrieTop h' (Skip hh' mm c)
+    _ -> TrieTop h x
 
 {-
 getMerkleProof trie key =
@@ -173,13 +188,8 @@ stepDown step (TriePath h k m s) =
     SkipStep hd kd ->
       let ld = 1 + fromIntegral hd
           h1 = h - ld
-          (k1, m1) = if null s && k == 0 then
-                       -- topiary: prune unnecessary zero key bits at the Trie top
-                       ( kd
-                       , lowBitsMask $ integerLength kd )
-                     else
-                       ( (k `shiftL` ld) .|. kd
-                       , (m `shiftL` ld) .|. lowBitsMask ld ) in
+          k1 = (k `shiftL` ld) .|. kd
+          m1 = (m `shiftL` ld) .|. lowBitsMask ld in
       TriePath h1 k1 m1 s
 
 -- TODO check each definition in this function for offby1 errors!
