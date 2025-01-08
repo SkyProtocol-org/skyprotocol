@@ -12,6 +12,7 @@
       haskPkgs = pkgs.haskellPackages.extend overlay;
     in
     {
+      packages.default = haskPkgs.merkle-patricia-trie;
       devShells.default = haskPkgs.shellFor {
         packages = p: [
           p.merkle-patricia-trie
