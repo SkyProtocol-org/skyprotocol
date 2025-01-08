@@ -146,11 +146,23 @@ stepBits (RightStep _) k = (k `shiftL` 1) .|. 1
 stepBits (SkipStep h ks) k = (k `shiftL` (1 + fromIntegral h)) .|. ks
 -}
 
-ofZipper :: (TrieKey h k {-, Binary c-}) => TrieZipper h k v -> Trie h k v
-ofZipper (TrieZip t p) =
+zipUp :: TrieKey h k => (TrieStep h k a -> a -> a) -> TrieZip h k a -> TrieZip h k a
+zipUp synth z@(TrieZip t p) =
   case pathStep p of
-    Just (s, p') -> ofZipper (TrieZip (stepUp s t) p')
-    Nothing -> TrieTop (triePathHeight p) t
+    Just (s, p') -> zipUp synth (TrieZip (synth s t) p')
+    Nothing -> z
+
+ofZipper :: (TrieKey h k {-, Binary c-}) => TrieZipper h k v -> Trie h k v
+ofZipper z = case zipUp stepUp z of TrieZip t p -> TrieTop (triePathHeight p) t
+
+{-
+getMerkleProof trie key =
+  zipperOf trie & refocus 0 k & trieZipPath & fmap getTrieDigest
+
+isMerkleProof trieDigest key value proof =
+  trieDigest == zipUp digestSynth (TrieZip (digestSynth $ Leaf value) proof) &&
+  key == triePathKey . trieZipPath $ proof
+-}
 
 -- stepUp from a TriePath
 stepDown :: TrieKey h k => TrieStep h k a -> TriePath h k a -> TriePath h k a
@@ -280,18 +292,15 @@ update updateLeaf key trie =
     leafOfMaybe Nothing = Empty
     leafOfMaybe (Just v) = Leaf v
 
+-- The definition suggests we should swap v and k, so insert = update . const . Just
 insert :: TrieKey h k => k -> v -> Trie h k v -> Trie h k v
-insert k v t = update (const (Just v)) k t
+insert k v = update (const (Just v)) k
 
 remove :: TrieKey h k => k -> Trie h k v -> Trie h k v
-remove k t = update (const Nothing) k t
+remove = update (const Nothing)
 
 lookup :: TrieKey h k => Trie h k a -> k -> Maybe a
-lookup t k =
-  case refocus 0 k (zipperOf t) of
-    TrieZip Empty _ -> Nothing
-    TrieZip (Leaf x) _ -> Just x
-    TrieZip _ _ -> Nothing -- should never happen!
+lookup t k = refocus 0 k (zipperOf t) & trieZipFocus & maybeOfLeaf
 
 maybeOfLeaf :: TrieNode h k a -> Maybe a
 maybeOfLeaf (Leaf v) = Just v

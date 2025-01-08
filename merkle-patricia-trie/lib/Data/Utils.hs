@@ -55,3 +55,8 @@ lowBitsMask i = (1 `shiftL` i) - 1
 extractBitField :: (Bits n, Integral n) => Int -> Int -> n -> n
 extractBitField len start bits =
   (bits `shiftR` start) .&. (lowBitsMask len)
+
+{- How the hell do I express something like that???
+class MerkleRef r where
+  get : Binary a  => Binary (r a)
+-}
