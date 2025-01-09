@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE FunctionalDependencies, FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances, InstanceSigs #-}
 
 module Data.MyTrie (TrieNode (..), Trie, TrieKey, TriePath, TrieZipper, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf) where
 
@@ -61,27 +61,28 @@ ofZipper = ofTopZipper . zipUp stepUp
 -- h ::: a type for the height of keys, e.g. UInt8 for k==UInt256
 -- k ::: a type for the keys of the Trie, e.g. UInt256
 class (Num h, Integral h, {- Binary h, -}
-       Num k, Integral k, {- Binary k, -} FiniteBits k) => TrieKey h k where
+       Num k, Integral k, {- Binary k, -} FiniteBits k) =>
+  TrieKey h k where
 
 -- TODO: add reference functor? synthesized attribute type on non-leaves?
 -- e.g. ... Wrapable r, Binary a... => Trie r h k a c
 -- c ::: a type for the content of the leaves of the Trie
-data (TrieKey h k {-, Binary c-}) =>
-  Trie h k c = TrieTop {
+data (TrieKey h k, Wrapping r) =>
+  Trie r h k c = TrieTop {
     trieHeight :: Int
       {- integerLength of the largest key in the Trie; -1 if empty -}
-  , trieTopNode :: TrieNode h k c
+  , trieTopNode :: r (TrieNode r h k c)
       {- top node in the Trie -}
   }
-  deriving (Show, Eq {-, Binary-})
+  -- deriving (Show, Eq {-, Binary-})
 
-data (TrieKey h k {-, Binary c-}) =>
-  TrieNode h k c =
+data (TrieKey h k, Wrapping r) =>
+  TrieNode r h k c =
     Empty
   | Leaf c
-  | Branch {left :: TrieNode h k c, right :: TrieNode h k c}
-  | Skip {heightMinus1 :: h, bits :: k, child :: TrieNode h k c}
-  deriving (Show, Eq, {-Binary,-} Functor)
+  | Branch {left :: r (TrieNode r h k c), right :: r (TrieNode r h k c)}
+  | Skip {heightMinus1 :: h, bits :: k, child :: r (TrieNode r h k c)}
+  -- deriving (Show, Eq, Binary, Functor)
 
 data TrieKey h k =>
   TriePath h k d = TriePath {
@@ -99,7 +100,7 @@ data TrieKey h k =>
          (no data for skip nodes), such that the first item corresponds
          to the first (low-order) bits of k1. -}
   }
-  deriving (Show, Eq, Functor)
+  -- deriving (Show, Eq, Functor)
 
 data TrieStep h k t
   = LeftStep t
@@ -109,7 +110,7 @@ data TrieStep h k t
 
 type TrieZip h k = Zip (TriePath h k)
 
-type TrieZipper h k c = TrieZip (TrieNode h k c) (TrieNode h k c)
+type TrieZipper r h k c = TrieZip (r (TrieNode r h k c)) (r (TrieNode r h k c))
 
 instance TrieKey h k => PreZipper (TriePath h k) (TrieStep h k) where
   pathStep (TriePath h k m s) =
@@ -139,17 +140,24 @@ instance TrieKey h k => PreZipper (TriePath h k) (TrieStep h k) where
             m1 = (m `shiftL` ld) .|. lowBitsMask ld in
         TriePath h1 k1 m1 s
 
-instance TrieKey h k => Zipper (Trie h k c) (TrieNode h k c) (TriePath h k) (TrieStep h k) Int k where
-  stepUp (LeftStep r) Empty = stepUp (SkipStep 0 1) r
-  stepUp (LeftStep Empty) l = stepUp (SkipStep 0 0) l
-  stepUp (LeftStep r) l = Branch l r
-  stepUp (RightStep l) Empty = stepUp (SkipStep 0 0) l
-  stepUp (RightStep Empty) r = stepUp (SkipStep 0 1) r
-  stepUp (RightStep l) r = Branch l r
-  stepUp (SkipStep _ _) Empty = Empty
-  stepUp (SkipStep h k) (Skip h0 k0 c0) =
-    Skip (h + h0 + 1) ((k `shiftL` (1 + fromIntegral h0)) .|. k0) c0
-  stepUp (SkipStep h k) c = Skip h k c
+instance (TrieKey h k, Wrapping r) => Zipper (Trie r h k c) (r (TrieNode r h k c)) (TriePath h k) (TrieStep h k) Int k where
+  stepUp :: TrieStep h k (r (TrieNode r h k c)) -> r (TrieNode r h k c) -> r (TrieNode r h k c)
+  stepUp step x =
+    let up = case step of
+               LeftStep r -> wrap (Branch x r)
+               RightStep l -> wrap (Branch l x)
+               SkipStep h k -> wrap (Skip h k x) in
+    case unwrap x of
+      Empty -> case step of
+        LeftStep r -> stepUp (SkipStep 0 1) r
+        RightStep l -> stepUp (SkipStep 0 0) l
+        SkipStep _ _ -> wrap Empty
+      Skip hn kn cn ->
+        case step of
+          SkipStep hs ks ->
+            wrap (Skip (hn + hs + 1) ((ks `shiftL` (1 + fromIntegral hn)) .|. kn) cn)
+          _ -> up
+      _ -> up
 
   -- TODO check each definition in this function for offby1 errors!
   {- refocus the zipper for the set of keys from k' `shiftL` h' included to
@@ -189,20 +197,20 @@ instance TrieKey h k => Zipper (Trie h k c) (TrieNode h k c) (TriePath h k) (Tri
               let l1 = hcommon - h - 2
                   h1 = fromIntegral (l1 - 1)
                   t1 = stepUp (SkipStep h1 0) t in
-              descend Empty (TriePath (hcommon - 1) 1 0 [t1])
+              descend (wrap Empty) (TriePath (hcommon - 1) 1 0 [t1])
 
       -- descend: descend toward the sought focus from a pointed node above
       descend t p@(TriePath h _ _ _) =
         if h == h' then
           Zip t p
         else
-          case t of
+          case unwrap t of
             -- base case: done
             Empty ->
               let l = h - h'
                   h1 = fromIntegral (l - 1)
                   k1 = k' .^. lowBitsMask l in
-              Zip Empty (stepDown (SkipStep h1 k1) p)
+              Zip (wrap Empty) (stepDown (SkipStep h1 k1) p)
             -- This case should never happen, being caught by h == h'
             Leaf _ -> Zip t p
             -- recursive case
@@ -249,16 +257,15 @@ instance TrieKey h k => Zipper (Trie h k c) (TrieNode h k c) (TriePath h k) (Tri
                                LeftStep
                     skipSame = SkipStep (fromIntegral sameLength - 1)
                                         (bits `shiftR` (branchNodeHeight - childHeight)) in
-                    descend Empty (p & stepDown skipSame & stepDown branch)
+                    descend (wrap Empty) (p & stepDown skipSame & stepDown branch)
 
   zipperOf (TrieTop h t) = Zip t (TriePath h 0 0 [])
 
   ofTopZipper (Zip t p) = trieTop (triePathHeight p) t
 
-
-trieTop :: TrieKey h k => Int -> TrieNode h k c -> Trie h k c
+trieTop :: (TrieKey h k, Wrapping r) => Int -> r (TrieNode r h k c) -> Trie r h k c
 trieTop h x =
-  case x of
+  case unwrap x of
     Skip hh mm c ->
       let hhi = fromIntegral hh in
       if testBit mm hhi then
@@ -271,7 +278,7 @@ trieTop h x =
         let l = integerLength mm
             hh' = fromIntegral (l - 1)
             h' = h + hhi - l in
-        TrieTop h' (Skip hh' mm c)
+        TrieTop h' (wrap $ Skip hh' mm c)
     _ -> TrieTop h x
 
 
@@ -305,41 +312,43 @@ stepBits (SkipStep h ks) k = (k `shiftL` (1 + fromIntegral h)) .|. ks
 -}
 
 {-
-getMerkleProof :: (TrieKey h k, Digesting d) => Trie h k c -> k -> TriePath h k c
+getMerkleProof :: (TrieKey h k, Digesting d) => Trie r h k c -> k -> TriePath h k c
 getMerkleProof trie key =
   zipperOf trie & refocus 0 k & zipPath & fmap getTrieDigest
 
-getMerkleProof :: (TrieKey h k) => Trie h k c -> k -> TriePath h k c
+getMerkleProof :: (TrieKey h k) => Trie r h k c -> k -> TriePath h k c
 isMerkleProof trieDigest key value proof =
   trieDigest == zipUp digestSynth (Zip (digestSynth $ Leaf value) proof) &&
   key == triePathKey . zipPath $ proof
 -}
 
-update :: TrieKey h k => (Maybe v -> Maybe v) -> k -> Trie h k v -> Trie h k v
+update :: (TrieKey h k, Wrapping r) => (Maybe v -> Maybe v) -> k -> Trie r h k v -> Trie r h k v
 update updateLeaf key trie =
   case refocus 0 key (zipperOf trie) of
     Zip t path ->
       Zip (t & maybeOfLeaf & updateLeaf & leafOfMaybe) path & ofZipper
-  where
-    leafOfMaybe Nothing = Empty
-    leafOfMaybe (Just v) = Leaf v
 
 -- The definition suggests we should swap v and k, so insert = update . const . Just
-insert :: TrieKey h k => k -> v -> Trie h k v -> Trie h k v
+insert :: (TrieKey h k, Wrapping r) => k -> v -> Trie r h k v -> Trie r h k v
 insert k v = update (const (Just v)) k
 
-remove :: TrieKey h k => k -> Trie h k v -> Trie h k v
+remove :: (TrieKey h k, Wrapping r) => k -> Trie r h k v -> Trie r h k v
 remove = update (const Nothing)
 
-lookup :: TrieKey h k => Trie h k a -> k -> Maybe a
+lookup :: (TrieKey h k, Wrapping r) => Trie r h k a -> k -> Maybe a
 lookup t k = refocus 0 k (zipperOf t) & zipFocus & maybeOfLeaf
 
-maybeOfLeaf :: TrieNode h k a -> Maybe a
-maybeOfLeaf (Leaf v) = Just v
-maybeOfLeaf _ = Nothing -- only the Empty case should be used
+leafOfMaybe :: PreWrapping r => Maybe a -> r (TrieNode r h k a)
+leafOfMaybe Nothing = wrap Empty
+leafOfMaybe (Just v) = wrap (Leaf v)
 
-singleton :: TrieKey h k => k -> a -> Trie h k a
+maybeOfLeaf :: Wrapping r => r (TrieNode r h k a) -> Maybe a
+maybeOfLeaf x = case unwrap x of
+  Leaf v -> Just v
+  _ -> Nothing -- only the Empty case should be used
+
+singleton :: (TrieKey h k, Wrapping r) => k -> a -> Trie r h k a
 singleton k v = insert k v empty
 
-empty :: TrieKey h k => Trie h k a
-empty = TrieTop (-1) Empty
+empty :: (TrieKey h k, Wrapping r) => Trie r h k a
+empty = TrieTop (-1) (wrap Empty)

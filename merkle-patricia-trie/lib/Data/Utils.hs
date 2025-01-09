@@ -1,30 +1,31 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies, FlexibleInstances #-}
 
 -- TODO use Data.Binary for I/O
 
-module Data.Utils (Wrapable, Unwrapable, Rewrapable, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, lowBitsMask, extractBitField) where
+module Data.Utils (PreWrapping, Wrapping, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, lowBitsMask, extractBitField) where
 
 import Data.Bits (Bits, FiniteBits, (.&.), shiftR, shiftL, countTrailingZeros)
 import Data.Binary () -- Get, Put
-import Data.Functor.Identity (Identity)
+import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
 
 -- Wrappers (reference)
 -- Functor r =>
-class (Monad m) => Wrapable (r :: Type -> Type) m where
-  wrap :: a -> m (r a)
+class {-(Monad m) => -} PreWrapping (r :: Type -> Type) {-m-} where
+  wrap :: a -> {-m-} (r a)
 
-class (Monad m) => Unwrapable (r :: Type -> Type) m where
-  unwrap :: r a -> m a
+class (PreWrapping r {-m-}) => Wrapping (r :: Type -> Type) {-m-} where
+  unwrap :: r a -> {-m-} a
 
-class (Wrapable r m, Unwrapable r m) => Rewrapable r m
-
--- instance Functor r => Wrapable r Identity where
+-- instance Functor r => Wrapping r Identity where
 --  wrap = pure
 
-instance Unwrapable Identity Identity where
-  unwrap x = x
+instance PreWrapping Identity {-Identity-} where
+  wrap = Identity
+instance Wrapping Identity {-Identity-} where
+  unwrap = runIdentity
 
 -- TODO: use a standard library function for that, or at least optimize to logarithmically faster
 -- TODO: a variant that returns both bit and height
