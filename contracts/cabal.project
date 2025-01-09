@@ -16,4 +16,4 @@ index-state:
   , cardano-haskell-packages 2024-09-19T00:00:00Z
 
 packages:
-  ./.
+  ./. ../merkle-patricia-trie
