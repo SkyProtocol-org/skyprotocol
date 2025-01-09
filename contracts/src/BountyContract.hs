@@ -58,8 +58,15 @@ import Data.Trie qualified as Trie
 import Data.WideWord (Word256)
 import Data.Word (Word8)
 
+
+import Crypto.Hash (hash, Digest, Blake2b_256)
+import qualified Data.ByteString.Char8 as BS
+
 instance Trie.TrieKey Word256 where
   type TrieHeight Word256 = Word8
+
+instance Trie.TrieKey Word8 where
+  type TrieHeight Word8 = Word8
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -138,10 +145,8 @@ clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash ->
 clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
     PlutusTx.and conditions
   where
-    t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" Trie.empty
-    merkleTrie = merkelize t
-    proof1 = proof 1 t
-    proof2 = proof 2 t
+    proof1 = MerkleProof {targetKey = 1::Word256, targetValue = "value1", keyPath = [], siblingHashes = []}
+    x = validate proof1 (hash ("foo" :: BS.ByteString))
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
@@ -150,9 +155,6 @@ clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nft
       , hashInMerkleProof (topicInDAProof claim) topicTopHash
         -- The claimed top hash matches the one stored in the NFT
       , topHash PlutusTx.== nftTopHash
-      , case (proof1, proof2) of
-          (Just p1, Just p2) -> do
-            validate p1 (rootHash merkleTrie)
       ]
     -- Root hash of topic trie produced by claim
     topicRootHash :: DataHash
