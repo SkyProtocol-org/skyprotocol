@@ -34,12 +34,14 @@ class PreZipper pathF stepF | pathF -> stepF where
   stepDown :: stepF a -> pathF a -> pathF a
 
 zipUp :: PreZipper pathF stepF =>
-  (stepF b -> a -> a) -> Zip pathF a b -> Zip pathF a b
+  (stepF other -> focus -> focus) -> Zip pathF focus other -> Zip pathF focus other
 zipUp synth z@(Zip t p) =
   case pathStep p of
     Just (s, p') -> zipUp synth (Zip (synth s t) p')
     Nothing -> z
 
+-- merge blur and key into focusKey, and
+-- later have a (sharpFocus :: key -> focusKey) to extract content ?
 class PreZipper pathF stepF =>
   Zipper t node pathF stepF blur key |
       t -> node,
@@ -52,6 +54,7 @@ class PreZipper pathF stepF =>
 
 ofZipper :: Zipper top node pathF stepF blur key => Zip pathF node node -> top
 ofZipper = ofTopZipper . zipUp stepUp
+
 
 
 -- TODO make it work with Bits k as well as FiniteBits k?
@@ -80,7 +83,7 @@ data (TrieKey h k {-, Binary c-}) =>
   | Skip {heightMinus1 :: h, bits :: k, child :: TrieNode h k c}
   deriving (Show, Eq, {-Binary,-} Functor)
 
-data (TrieKey h k {-, Binary d-}) =>
+data TrieKey h k =>
   TriePath h k d = TriePath {
     triePathHeight :: Int
       {- the height of lowest key bit for the node *above* the focused node,
@@ -96,13 +99,13 @@ data (TrieKey h k {-, Binary d-}) =>
          (no data for skip nodes), such that the first item corresponds
          to the first (low-order) bits of k1. -}
   }
-  deriving (Show, Eq, {-Binary,-} Functor)
+  deriving (Show, Eq, Functor)
 
 data TrieStep h k t
   = LeftStep t
   | RightStep t
   | SkipStep h k
-  deriving (Show, Eq, {-Binary,-} Functor)
+  deriving (Show, Eq, Functor)
 
 type TrieZip h k = Zip (TriePath h k)
 
