@@ -24,6 +24,7 @@ library scripts
     , plutus-ledger-api ^>=1.34.1.0
     , plutus-tx ^>=1.34.1.0
     , merkle-patricia-trie
+    , wide-word
 
   if !(impl(ghcjs) || os(ghcjs))
     build-depends: plutus-tx-plugin
