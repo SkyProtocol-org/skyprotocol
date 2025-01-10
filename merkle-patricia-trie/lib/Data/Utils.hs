@@ -13,19 +13,19 @@ import Data.Kind (Type)
 
 -- Wrappers (reference)
 -- Functor r =>
-class {-(Monad m) => -} PreWrapping (r :: Type -> Type) {-m-} where
-  wrap :: a -> {-m-} (r a)
+class Monad e => PreWrapping r e where
+  wrap :: a -> e (r a)
 
-class (PreWrapping r {-m-}) => Wrapping (r :: Type -> Type) {-m-} where
-  unwrap :: r a -> {-m-} a
+class PreWrapping r e => Wrapping r e where
+  unwrap :: r a -> e a
 
 -- instance Functor r => Wrapping r Identity where
 --  wrap = pure
 
-instance PreWrapping Identity {-Identity-} where
-  wrap = Identity
-instance Wrapping Identity {-Identity-} where
-  unwrap = runIdentity
+instance PreWrapping Identity Identity where
+  wrap = Identity . Identity
+instance Wrapping Identity Identity where
+  unwrap x = x
 
 -- TODO: use a standard library function for that, or at least optimize to logarithmically faster
 -- TODO: a variant that returns both bit and height
