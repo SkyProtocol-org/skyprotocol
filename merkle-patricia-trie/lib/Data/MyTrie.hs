@@ -215,11 +215,12 @@ instance (TrieKey h k, Wrapping r) => Zipper (Trie r h k c) (r (TrieNode r h k c
             Leaf _ -> Zip t p
             -- recursive case
             Branch l r ->
-              let (step, t') = if testBit k' (h - h' - 1) then
-                                (RightStep l, r)
-                              else
-                                (LeftStep r, l) in
-              descend t' (stepDown step p)
+              if testBit k' $ h - h' - 1 then
+                continue r $ RightStep l
+              else
+                continue l $ LeftStep r
+              where
+                continue t' step = descend t' $ stepDown step p
             -- hard case: descending common then uncommon parts of a Skip
             Skip bitsHeightMinus1 bits child ->
               let childHeight = h - (fromIntegral bitsHeightMinus1) - 1
