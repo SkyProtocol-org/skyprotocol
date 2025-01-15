@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run: nix-build
+    - run: nix develop .
       working-directory: ./contracts
     - uses: actions/setup-node@v4
     - name: Setup and run tests
