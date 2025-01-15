@@ -12,6 +12,11 @@ set -eux
 sudo apt-get install jq
 npm install
 
+# Install cabal if it's not already
+if ! command -v cabal &> /dev/null; then
+    sudo apt-get install cabal-install
+fi
+
 # Create directory for application data
 rm -rf var
 mkdir var

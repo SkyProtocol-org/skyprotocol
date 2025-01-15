@@ -1,0 +1,19 @@
+name: Contracts Tests
+
+on:
+  push:
+    branches: [ manuel-automated-tests ]
+  pull_request:
+    branches: [ manuel-automated-tests ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        cache: 'npm'
+    - name: Setup and run tests
+      working-directory: ./contracts/off-chain
+      run: ./test-setup.sh
