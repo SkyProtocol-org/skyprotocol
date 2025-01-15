@@ -12,6 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
+      working-directory: ./contracts/off-chain
       with:
         cache: 'npm'
     - name: Setup and run tests
