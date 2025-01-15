@@ -26,6 +26,8 @@ if ! command -v cabal &> /dev/null; then
     ghcup install cabal 3.12.1.0
 fi
 
+ghcup -v
+
 cabal update
 # No idea why this is needed
 cabal v2-update 'cardano-haskell-packages,2024-11-27T20:49:28Z'
