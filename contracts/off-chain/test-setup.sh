@@ -16,6 +16,7 @@ npm install
 if ! command -v cabal &> /dev/null; then
     sudo apt-get install cabal-install
 fi
+cabal update
 
 # Create directory for application data
 rm -rf var
