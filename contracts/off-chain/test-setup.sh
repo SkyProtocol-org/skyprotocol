@@ -17,16 +17,8 @@ if ! command -v ghcup &> /dev/null; then
     echo "Installing ghcup"
     curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 fi
-if ! command -v ghc &> /dev/null; then
-    echo "Installing ghc"
-    ghcup install ghc 9.6.6
-fi
-if ! command -v cabal &> /dev/null; then
-    echo "Installing cabal"
-    ghcup install cabal 3.12.1.0
-fi
-
-ghcup -v
+ghcup set ghc 9.6.6
+ghcup set cabal 3.12.1.0
 
 cabal update
 # No idea why this is needed
