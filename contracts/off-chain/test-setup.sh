@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -eux
 
+ghc -v
+
 # This script:
 # - Installs deps
 # - Generates wallets used for tests
