@@ -34,6 +34,15 @@ export ADMIN_ADDR=$(cat var/admin.addr)
 export OFFERER_ADDR=$(cat var/offerer.addr)
 export CLAIMANT_ADDR=$(cat var/claimant.addr)
 
+# Create minting policy
+cabal run gen-minting-policy-blueprint -- "$(cat var/admin.pkh)" var/sky-minting-policy.json
+cat var/sky-minting-policy.json | jq -r '.validators[0].hash' > var/sky-minting-policy.hash
+# Generate Bridge Validator
+cabal run gen-validator-blueprint -- "$(cat var/sky-minting-policy.hash)" var/sky-bridge-validator.json
+cat var/sky-bridge-validator.json | jq -r '.validators[0].hash' > var/sky-bridge-validator.hash
+# Generate Bounty validator with our desired topic ID 00 and target hash CAFE
+cabal run gen-bounty-blueprint -- "$(cat var/sky-minting-policy.hash)" 00 CAFE "$(cat var/claimant.pkh)" var/sky-bounty-validator.json
+
 # Install devkit if it isn't installed
 if [ ! -d "$HOME/.yaci-devkit" ]; then
     curl --proto '=https' --tlsv1.2 -LsSf https://devkit.yaci.xyz/install.sh | bash
@@ -51,18 +60,6 @@ topup $ADMIN_ADDR 10000
 topup $OFFERER_ADDR 10000
 topup $CLAIMANT_ADDR 10000
 EOF
-
-# While the devkit is launching in the background, we can exploit some
-# awesome parallelism and generate the blueprints.
-
-# Create minting policy
-cabal run gen-minting-policy-blueprint -- "$(cat var/admin.pkh)" var/sky-minting-policy.json
-cat var/sky-minting-policy.json | jq -r '.validators[0].hash' > var/sky-minting-policy.hash
-# Generate Bridge Validator
-cabal run gen-validator-blueprint -- "$(cat var/sky-minting-policy.hash)" var/sky-bridge-validator.json
-cat var/sky-bridge-validator.json | jq -r '.validators[0].hash' > var/sky-bridge-validator.hash
-# Generate Bounty validator with our desired topic ID 00 and target hash CAFE
-cabal run gen-bounty-blueprint -- "$(cat var/sky-minting-policy.hash)" 00 CAFE "$(cat var/claimant.pkh)" var/sky-bounty-validator.json
 
 # The following loop waits until the the addresses have been topped
 # up, because otherwise we can't mint the NFT.  This uses an HTTP API
