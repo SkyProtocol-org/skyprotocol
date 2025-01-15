@@ -12,10 +12,6 @@ set -eux
 sudo apt-get install jq
 npm install
 
-# Install Haskell stuff if it's not already installed
-sh <(curl -L https://nixos.org/nix/install) --daemon
-nix develop .
-
 cabal update
 # No idea why this is needed
 cabal v2-update 'cardano-haskell-packages,2024-11-27T20:49:28Z'
