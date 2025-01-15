@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -eux
 
-ghc -v
-
 # This script:
 # - Installs deps
 # - Generates wallets used for tests
@@ -14,10 +12,17 @@ ghc -v
 sudo apt-get install jq
 npm install
 
-# Install cabal if it's not already
-if ! command -v cabal &> /dev/null; then
-    sudo apt-get install cabal-install
+# Install Haskell gunk if it's not already installed
+if ! command -v ghcup &> /dev/null; then
+    curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 fi
+if ! command -v ghc &> /dev/null; then
+    ghcup install ghc 9.6.6
+fi
+if ! command -v cabal &> /dev/null; then
+    ghcup install cabal 3.12.1.0
+fi
+
 cabal update
 # No idea why this is needed
 cabal v2-update 'cardano-haskell-packages,2024-11-27T20:49:28Z'
