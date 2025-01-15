@@ -30,8 +30,8 @@ import SkyBridgeContract (BridgeNFTDatum (..), DataHash (..), getRefBridgeNFTDat
 import GHC.Generics (Generic)
 
 import PlutusCore.Version (plcVersion100)
-import PlutusLedgerApi.V1 (Lovelace, POSIXTime, PubKeyHash (..),
-                           Credential(PubKeyCredential), addressCredential)
+import PlutusLedgerApi.V1 (Lovelace, POSIXTime, PubKeyHash)
+import PlutusLedgerApi.V1.Address (toPubKeyHash)
 import PlutusLedgerApi.V1.Interval (contains)
 import PlutusLedgerApi.V1.Value (lovelaceValueOf, valueOf, flattenValue,
                                  assetClassValueOf, AssetClass (..))
@@ -78,8 +78,6 @@ PlutusTx.makeIsDataSchemaIndexed ''TopicID [('TopicID, 0)]
 data ClientParams = ClientParams
   { bountyNFTCurrencySymbol :: CurrencySymbol
     -- ^ Unique currency symbol (hash of minting policy) of the bridge contract NFT
-  , bountyClaimantPubKeyHash :: PubKeyHash
-    -- ^ Credential of claimant (bounty prize can only be sent to this credential)
   , bountyTopicID :: TopicID
     -- ^ ID of topic in which data must be published
   , bountyMessageHash :: DataHash
@@ -121,15 +119,19 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- left_topic_top_hash = hash(left_topic_id ++ left_committee_fingerprint ++ left_topic_root_hash)
 -- (same for right topic committee)
 
--- Validator function without logic for fetching NFT from script context, for easy testing
-clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
-clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
+clientTypedValidator ::
+    ClientParams ->
+    () ->
+    ClientRedeemer ->
+    ScriptContext ->
+    Bool
+clientTypedValidator params () claim@ClaimBounty{} ctx@(ScriptContext txInfo _) =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
-        hashInMerkleProof (messageInTopicProof claim) bountyMessageHash
+        hashInMerkleProof (messageInTopicProof claim) (bountyMessageHash params)
         -- The topic's top hash is in the DA
       , hashInMerkleProof (topicInDAProof claim) topicTopHash
         -- The claimed top hash matches the one stored in the NFT
@@ -140,37 +142,18 @@ clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nft
     topicRootHash = merkleProofToDataHash (messageInTopicProof claim)
     -- Topic top hash produced by claim
     topicTopHash :: DataHash
-    topicTopHash = makeTopicTopHash bountyTopicID (topicCommitteeFingerprint claim) topicRootHash
+    topicTopHash = makeTopicTopHash (bountyTopicID params) (topicCommitteeFingerprint claim) topicRootHash
     -- Main root hash produced by claim
     mainRootHash :: DataHash
     mainRootHash = merkleProofToDataHash (topicInDAProof claim)
     -- Top hash produced by claim
     topHash :: DataHash
     topHash = pairHash (mainCommitteeFingerprint claim) mainRootHash
-
--- Main validator function
-clientTypedValidator ::
-    ClientParams ->
-    () ->
-    ClientRedeemer ->
-    ScriptContext ->
-    Bool
-clientTypedValidator params () redeemer ctx =
-    clientTypedValidatorCore redeemer (bountyTopicID params) (bountyMessageHash params) nftTopHash
-  where
     -- Top hash stored in NFT
     nftTopHash :: DataHash
     nftTopHash = case getRefBridgeNFTDatumFromContext (bountyNFTCurrencySymbol params) ctx of
                    Nothing -> PlutusTx.traceError "bridge NFT not found"
-                   Just (BridgeNFTDatum topHash) -> topHash
-    -- Bounty prize funds are sent to pre-configured bounty claimant
-    outputs :: [TxOut]
-    outputs = txInfoOutputs (scriptContextTxInfo ctx)
-    allPaidToCredential :: Bool
-    allPaidToCredential =
-      PlutusTx.all (\o -> addressCredential (txOutAddress o)
-                          PlutusTx.== PubKeyCredential (bountyClaimantPubKeyHash params))
-                   outputs
+                   Just (BridgeNFTDatum th) -> th
 
 -- Verify whether a (leaf) hash is included in a Merkle proof
 hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool

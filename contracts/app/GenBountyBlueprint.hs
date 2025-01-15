@@ -42,7 +42,7 @@ clientParams csym topicID messageHash claimantPKH =
     { bountyNFTCurrencySymbol = csym
     , bountyTopicID = topicID
     , bountyMessageHash = messageHash
-    , bountyClaimantPubKeyHash = claimantPKH
+--    , bountyClaimantPubKeyHash = claimantPKH
     }
 
 clientContractBlueprint :: CurrencySymbol -> TopicID -> DataHash -> PubKeyHash -> ContractBlueprint
