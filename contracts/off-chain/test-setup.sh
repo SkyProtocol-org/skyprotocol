@@ -17,8 +17,8 @@ if ! command -v ghcup &> /dev/null; then
     echo "Installing ghcup"
     curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 fi
-ghcup set ghc 9.6.6
-ghcup set cabal 3.12.1.0
+sudo ghcup set ghc 9.6.6
+sudo ghcup set cabal 3.12.1.0
 
 cabal update
 # No idea why this is needed
