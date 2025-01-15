@@ -25,8 +25,11 @@ export ADMIN_ADDR=$(cat var/admin.addr)
 export OFFERER_ADDR=$(cat var/offerer.addr)
 export CLAIMANT_ADDR=$(cat var/claimant.addr)
 
-# XXX
-export DEVKIT=/home/sky/yaci/yaci-devkit-0.10.0-preview2/bin/devkit.sh
+# Install devkit if it isn't installed
+if [ ! -d "$HOME/.yaci-devkit" ]; then
+    curl --proto '=https' --tlsv1.2 -LsSf https://devkit.yaci.xyz/install.sh | bash
+fi
+DEVKIT="$HOME/.yaci-devkit/bin/devkit"
 
 # Stop devkit if it's running
 sudo $DEVKIT stop
