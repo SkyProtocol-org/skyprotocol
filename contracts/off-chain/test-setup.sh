@@ -17,6 +17,9 @@ if ! command -v cabal &> /dev/null; then
     sudo apt-get install cabal-install
 fi
 cabal update
+# No idea why this is needed
+cabal v2-update 'cardano-haskell-packages,2024-11-27T20:49:28Z'
+cabal v2-update 'hackage.haskell.org,2024-12-02T09:19:04Z'
 
 # Create directory for application data
 rm -rf var
