@@ -12,14 +12,17 @@ set -eux
 sudo apt-get install jq
 npm install
 
-# Install Haskell gunk if it's not already installed
+# Install Haskell stuff if it's not already installed
 if ! command -v ghcup &> /dev/null; then
+    echo "Installing ghcup"
     curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 fi
 if ! command -v ghc &> /dev/null; then
+    echo "Installing ghc"
     ghcup install ghc 9.6.6
 fi
 if ! command -v cabal &> /dev/null; then
+    echo "Installing cabal"
     ghcup install cabal 3.12.1.0
 fi
 
