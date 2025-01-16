@@ -1,10 +1,10 @@
-name: Contracts Tests
+name: Contracts Tests (disabled for now due to Nix dependency problem with cardano-binary package)
 
 on:
   push:
-    branches: [ manuel-automated-tests ]
+    branches: []
   pull_request:
-    branches: [ manuel-automated-tests ]
+    branches: []
 
 jobs:
   build:
