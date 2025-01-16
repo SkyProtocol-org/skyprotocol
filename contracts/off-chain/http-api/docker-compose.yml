@@ -7,5 +7,4 @@ services:
       - ../var:/usr/src/app/var
     ports:
       - "3030:3030"
-      - "8080:8080"
     restart: always
