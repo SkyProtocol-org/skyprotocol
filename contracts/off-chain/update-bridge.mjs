@@ -142,7 +142,7 @@ const recipient = {
     datum: { value: updatedDatum, inline: true }
 };
 
-const tx = new Transaction({ initiator: wallet, verbose: true })
+const tx = new Transaction({ initiator: wallet, fetcher: blockchainProvider, verbose: true })
       .redeemValue({
 	  value: utxo,
 	  script: validator,

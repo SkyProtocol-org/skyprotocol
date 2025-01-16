@@ -28,7 +28,7 @@ export async function waitUntilTxReady(blockchainProvider, txHash) {
 	} catch (errString) {
 	    const err = JSON.parse(errString);
 	    if (err.status === 404) {
-		await new Promise(resolve => setTimeout(resolve, 5000));
+		await new Promise(resolve => setTimeout(resolve, 1000));
 		continue;
 	    } else {
 		throw errString;

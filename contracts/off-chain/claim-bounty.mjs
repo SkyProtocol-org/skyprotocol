@@ -132,7 +132,7 @@ const redeemer = {
 }
 
 // Unlock the reward UTXO locked at bounty and send it to claimant
-const tx = new Transaction({ initiator: wallet, verbose: true })
+const tx = new Transaction({ initiator: wallet, fetcher: blockchainProvider, verbose: true })
       .redeemValue({
 	  value: bountyUtxo,
 	  script: bountyValidator,
