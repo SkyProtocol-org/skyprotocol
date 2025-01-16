@@ -6,10 +6,10 @@ FROM node:18-alpine
 WORKDIR /usr/src/app
 
 # Copy application code
-COPY server.js .
+COPY . .
 
 # Expose the port that the server listens on
 EXPOSE 3030
 
 # Command to start the server
-CMD ["node", "server.js"]
+CMD ["node", "server.mjs"]

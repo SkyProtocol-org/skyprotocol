@@ -78,3 +78,9 @@ done
 
 # Finally, after all addresses have been topped up, we can mint the bridge NFT.
 node mint-nft.mjs var/admin
+
+# Start HTTP API
+#pushd http-api
+#sudo docker compose kill
+#sudo docker compose up --build -d
+#popd

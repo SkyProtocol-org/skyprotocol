@@ -1,9 +1,7 @@
 /*
-  node update-bridge.mjs <wallet>
-
   Updates the top hash stored in the bridge NFT.
 
-  Wallet will be used to pay fees.
+  The var/admin Wallet will be used to pay fees.
 */
 
 import cbor from 'cbor'
@@ -28,6 +26,9 @@ import { newProvider, findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.
 // Setup
 //////////////////////////////////////////////////////////////////////////////
 
+export async function updateBridge()
+{
+
 const blockchainProvider = newProvider();
 
 const wallet = new MeshWallet({
@@ -36,7 +37,7 @@ const wallet = new MeshWallet({
   submitter: blockchainProvider,
   key: {
     type: 'root',
-      bech32: fs.readFileSync(`${process.argv[2]}.skey`).toString().trim()
+      bech32: fs.readFileSync(`./var/admin.skey`).toString().trim()
   }
 })
 
@@ -158,5 +159,6 @@ const tx = new Transaction({ initiator: wallet, fetcher: blockchainProvider, ver
 const unsignedTx = await tx.build();
 const signedTx = await wallet.signTx(unsignedTx);
 const txHash = await wallet.submitTx(signedTx);
-
 await waitUntilTxReady(blockchainProvider, txHash);
+
+}
