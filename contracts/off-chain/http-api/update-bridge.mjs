@@ -22,7 +22,8 @@ import fs from 'node:fs'
 
 import { newProvider, findUTXOWithSpecificUnit, waitUntilTxReady } from "./util.mjs"
 
-export async function updateBridge()
+// See test-bridge.sh for example of input JSON format
+export async function updateBridge(inputJson)
 {
 
     //////////////////////////////////////////////////////////////////////////////
@@ -78,38 +79,51 @@ export async function updateBridge()
     // Create Data to Send to Bridge Contract
     //////////////////////////////////////////////////////////////////////////////
 
-    // Create UpdateBridge redeemer
-    const redeemer = {
-        alternative: 0,
-        fields: [
-	    {
-                alternative: 0,
-                fields: [
-                    [
-                        { alternative: 0, fields: ["3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"] },
-                        { alternative: 0, fields: ["42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE"] },
-                        { alternative: 0, fields: ["22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"] }
-                    ],
-                    2 // Number of public keys that must sign
-                ]
-            },
-	    { alternative: 0, fields: ["9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"] }, // main root hash 1
-	    { alternative: 0, fields: ["3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"] }, // top hash 2
-	    {
-                alternative: 0,
-                fields: [
-	            // [SingleSig]
-	            [ { alternative: 0, // top hash 2 sig 1
-	                fields: [ { alternative: 0, fields: ["3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"] },
-                                  "87E894C503E40A8CB98DEB8618DC068323092871C717D4781D56FCBBE10FCD6B1965ADE766FFDFAF8F7B2964F3ED8A6066703DD9AA68F583055ED53FBA27A90E" ] },
-	              { alternative: 0, // top hash 2 sig 2
-	                fields: [ { alternative: 0, fields: ["42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE"] },
-                                  "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003" ] }
-	            ]
-                ]
-            }
-        ]
-    };
+    // Transform the endpoint's JSON input into the data structure understood by the contract
+    function transformData(data) {
+        return {
+            alternative: 0,
+            fields: [
+                {
+                    alternative: 0,
+                    fields: [
+                        data.committee.publicKeys.map(publicKey => ({
+                            alternative: 0,
+                            fields: [publicKey]
+                        })),
+                        data.committee.n
+                    ]
+                },
+                {
+                    alternative: 0,
+                    fields: [data.oldRootHash]
+                },
+                {
+                    alternative: 0,
+                    fields: [data.newTopHash]
+                },
+                {
+                    alternative: 0,
+                    fields: [
+                        data.newTopHashSignature.map(signatureObj => ({
+                            alternative: 0,
+                            fields: [
+                                {
+                                    alternative: 0,
+                                    fields: [signatureObj.publicKey]
+                                },
+                                signatureObj.signature
+                            ]
+                        }))
+                    ]
+                }
+            ]
+        };
+    }
+
+    const redeemer = transformData(inputJson);
+
+    console.log(JSON.stringify(redeemer));
 
     //////////////////////////////////////////////////////////////////////////////
     // Find Bridge NFT and Create Datum Updated With New Top Hash
@@ -121,7 +135,7 @@ export async function updateBridge()
     const updatedDatum = {
         alternative: 0,
         fields: [
-	    { alternative: 0, fields: ["3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"] } // tophash 2
+	    { alternative: 0, fields: [inputJson.newTopHash] }
         ]
     };
 

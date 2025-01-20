@@ -16,7 +16,7 @@ app.get('/', (req, res) => {
 // Update bridge endpoint
 app.post('/update-bridge', async (req, res) => {
     try {
-        await updateBridge();
+        await updateBridge(req.body);
         res.status(200).end();
     } catch (err) {
         res.status(500).send(err.toString());
