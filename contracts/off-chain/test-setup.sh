@@ -7,8 +7,9 @@ set -eux
 # - Launches the Yaci devkit and tops up the wallets
 # - Generates blueprints for the NFT, and bridge and bounty contracts
 # - Mints the NFT
+# - Starts the HTTP API
 
-# Install deps
+# Install deps used for test
 sudo apt-get install jq
 npm install
 
