@@ -57,24 +57,25 @@ topup $OFFERER_ADDR 10000
 topup $CLAIMANT_ADDR 10000
 EOF
 
-# The following loop waits until the the addresses have been topped
-# up, because otherwise we can't mint the NFT.  This uses an HTTP API
-# exposed by the devkit.
-URL="http://localhost:8080/api/v1/addresses/$CLAIMANT_ADDR/balance"
-while true; do
-    echo "Fetching the balance..."
-    # Because we run the whole script under -e which makes it exit on error,
-    # we need to handle network errors from curl specially.  Return a fake 500 error.
-    STATUS=$(curl -w "%{http_code}" -o /dev/null --max-time 60 "$URL" || echo "500")
-    echo "Fetched the balance..."
-    # URL returns 404 until address has a balance.
-    if [ "$STATUS" -eq 200 ]; then
-        break
-    else
-        echo "Failed to fetch the balance, retrying..."
-    fi
-    sleep 5
-done
+# Utility that waits until an URL becomes 200
+wait_for_url() {
+    local URL="$1"
+    while true; do
+        echo "Waiting for $URL to become available"
+        # Because we run the whole script under -e which makes it exit on error,
+        # we need to handle network errors from curl specially. Return a fake 500 error.
+        STATUS=$(curl -w "%{http_code}" -o /dev/null --max-time 60 "$URL" || echo "500")
+        if [ "$STATUS" -eq 200 ]; then
+            break
+        else
+            echo "$URL not yet available, retrying..."
+        fi
+        sleep 5
+    done
+}
+
+# Wait until claimant address is topped up (it's the last of the addresses we top up)
+wait_for_url "http://localhost:8080/api/v1/addresses/$CLAIMANT_ADDR/balance"
 
 # Finally, after all addresses have been topped up, we can mint the bridge NFT.
 node mint-nft.mjs var/admin
@@ -83,5 +84,6 @@ node mint-nft.mjs var/admin
 pushd http-api
 sudo docker compose kill
 sudo docker compose up --build -d
-sleep 60
+# Wait for HTTP API to become available
+wait_for_url "http://localhost:3030/"
 popd

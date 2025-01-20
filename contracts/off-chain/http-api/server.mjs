@@ -6,7 +6,12 @@ const hostname = '0.0.0.0'; // Listen on all network interfaces
 const port = 3030;
 
 const server = http.createServer(async (req, res) => {
-    if (req.method === 'POST') {
+    if ((req.method === 'GET') && (req.url === '/')) {
+        // Simple status endpoint
+        res.statusCode = 200;
+        res.end("OK");
+    } else if (req.method === 'POST') {
+        // Update bridge endpoint
         if (req.url === '/update-bridge') {
             res.statusCode = 200;
             await updateBridge();
@@ -16,8 +21,8 @@ const server = http.createServer(async (req, res) => {
             res.end('Not Found');
         }
     } else {
-        res.statusCode = 405;
-        res.end('Method Not Allowed');
+        res.statusCode = 400;
+        res.end('Bad request');
     }
 });
 
