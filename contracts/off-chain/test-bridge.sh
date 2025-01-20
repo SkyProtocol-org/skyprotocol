@@ -5,7 +5,7 @@ set -eux
 
 # Store top hash 2 in bridge
 
-node update-bridge.mjs var/admin
+curl -X POST localhost:3030/update-bridge
 
 # Verify that top hash 2 is stored in bridge
 

@@ -1,10 +1,9 @@
 services:
   node-server:
+    network_mode: host
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - ../var:/usr/src/app/var
-    ports:
-      - "3030:3030"
     restart: always
