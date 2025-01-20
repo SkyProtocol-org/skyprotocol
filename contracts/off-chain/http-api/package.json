@@ -5,6 +5,7 @@
   "license": "MIT",
   "dependencies": {
     "@meshsdk/core": "^1.8.8",
-    "cbor": "^10.0.3"
+    "cbor": "^10.0.3",
+    "express": "^4.21.2"
   }
 }
