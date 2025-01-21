@@ -75,15 +75,15 @@ library
         ScopedTypeVariables
         DeriveFunctor
         FlexibleContexts
+        ImportQualifiedPost
 
     -- Other library packages from which modules are imported.
     build-depends:
         base ^>=4.18.2.1,
         cryptonite ==0.30,
         bytestring,
-        wide-word
-        -- for future more optimized implementation consider using RLP from ethereum whitepaper
-        -- relapse ==1.0.0.1
+        memory,
+        binary
 
     -- Directories containing source files.
     hs-source-dirs:   lib

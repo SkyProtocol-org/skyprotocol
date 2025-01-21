@@ -1,4 +1,5 @@
 {-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -19,7 +20,7 @@ spec :: Spec
 spec = do
   describe "MerkleTrie" $ do
     it "should generate a proof, validate it, and compute the root hash correctly" $ do
-      let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+      let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" (Trie.empty :: Trie.Trie Word256 String)
           merkleTrie = merkelize t
           proof1 = proof 1 t
           proof2 = proof 2 t
@@ -30,11 +31,11 @@ spec = do
         _ -> expectationFailure "Failed to generate proofs"
 
     it "should return Nothing for a proof of a key not in the trie" $ do
-      let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+      let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" (Trie.empty :: Trie.Trie Word256 String)
       proof 3 t `shouldBe` Nothing
 
     it "should fail to validate an incorrect proof" $ do
-      let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+      let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" (Trie.empty :: Trie.Trie Word256 String)
           merkleTrie = merkelize t
           proof1 = proof 1 t
           proof2 = proof 2 t
