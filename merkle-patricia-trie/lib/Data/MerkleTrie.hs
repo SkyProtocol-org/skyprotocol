@@ -28,7 +28,7 @@ data MerkleProof = MerkleProof
   { targetKey :: Integer,
     targetValue :: BS.ByteString,
     keySize :: Int,
-    keyPath :: [(Integer, Integer)],
+    keyPath :: [Integer],
     siblingHashes :: [Digest Blake2b_256]
   }
   deriving (Eq, Show)
@@ -44,9 +44,9 @@ computeRootHash :: forall k v. (Binary k, Binary (TrieHeight k), Binary v) => Tr
 computeRootHash = cata go
   where
     go :: Algebra (TrieF' k v) (Digest Blake2b_256)
-    go Empty = computeHash "EmptyTrie"
-    go Leaf {..} = computeHash (key, value)
-    go Branch {..} = hashlazy $ computeHashAsBS height <> computeHashAsBS prefix <> BS.pack (BA.unpack left) <> BS.pack (BA.unpack right)
+    go Empty = computeHash (0 :: Int)
+    go Leaf {..} = computeHash (1 :: Int, value)
+    go Branch {..} = hashlazy $ computeHashAsBS (2 :: Int) <> BS.pack (BA.unpack left) <> BS.pack (BA.unpack right)
 
 merkelize :: (Binary k, Binary v, Binary (TrieHeight k)) => Trie k v -> MerkleTrie k v
 merkelize trie = let rootHash = computeRootHash trie in MerkleTrie rootHash trie
@@ -65,21 +65,21 @@ proof k t = let r = cata go t in if fst r then snd r else Nothing
       let targetKey = fromIntegral key
           targetValue = encode value
           keyPath = []
-          siblingHashes = [computeHash (key, value) | key /= k]
+          siblingHashes = [computeHash (1 :: Int, value) | key /= k]
        in (key == k, Just $ MerkleProof {..})
-    go (Branch h p (bl, Just pl) (br, Just pr))
+    go (Branch h _ (bl, Just pl) (br, Just pr))
       -- if one of the proofs containt the key, it means it comes from a path that we're interested in
       -- it also means, that this node is in the path
       | pl.targetKey == fromIntegral k =
           let targetKey = pl.targetKey
               targetValue = pl.targetValue
-              keyPath = (fromIntegral h, fromIntegral p) : pl.keyPath
+              keyPath = fromIntegral h : pl.keyPath
               siblingHashes = pr.siblingHashes <> pl.siblingHashes
            in (bl, Just $ MerkleProof {..})
       | pr.targetKey == fromIntegral k =
           let targetKey = pr.targetKey
               targetValue = pr.targetValue
-              keyPath = (fromIntegral h, fromIntegral p) : pr.keyPath
+              keyPath = fromIntegral h : pr.keyPath
               siblingHashes = pr.siblingHashes <> pl.siblingHashes
            in (br, Just $ MerkleProof {..})
       -- otherwise it doesn't matter what key we pick, we're interested only in hash
@@ -88,7 +88,12 @@ proof k t = let r = cata go t in if fst r then snd r else Nothing
               targetValue = pl.targetValue
               keyPath = []
               -- in this case there is always one element in the path list
-              siblingHashes = [hashlazy $ computeHashAsBS h <> computeHashAsBS p <> computeHashAsBS (BS.pack (BA.unpack (head pl.siblingHashes))) <> computeHashAsBS (BS.pack (BA.unpack (head pr.siblingHashes)))]
+              siblingHashes =
+                [ hashlazy $
+                    computeHashAsBS (2 :: Int)
+                      <> BS.pack (BA.unpack (head pl.siblingHashes))
+                      <> BS.pack (BA.unpack (head pr.siblingHashes))
+                ]
            in (False, Just $ MerkleProof {..})
     go Branch {} = (False, Nothing)
 
@@ -97,10 +102,10 @@ validate :: MerkleProof -> Digest Blake2b_256 -> Bool
 validate MerkleProof {..} rootHash =
   rootHash
     == foldr
-      ( \((h, p), hs) acc ->
+      ( \(h, hs) acc ->
           if not (targetKey `testBit` fromIntegral h)
-            then hashlazy $ computeHashAsBS h <> computeHashAsBS p <> BS.pack (BA.unpack acc) <> BS.pack (BA.unpack hs)
-            else hashlazy $ computeHashAsBS h <> computeHashAsBS p <> BS.pack (BA.unpack hs) <> BS.pack (BA.unpack acc)
+            then hashlazy $ computeHashAsBS (2 :: Int) <> BS.pack (BA.unpack acc) <> BS.pack (BA.unpack hs)
+            else hashlazy $ computeHashAsBS (2 :: Int) <> BS.pack (BA.unpack hs) <> BS.pack (BA.unpack acc)
       )
-      (hashlazy $ encode targetKey <> targetValue)
+      (hashlazy $ encode (1 :: Int) <> targetValue)
       (reverse $ zip keyPath siblingHashes)
