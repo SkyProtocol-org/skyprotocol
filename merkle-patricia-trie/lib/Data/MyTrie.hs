@@ -1,12 +1,16 @@
 -- {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE FunctionalDependencies, FlexibleInstances, InstanceSigs, KindSignatures #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module Data.MyTrie (TrieNode (..), Trie, TrieKey, TriePath, TrieZipper, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf) where
+module Data.MyTrie (TrieNode (..), Trie, TrieKey, TriePath, TrieZipper, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf, getMerkleProof, {-isMerkleProof-}) where
 
 import Prelude hiding (lookup)
 
@@ -34,7 +38,8 @@ data Zip pathF point otherdata = Zip {
   }
   deriving (Show, Eq, {-Binary,-} Functor)
 
-class Monad e => PreZipper e pathF stepF | pathF -> stepF where
+class Monad e =>
+  PreZipper e pathF stepF | pathF -> stepF where
   pathStep :: pathF a -> e (Maybe (stepF a, pathF a))
   stepDown :: stepF a -> pathF a -> e (pathF a)
 
@@ -93,6 +98,8 @@ data TrieHeightKey h k =>
   | Skip {heightMinus1 :: h, bits :: k, child :: TrieNodeRef r h k c}
   -- deriving (Show, Eq, Binary, Functor)
 
+type TrieNodeRef r h k c = r (TrieNode r h k c)
+
 data TrieHeightKey h k =>
   TriePath h k d = TriePath {
     triePathHeight :: Int
@@ -100,7 +107,7 @@ data TrieHeightKey h k =>
          which is 0 for a Leaf, 256 if the key is 256 bits with high bit set.
          Note that may thus not fit the type h of the height,
          e.g. because h==UInt8, k==UInt256 and 256 > 255 the max value in h. -}
-  , _triePathKey :: k
+  , triePathKey :: k
       {- bits of key starting from triePathHeight (:: Int) of the pointed node. -}
   , _triePathSkipMask :: k
       {- bits of a mask indicating which of the bits of k1 are skipped. -}
@@ -118,8 +125,6 @@ data TrieStep h k t
   deriving (Show, Eq, Functor)
 
 type TrieZip h k = Zip (TriePath h k) :: Type -> Type -> Type
-
-type TrieNodeRef (r :: Type -> Type) (h :: Type) (k :: Type) (c :: Type) = r (TrieNode r h k c)
 
 type TrieZipper r h k c = TrieZip h k (TrieNodeRef r h k c) (TrieNodeRef r h k c) :: Type
 
@@ -332,14 +337,17 @@ stepBits (RightStep _) k = (k `shiftL` 1) .|. 1
 stepBits (SkipStep h ks) k = (k `shiftL` (1 + fromIntegral h)) .|. ks
 -}
 
-{-
-getMerkleProof :: (TrieHeightKey h k, Digesting d) => Trie r h k c -> k -> TriePath h k c
-getMerkleProof trie key =
-  zipperOf trie & refocus 0 k & zipPath & fmap getTrieDigest
+type TrieProof h k ha = TriePath h k (Digest ha)
 
-getMerkleProof :: (TrieHeightKey h k) => Trie r h k c -> k -> TriePath h k c
-isMerkleProof trieDigest key value proof =
-  trieDigest == zipUp digestSynth (Zip (digestSynth $ Leaf value) proof) &&
+getMerkleProof :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) r e, Digestible r) =>
+  Trie r h k c -> k -> e (TrieProof h k (HashAlgorithmOf r))
+getMerkleProof t k =
+  zipperOf t >>= refocus 0 k >>= liftM (zipPath >> fmap getDigest)
+
+{-
+isMerkleProof :: (TrieHeightKey h k) => k -> Digest (HashAlgorithmOf r) -> Digest (HashAlgorithmOf r) -> TrieProof h k (HashAlgorithmOf r) -> Bool
+isMerkleProof key leafDigest trieDigest proof =
+  (DigestOnly trieDigest) == zipUp digestSynth (Zip (DigestOnly leafDigest :: DigestOnly (HashAlgorithmOf r) ()) proof) &&
   key == triePathKey . zipPath $ proof
 -}
 
@@ -365,21 +373,18 @@ zipInsertList ((k, v):l) = zipInsertList l >=> zipInsert v k
 zipInsertList [] = pure
 
 appendListOfZipper :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) r e) => TrieZipper r h k c -> [(k,c)] -> e [(k, c)]
-appendListOfZipper = error "NIY"
-{-
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
-  case (unwrap t) :: TrieNode r h k c of
+  unwrap t >>= \case
   Empty -> return a
-  {-Leaf (v :: c) -> return ((k, v) : a)-}
-  Branch l r -> error "NIY" {-do
+  Leaf v -> return ((k, v): a)
+  Branch l r -> do
                   rp <- stepDown (RightStep l) p
                   ra <- appendListOfZipper (Zip r rp) a
                   lp <- stepDown (LeftStep r) p
-                  appendListOfZipper (Zip l lp) ra-}
-  Skip h k c -> error "NIY" {-do
-                  sp <- stepDown (SkipStep h k) p
-                  appendListOfZipper (Zip c sp) a-}
--}
+                  appendListOfZipper (Zip l lp) ra
+  Skip h k' c -> do
+                  sp <- stepDown (SkipStep h k') p
+                  appendListOfZipper (Zip c sp) a
 
 update :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) r e) => (Maybe c -> e (Maybe c)) -> k -> Trie r h k c -> e (Trie r h k c)
 update updateLeaf key = zipperOf >=> zipUpdate updateLeaf key >=> ofZipper
@@ -416,23 +421,24 @@ ofList bindings = empty >>= zipperOf >>= zipInsertList bindings >>= ofZipper
 listOf :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) r e) => Trie r h k c -> e [(k, c)]
 listOf = zipperOf >=> flip appendListOfZipper []
 
-instance (TrieHeightKey h k, Binary h, Binary k, Binary c, HashAlgorithm ha, Binary (Digest ha)) => Binary (TrieNode (DigestWrap ha) h k c) where
+instance (TrieHeightKey h k, Binary h, Binary k, Binary c, BinaryWrapping r) =>
+  Binary (TrieNode r h k c) where
   put Empty = put (0 :: Word8)
-  put (Leaf v) = put (1 :: Word8) >> put v
-  put (Branch l r) = put (2 :: Word8) >> put l >> put r
-  put (Skip h k c) = put (3 :: Word8) >> put h >> put k >> put c
+  put (Leaf c) = put (1 :: Word8) >> put c
+  put (Branch l r) = put (2 :: Word8) >> wrapPut l >> wrapPut r
+  put (Skip h k c) = put (3 :: Word8) >> put h >> put k >> wrapPut c
   get = do
           v <- (get :: Get Word8)
           case v of
             0 -> pure Empty
             1 -> Leaf <$> get
-            2 -> do l <- get
-                    r <- get
+            2 -> do l <- wrapGet
+                    r <- wrapGet
                     return (Branch l r)
             3 -> do h <- get
                     k <- get
-                    d <- get :: Get (Digest ha)
-                    return (Skip h k (lookupDigest d))
+                    d <- wrapGet
+                    return (Skip h k d)
             _ -> error "bad input"
 
 instance TrieKey Word256 where
