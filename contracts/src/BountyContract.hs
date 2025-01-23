@@ -55,18 +55,8 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
 
 import Data.MerkleTrie
 import Data.Trie qualified as Trie
-import Data.WideWord (Word256)
-import Data.Word (Word8)
-
-
 import Crypto.Hash (hash, Digest, Blake2b_256)
 import qualified Data.ByteString.Char8 as BS
-
-instance Trie.TrieKey Word256 where
-  type TrieHeight Word256 = Word8
-
-instance Trie.TrieKey Word8 where
-  type TrieHeight Word8 = Word8
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -145,8 +135,8 @@ clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash ->
 clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
     PlutusTx.and conditions
   where
-    proof1 = MerkleProof {targetKey = 1::Word256, targetValue = "value1", keyPath = [], siblingHashes = []}
-    x = validate proof1 (hash ("foo" :: BS.ByteString))
+    proof1 = MerkleProof {targetKey = 1, targetValue = "value1", keySize = 0, keyPath = [], siblingHashes = []}
+    x = validate proof1
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
