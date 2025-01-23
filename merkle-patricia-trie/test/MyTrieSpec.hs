@@ -13,8 +13,6 @@ import Data.Word (Word8)
 import Test.Hspec
 import Test.QuickCheck
 
-instance TrieKey Word8 Word256
-
 spec :: Spec
 spec = describe "MyTrie" $ do
   it "has nothing to see" $ do

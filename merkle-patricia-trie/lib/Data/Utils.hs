@@ -4,10 +4,10 @@
 {-# LANGUAGE GADTs #-}
 -- TODO use Data.Binary for I/O
 
-module Data.Utils (PreWrapping, Wrapping, DigestWrap (..), wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, lowBitsMask, extractBitField, lookupDigest) where
+module Data.Utils (PreWrapping, Wrapping, DigestWrap (..), wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest) where
 
 import Crypto.Hash
-import Data.Bits (Bits, (.&.), shiftR, shiftL) -- FiniteBits, countTrailingZeros
+import Data.Bits (Bits, FiniteBits, countTrailingZeros, complement, (.&.), shiftR, shiftL)
 import Data.ByteArray qualified as BA
 import Data.ByteString.Lazy qualified as BS
 import Data.Binary (Binary, Get, encode, put, get) -- Put, decode
@@ -67,17 +67,17 @@ integerLength n =
 lowestBitSet :: (Bits n, Integral n) => n -> Int
 lowestBitSet n = if n .&. 1 > 0 then 0 else if n == 0 then -1 else 1 + lowestBitSet (n `shiftR` 1)
 
--- lowestBitSet :: (FiniteBits n, Integral n) => n -> Int
--- lowestBitSet n = if n == 0 then -1 else 1 + countTrailingZeros n
-
+fbLowestBitSet :: (FiniteBits n, Integral n) => n -> Int
+fbLowestBitSet n = if n == 0 then -1 else countTrailingZeros n
 
 -- TODO: use a standard library function for that, or at least optimize to logarithmically faster
 -- TODO: a variant that returns both bit and height
-lowestBitClear :: (Bits n, Integral n, Integral l) => n -> l
+lowestBitClear :: (Bits n, Integral n) => n -> Int
 lowestBitClear n =
-  if n .&. 1 == 0 then 0 else
-  if n == -1 then -1 else
-  fromInteger (1 + lowestBitClear (n `shiftR` 1))
+  if n .&. 1 == 0 then 0 else if n == -1 then -1 else 1 + lowestBitClear (n `shiftR` 1)
+
+fbLowestBitClear :: (FiniteBits n, Integral n) => n -> Int
+fbLowestBitClear n = if n == -1 then -1 else countTrailingZeros $ complement n
 
 lowBitsMask :: (Bits n, Integral n) => Int -> n
 lowBitsMask i = (1 `shiftL` i) - 1

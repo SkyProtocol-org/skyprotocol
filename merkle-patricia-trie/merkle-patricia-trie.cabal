@@ -86,7 +86,8 @@ library
         crypton,
         bytestring,
         memory,
-        binary
+        binary,
+        wide-word
 
     -- Directories containing source files.
     hs-source-dirs:   lib
