@@ -123,8 +123,6 @@ export async function updateBridge(inputJson)
 
     const redeemer = transformData(inputJson);
 
-    console.log(JSON.stringify(redeemer));
-
     //////////////////////////////////////////////////////////////////////////////
     // Find Bridge NFT and Create Datum Updated With New Top Hash
     //////////////////////////////////////////////////////////////////////////////

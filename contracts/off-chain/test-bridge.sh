@@ -31,7 +31,12 @@ EOF
 # Verify that top hash 2 is stored in bridge
 
 while true; do
-  node verify-bridge.mjs && break || { echo "Attempt failed, retrying in 5 seconds..."; sleep 5; }
+    RESPONSE=$(curl -s localhost:3030/read-bridge)
+    if [[ "$RESPONSE" == "3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1" ]]; then
+        echo "Success: New top hash matches."
+        break
+    fi
+    sleep 1
 done
 
 echo OK

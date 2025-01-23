@@ -1,4 +1,5 @@
-cabal-version:      3.0
+cabal-version:   3.0
+
 -- The cabal-version field refers to the version of the .cabal specification,
 -- and can be different from the cabal-install (the tool) version and the
 -- Cabal (the library) version you are using. As such, the Cabal (the library)
@@ -11,7 +12,7 @@ cabal-version:      3.0
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:               merkle-patricia-trie
+name:            merkle-patricia-trie
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -20,94 +21,97 @@ name:               merkle-patricia-trie
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            0.1.0.0
+version:         0.1.0.0
 
 -- A short (one-line) description of the package.
 synopsis:
-    Implementation of Merkle Patricia Trie data structure in Haskell
+  Implementation of Merkle Patricia Trie data structure in Haskell
 
 -- A longer description of the package.
 -- description:
 
 -- The license under which the package is released.
-license:            NONE
+license:
 
 -- The package author(s).
-author:             Yaroslav Kozhevnikov
+author:          Yaroslav Kozhevnikov
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         yroslav541@gmail.com
+maintainer:      yroslav541@gmail.com
 
 -- A copyright notice.
 -- copyright:
-category:           Data
-build-type:         Simple
+category:        Data
+build-type:      Simple
 
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files:    CHANGELOG.md
+extra-doc-files: CHANGELOG.md
 
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
 common warnings
-    ghc-options: -Wall
+  ghc-options: -Wall
 
 library
-    -- Import common warning flags.
-    import:           warnings
+  -- Import common warning flags.
+  import:             warnings
 
-    -- Modules exported by the library.
-    exposed-modules:
-        Data.MerkleTrie
-        Data.Trie
-        -- Data.Internal
-        Data.Internal.Trie
-        Data.Internal.RecursionSchemes
-        -- Fare:
-        Data.MyTrie
-        Data.Utils
+  -- Modules exported by the library.
+  exposed-modules:
+    Data.Internal.RecursionSchemes
+    Data.Internal.Trie
+    Data.MerkleTrie
+    Data.MyTrie
+    Data.Trie
+    Data.Utils
 
-    -- Modules included in this library but not exported.
-    -- other-modules:
+  -- Data.Internal
+  -- Fare:
+  -- Modules included in this library but not exported.
+  -- other-modules:
 
-    -- LANGUAGE extensions used by modules in this package.
-    default-extensions:
-        GeneralizedNewtypeDeriving
-        OverloadedRecordDot
-        RecordWildCards
-        ScopedTypeVariables
-        DeriveFunctor
-        FlexibleContexts
-        ImportQualifiedPost
+  -- LANGUAGE extensions used by modules in this package.
+  default-extensions:
+    DeriveFunctor
+    FlexibleContexts
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    OverloadedRecordDot
+    RecordWildCards
+    ScopedTypeVariables
 
-    -- Other library packages from which modules are imported.
-    build-depends:
-        base ^>=4.18.2.1,
-        crypton,
-        bytestring,
-        memory,
-        binary,
-        wide-word
+  -- Other library packages from which modules are imported.
+  build-depends:
+    , base        ^>=4.18.2.1
+    , binary
+    , bytestring
+    , crypton
+    , memory
+    , wide-word
 
-    -- Directories containing source files.
-    hs-source-dirs:   lib
+  -- Directories containing source files.
+  hs-source-dirs:     lib
 
-    -- Base language which the package is written in.
-    default-language: Haskell2010
+  -- Base language which the package is written in.
+  default-language:   Haskell2010
 
 test-suite test
-    type: exitcode-stdio-1.0
-    hs-source-dirs: test
-    main-is: Spec.hs
-    other-modules:
-        MerkleTrieSpec
-        TrieSpec
-        TrieKeySpec
-        MyTrieSpec
-    build-depends:
-        base,
-        merkle-patricia-trie,
-        hspec,
-        wide-word,
-        QuickCheck
-    default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   test
+  main-is:          Spec.hs
+  other-modules:
+    MerkleTrieSpec
+    MyTrieSpec
+    TrieKeySpec
+    TrieSpec
+
+  build-depends:
+    , base
+    , binary
+    , hspec
+    , merkle-patricia-trie
+    , QuickCheck
+    , wide-word
+
+  default-language: Haskell2010

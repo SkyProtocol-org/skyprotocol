@@ -12,10 +12,11 @@ module Data.MerkleTrie
   )
 where
 
-import Crypto.Hash (Blake2b_256, Digest, hashlazy)
+import Crypto.Hash (Blake2b_256, Digest, digestFromByteString, hashlazy)
 import Data.Binary
 import Data.Bits
 import Data.ByteArray qualified as BA
+import Data.ByteString qualified as BSS
 import Data.ByteString.Lazy qualified as BS
 import Data.Trie
 
@@ -32,6 +33,26 @@ data MerkleProof = MerkleProof
     siblingHashes :: [Digest Blake2b_256]
   }
   deriving (Eq, Show)
+
+instance Binary MerkleProof where
+  put MerkleProof {..} = do
+    put "proof"
+    put targetKey
+    put targetValue
+    put keySize
+    putList keyPath
+    putList $ BS.pack . BA.unpack <$> siblingHashes
+  get = do
+    iden <- get
+    case iden of
+      "proof" -> MerkleProof <$> get <*> get <*> get <*> get <*> getSiblingHashes
+    where
+      getSiblingHashes :: Get [Digest Blake2b_256]
+      getSiblingHashes = do
+        digests <- get :: Get [BSS.ByteString]
+        pure $ case mapM digestFromByteString digests of
+          Just a -> a
+          Nothing -> error "Can't deserialize siblingHashes"
 
 -- TODO: replace the 'show' with binary serialization
 computeHash :: (Binary a) => a -> Digest Blake2b_256
