@@ -15,10 +15,11 @@ where
 import Crypto.Hash (Blake2b_256, Digest, digestFromByteString, hashlazy)
 import Data.Binary
 import Data.Bits
-import Data.ByteArray qualified as BA
-import Data.ByteString qualified as BSS
+import Data.ByteArray qualified as BA (unpack)
+import Data.ByteString qualified as BSS (ByteString)
 import Data.ByteString.Lazy qualified as BS
 import Data.Trie
+import GHC.Generics (Generic)
 
 data MerkleTrie k v = MerkleTrie
   { rootHash :: Digest Blake2b_256,
@@ -32,7 +33,7 @@ data MerkleProof = MerkleProof
     keyPath :: [Integer],
     siblingHashes :: [Digest Blake2b_256]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance Binary MerkleProof where
   put MerkleProof {..} = do

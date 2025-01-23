@@ -74,6 +74,7 @@ library
   -- LANGUAGE extensions used by modules in this package.
   default-extensions:
     DeriveFunctor
+    DeriveGeneric
     FlexibleContexts
     GeneralizedNewtypeDeriving
     ImportQualifiedPost
