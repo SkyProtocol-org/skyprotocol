@@ -20,6 +20,7 @@
         ];
         nativeBuildInputs = with haskPkgs; [
           cabal-install
+          cabal-fmt
           haskell-language-server
           hlint
         ];
