@@ -27,6 +27,7 @@ library scripts
     , wide-word
     , cryptonite
     , bytestring
+    , binary
 
   if !(impl(ghcjs) || os(ghcjs))
     build-depends: plutus-tx-plugin

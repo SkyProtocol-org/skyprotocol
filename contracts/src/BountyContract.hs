@@ -55,8 +55,10 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
 
 import Data.MerkleTrie
 import Data.Trie qualified as Trie
-import Crypto.Hash (hash, Digest, Blake2b_256)
+import Crypto.Hash (hash, Digest, Blake2b_256, digestFromByteString)
 import qualified Data.ByteString.Char8 as BS
+import Data.Binary (decode)
+import Data.Maybe (fromJust)
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -132,11 +134,10 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 
 -- Validator function without logic for fetching NFT from script context, for easy testing
 clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
-clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
+clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash@(DataHash bm) nftTopHash =
     PlutusTx.and conditions
   where
     proof1 = MerkleProof {targetKey = 1, targetValue = "value1", keySize = 0, keyPath = [], siblingHashes = []}
-    x = validate proof1
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
@@ -145,6 +146,7 @@ clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nft
       , hashInMerkleProof (topicInDAProof claim) topicTopHash
         -- The claimed top hash matches the one stored in the NFT
       , topHash PlutusTx.== nftTopHash
+      , validate proof1 (fromJust (digestFromByteString bm))
       ]
     -- Root hash of topic trie produced by claim
     topicRootHash :: DataHash
