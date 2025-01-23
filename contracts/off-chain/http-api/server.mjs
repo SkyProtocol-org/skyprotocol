@@ -1,4 +1,5 @@
 import express from 'express';
+import { readBridge } from './read-bridge.mjs';
 import { updateBridge } from './update-bridge.mjs';
 
 const app = express();
@@ -11,6 +12,15 @@ app.use(express.json());
 // Simple status endpoint
 app.get('/', (req, res) => {
     res.status(200).send("OK");
+});
+
+// Read bridge endpoint
+app.get('/read-bridge', async (req, res) => {
+    try {
+        res.status(200).end(await readBridge());
+    } catch (err) {
+        res.status(500).send(err.toString());
+    }
 });
 
 // Update bridge endpoint
