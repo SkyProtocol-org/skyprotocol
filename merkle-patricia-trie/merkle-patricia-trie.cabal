@@ -63,6 +63,9 @@ library
         -- Data.Internal
         Data.Internal.Trie
         Data.Internal.RecursionSchemes
+        -- Fare:
+        Data.MyTrie
+        Data.Utils
 
     -- Modules included in this library but not exported.
     -- other-modules:
@@ -75,15 +78,16 @@ library
         ScopedTypeVariables
         DeriveFunctor
         FlexibleContexts
+        ImportQualifiedPost
 
     -- Other library packages from which modules are imported.
     build-depends:
         base ^>=4.18.2.1,
-        cryptonite ==0.30,
+        crypton,
         bytestring,
+        memory,
+        binary,
         wide-word
-        -- for future more optimized implementation consider using RLP from ethereum whitepaper
-        -- relapse ==1.0.0.1
 
     -- Directories containing source files.
     hs-source-dirs:   lib
@@ -99,6 +103,7 @@ test-suite test
         MerkleTrieSpec
         TrieSpec
         TrieKeySpec
+        MyTrieSpec
     build-depends:
         base,
         merkle-patricia-trie,

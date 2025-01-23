@@ -177,7 +177,10 @@ clientTypedValidator ::
     ScriptContext ->
     Bool
 clientTypedValidator params () redeemer ctx =
-    clientTypedValidatorCore redeemer (bountyTopicID params) (bountyMessageHash params) nftTopHash
+    PlutusTx.and
+      [ clientTypedValidatorCore redeemer (bountyTopicID params) (bountyMessageHash params) nftTopHash
+      , allPaidToCredential
+      ]
   where
     -- Top hash stored in NFT
     nftTopHash :: DataHash
