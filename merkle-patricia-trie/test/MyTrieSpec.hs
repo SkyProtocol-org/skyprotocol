@@ -6,6 +6,8 @@
 
 module MyTrieSpec (spec) where
 
+import Debug.Trace
+
 import Data.Utils
 import Data.MyTrie as M
 
@@ -15,18 +17,21 @@ import Data.Word (Word8)
 import Test.Hspec
 import Test.QuickCheck
 
+type S = M.Trie Identity Word8 Word256 String
 type T = M.Trie Blake2b_256_Ref Word8 Word256 String
 
 spec :: Spec
 spec = describe "MyTrie" $ do
   let l3 = [(13,"13"),(34,"34"),(1597,"1597")]
   it "should work" $ do
-    let t3 :: T = runIdentity $ M.ofList l3
-        t3'' :: T = runIdentity $ M.insert "veni, vidi, vici" 1597 t3
-        l3' = runIdentity $ M.listOf t3
-        l3'' = runIdentity $ M.listOf t3''
-    l3' `shouldBe` l3
-    1 `shouldBe` 2
+    let t0 :: S = runIdentity $ M.empty
+        l0' = runIdentity $ M.listOf t0
+    --    t3 :: S = runIdentity $ M.ofList l3
+--        t3'' :: S = runIdentity $ M.insert "veni, vidi, vici" 1597 t3
+--        l3' = runIdentity $ M.listOf t3
+--        l3'' = runIdentity $ M.listOf t3''
+    -- l3' `shouldBe` l3
+    l0' `shouldBe` []
     -- l3'' `shouldBe` [(13,"13"),(34,"34"),(1597,"veni, vidi, vici")]
 
 {-

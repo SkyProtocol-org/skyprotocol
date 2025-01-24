@@ -6,7 +6,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Utils (PreWrapping, Wrapping, BinaryWrapping, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, wrapGet, wrapPut, getDigest, digestiblePut) where
+module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut) where
+
+import Data.Internal.RecursionSchemes
 
 import Crypto.Hash
 import Data.Bits (Bits, FiniteBits, countTrailingZeros, complement, (.&.), shiftR, shiftL)
@@ -30,21 +32,54 @@ class PreWrapping a r e =>
   Wrapping a r e where
   unwrap :: r a -> e a
 
-class BinaryWrapping r where
-  wrapGet :: Binary a => Get (r a)
-  wrapPut :: Binary a => r a -> Put
+class LiftBinary r where
+  liftGet :: Binary a => Get (r a)
+  liftPut :: Binary a => r a -> Put
 
--- instance (Binary a, BinaryWrapping r) => Binary (r a) where
---   get = wrapGet
---   put = wrapPut
+class LiftEq r where
+  liftEq :: Eq a => (r a) -> (r a) -> Bool
+
+class LiftShow r where
+  liftShow :: Show a => (r a) -> String
+
+data Lift r a = Lift { lifted :: r a }
+
+instance (LiftEq r, Eq a) =>
+  Eq (Lift r a) where
+  (==) x y = liftEq (lifted x) (lifted y)
+
+instance (LiftShow r, Show a) =>
+  Show (Lift r a) where
+  show = liftShow . lifted
+
+instance (LiftBinary r, Binary a) =>
+  Binary (Lift r a) where
+  get = (liftGet :: Get (r a)) >>= (pure . Lift)
+  put = liftPut . lifted
+
+instance LiftShow f =>
+  Show (Fix f) where
+  show = liftShow . out
+
+instance LiftEq f =>
+  Eq (Fix f) where
+  (==) x y = liftEq (out x) (out y)
 
 -- instance Functor r => Wrapping r Identity where
 --  wrap = pure
 
 instance PreWrapping a Identity Identity where
   wrap = Identity . Identity
+
 instance Wrapping a Identity Identity where
   unwrap x = x
+
+instance PreWrapping a (Lift Identity) Identity where
+  wrap = Identity . Lift . Identity
+
+instance Wrapping a (Lift Identity) Identity where
+  unwrap = lifted
+
 
 computeDigest :: (Binary a, HashAlgorithm ha) => a -> Digest ha
 computeDigest = hashlazy . encode
@@ -87,9 +122,9 @@ instance Binary (Digest Blake2b_256) where
   put = put . BS.pack . BA.unpack
   get = (fromJust . digestFromByteString) `fmap` (get :: Get BSS.ByteString)
 
-instance BinaryWrapping Blake2b_256_Ref where
-  wrapPut = put . getDigest
-  wrapGet = error "NIY"
+instance LiftBinary Blake2b_256_Ref where
+  liftPut = put . getDigest
+  liftGet = error "NIY"
 
 digestiblePut :: (Digestible r, Binary a) => r a -> Put
 digestiblePut = put . getDigest
@@ -97,13 +132,13 @@ digestiblePut = put . getDigest
 -- digestibleGet :: (Digestible r, Binary a) => Get (r a)
 -- digestibleGet = error "NIY" -- lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
 
--- instance (Binary (Digest ha), HashAlgorithm ha) => BinaryWrapping (DigestRef ha) where
---   wrapPut = put . getDigest
---   wrapGet = lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
+-- instance (Binary (Digest ha), HashAlgorithm ha) => LiftBinary (DigestRef ha) where
+--   liftPut = put . getDigest
+--   liftGet = lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
 
--- instance Digestible r => BinaryWrapping r where
---   wrapPut = put . getDigest
---   wrapGet = lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
+-- instance Digestible r => LiftBinary r where
+--   liftPut = put . getDigest
+--   liftGet = lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
 
 -- TODO: use a standard library function for that, or at least optimize to logarithmically faster
 -- TODO: a variant that returns both bit and height
