@@ -13,6 +13,11 @@ while true; do
   node verify-bounty-offered.mjs && break || { echo "Attempt failed, retrying in 5 seconds..."; sleep 5; }
 done
 
+# Verify that you can't claim the bounty if you're not the claimant
+
+! node claim-bounty.mjs var/admin
+! node claim-bounty.mjs var/offerer
+
 # Claim the offer by supplying a simplified merkle proof
 
 node claim-bounty.mjs var/claimant
