@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -51,14 +52,43 @@ import PlutusTx.Blueprint
 import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
+                          readBit, blake2b_256, consByteString, emptyByteString,
                           verifyEd25519Signature, appendByteString, sha2_256)
 
-import Data.MerkleTrie
-import Data.Trie qualified as Trie
-import Crypto.Hash (hash, Digest, Blake2b_256, digestFromByteString)
-import qualified Data.ByteString.Char8 as BS
-import Data.Binary (decode)
-import Data.Maybe (fromJust)
+data MerkleProof = MerkleProof
+  { targetKey :: BuiltinByteString,
+    targetValue :: BuiltinByteString,
+    keySize :: Integer,
+    keyPath :: [Integer],
+    siblingHashes :: [BuiltinByteString]
+  }
+  deriving (Eq, Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+PlutusTx.makeLift ''MerkleProof
+PlutusTx.makeIsDataSchemaIndexed ''MerkleProof [('MerkleProof, 0)]
+
+hashlazy :: BuiltinByteString -> BuiltinByteString
+hashlazy = blake2b_256
+
+computeHashAsBS :: BuiltinByteString -> BuiltinByteString
+computeHashAsBS = hashlazy
+
+const1 = consByteString 1 emptyByteString
+const2 = consByteString 2 emptyByteString
+
+validate :: MerkleProof -> BuiltinByteString -> Bool
+validate MerkleProof {..} rootHash =
+  rootHash
+    == foldr
+      ( \(h, hs) acc ->
+          if not (targetKey `readBit` h)
+            then hashlazy $ computeHashAsBS const2 <> acc <> hs
+            else hashlazy $ computeHashAsBS const2 <> hs <> acc
+      )
+      (hashlazy $ const1 <> targetValue)
+      (reverse $ zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -137,7 +167,6 @@ clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash ->
 clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash@(DataHash bm) nftTopHash =
     PlutusTx.and conditions
   where
-    proof1 = MerkleProof {targetKey = 1, targetValue = "value1", keySize = 0, keyPath = [], siblingHashes = []}
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
@@ -146,7 +175,6 @@ clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash@(Da
       , hashInMerkleProof (topicInDAProof claim) topicTopHash
         -- The claimed top hash matches the one stored in the NFT
       , topHash PlutusTx.== nftTopHash
-      , validate proof1 (fromJust (digestFromByteString bm))
       ]
     -- Root hash of topic trie produced by claim
     topicRootHash :: DataHash

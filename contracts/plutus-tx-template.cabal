@@ -23,7 +23,6 @@ library scripts
     , plutus-core ^>=1.34.1.0
     , plutus-ledger-api ^>=1.34.1.0
     , plutus-tx ^>=1.34.1.0
-    , merkle-patricia-trie
     , crypton
     , bytestring
     , binary

@@ -20,17 +20,12 @@ import Data.ByteString qualified as BSS
 import Data.ByteString.Lazy qualified as BS
 import Data.Trie
 
-data MerkleTrie k v = MerkleTrie
-  { rootHash :: Digest Blake2b_256,
-    trie :: Trie k v
-  }
-
 data MerkleProof = MerkleProof
-  { targetKey :: Integer,
-    targetValue :: BS.ByteString,
-    keySize :: Int,
+  { targetKey :: BuiltinByteString,
+    targetValue :: BuiltinByteString,
+    keySize :: Integer,
     keyPath :: [Integer],
-    siblingHashes :: [Digest Blake2b_256]
+    siblingHashes :: [BuiltinByteString]
   }
   deriving (Eq, Show)
 
