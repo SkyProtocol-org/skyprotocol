@@ -21,12 +21,15 @@ instance Trie.TrieKey Word256 where
 dumpExample :: IO ()
 dumpExample = do
   let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+      merkleTrie = merkelize t
       proof1 = proof 1 t
       proof2 = proof 2 t
   case (proof1, proof2) of
     (Just p1, Just p2) -> do
-      encodeFile "valid_proof.json" p1
-      encodeFile "invalid_proof.json" $ p2 {targetValue = "invalidValue"}
+      let valid_p = mkProofWithHash (rootHash merkleTrie) p1
+      let invalid_p = mkProofWithHash (rootHash merkleTrie) $ p2 {targetValue = "invalidValue"}
+      encodeFile "valid_proof.json" valid_p
+      encodeFile "invalid_proof.json" invalid_p
     _ -> pure ()
 
 spec :: Spec
