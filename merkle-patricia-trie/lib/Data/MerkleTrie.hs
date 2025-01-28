@@ -11,6 +11,7 @@ module Data.MerkleTrie
     merkelize,
     MerkleProof (..),
     MerkleTrie (..),
+    mkProofWithHash,
   )
 where
 
@@ -29,12 +30,26 @@ import Data.Text qualified as T
 import Data.Trie
 import GHC.Generics (Generic)
 
+data MerkleTrie k v = MerkleTrie
+  { rootHash :: Digest Blake2b_256,
+    trie :: Trie k v
+  }
+
+data ProofWithRootHash = MkProofWithRoot {root :: T.Text, proofData :: MerkleProof}
+  deriving (Show, Eq, Generic)
+
+mkProofWithHash :: Digest Blake2b_256 -> MerkleProof -> ProofWithRootHash
+mkProofWithHash h = MkProofWithRoot (T.pack . hex $ chr . fromIntegral <$> BA.unpack h)
+
+instance ToJSON ProofWithRootHash where
+  toEncoding = genericToEncoding defaultOptions
+
 data MerkleProof = MerkleProof
-  { targetKey :: BuiltinByteString,
-    targetValue :: BuiltinByteString,
-    keySize :: Integer,
+  { targetKey :: Integer,
+    targetValue :: BS.ByteString,
+    keySize :: Int,
     keyPath :: [Integer],
-    siblingHashes :: [BuiltinByteString]
+    siblingHashes :: [Digest Blake2b_256]
   }
   deriving (Eq, Show, Generic)
 
