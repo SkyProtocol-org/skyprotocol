@@ -72,8 +72,8 @@ hashlazy = blake2b_256
 computeHashAsBS :: BuiltinByteString -> BuiltinByteString
 computeHashAsBS = hashlazy
 
-const1 = consByteString 1 emptyByteString
-const2 = consByteString 2 emptyByteString
+const1 = consByteString 31 emptyByteString
+const2 = consByteString 32 emptyByteString
 
 validate :: MerkleProof -> BuiltinByteString -> Bool
 validate MerkleProof {..} rootHash =

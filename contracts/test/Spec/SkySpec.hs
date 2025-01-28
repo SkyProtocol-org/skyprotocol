@@ -257,6 +257,16 @@ topHash3 = pairHash topic1CommitteeFP mainRootHash1
 bountySpec :: Spec
 bountySpec = do
 
+  it "valid merkle proof should be accepted" $ do
+    let proof = MerkleProof
+          { targetKey = hex "31"
+          , targetValue = hex "000000000000000676616C756531"
+          , keySize = 256
+          , keyPath = [0]
+          , siblingHashes = [hex "6ABA713FC056E5E08753310916752186E51F146F1E5C5D52F2F24460E8053725"]
+          }
+    validate proof (hex "13CF32B50432CE2D875A6CB7B3B1906729C91D3AB6E63838BBD20B8216A9B580") `shouldBe` True
+
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
     -- 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f ++ 0000
