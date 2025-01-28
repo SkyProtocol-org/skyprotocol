@@ -259,8 +259,8 @@ bountySpec = do
 
   it "valid merkle proof should be accepted" $ do
     let proof = MerkleProof
-          { targetKey = hex "31"
-          , targetValue = hex "000000000000000676616C756531"
+          { targetKey = hex "01"
+          , targetValue = hex "0676616C756531"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [hex "6ABA713FC056E5E08753310916752186E51F146F1E5C5D52F2F24460E8053725"]
