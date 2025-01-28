@@ -8,10 +8,10 @@ module MerkleTrieSpec (spec) where
 
 import Data.Aeson (encodeFile)
 import Data.Binary (decode, encode)
-import Data.MerkleTrie
 import Data.Trie qualified as Trie
 import Data.WideWord (Word256)
 import Data.Word (Word8)
+import Merkle.Trie
 import Test.Hspec
 import Test.QuickCheck
 

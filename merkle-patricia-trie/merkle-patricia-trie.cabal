@@ -61,10 +61,11 @@ library
   exposed-modules:
     Data.Internal.RecursionSchemes
     Data.Internal.Trie
-    Data.MerkleTrie
     Data.MyTrie
     Data.Trie
     Data.Utils
+    Merkle.Trie
+    Merkle.Types
 
   -- Data.Internal
   -- Fare:
@@ -84,19 +85,19 @@ library
 
   -- Other library packages from which modules are imported.
   build-depends:
-    , base        ^>=4.18.2.1
-     -- binary serialization
-    , binary 
-    -- json serialization
     , aeson
+    , base        ^>=4.18.2.1
+    , binary
     , bytestring
-    , text
     , crypton
-    -- some helper functions for packing/unpacking hashes
     , memory
-    -- Word256 type
+    , text
     , wide-word
 
+  -- binary serialization
+  -- json serialization
+  -- some helper functions for packing/unpacking hashes
+  -- Word256 type
   -- Directories containing source files.
   hs-source-dirs:     lib
 
@@ -114,9 +115,9 @@ test-suite test
     TrieSpec
 
   build-depends:
+    , aeson
     , base
     , binary
-    , aeson
     , hspec
     , merkle-patricia-trie
     , QuickCheck
