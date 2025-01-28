@@ -1,58 +1,144 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FunctionalDependencies, FlexibleInstances, InstanceSigs #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
--- TODO use Data.Binary for I/O
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
-module Data.Utils (PreWrapping, Wrapping, DigestWrap (..), wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest) where
+module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut) where
+
+import Data.Internal.RecursionSchemes
 
 import Crypto.Hash
 import Data.Bits (Bits, FiniteBits, countTrailingZeros, complement, (.&.), shiftR, shiftL)
 import Data.ByteArray qualified as BA
 import Data.ByteString.Lazy qualified as BS
-import Data.Binary (Binary, Get, encode, put, get) -- Put, decode
+import Data.ByteString qualified as BSS
+import Data.Binary (Binary, Get, Put, encode, put, get) -- , decode
 -- import Data.Binary.Get.Internal (readN)
 -- import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
--- import Data.Kind (Type)
+import Data.Kind (Type)
+import Data.Maybe (fromJust)
 
 -- Wrappers (reference)
 -- Functor r =>
-class Monad e => PreWrapping a r e where
+class Monad e =>
+  PreWrapping a r e where
   wrap :: a -> e (r a)
 
-class PreWrapping a r e => Wrapping a r e where
+class PreWrapping a r e =>
+  Wrapping a r e where
   unwrap :: r a -> e a
+
+class LiftBinary r where
+  liftGet :: Binary a => Get (r a)
+  liftPut :: Binary a => r a -> Put
+
+class LiftEq r where
+  liftEq :: Eq a => (r a) -> (r a) -> Bool
+
+class LiftShow r where
+  liftShow :: Show a => (r a) -> String
+
+data Lift r a = Lift { lifted :: r a }
+
+instance (LiftEq r, Eq a) =>
+  Eq (Lift r a) where
+  (==) x y = liftEq (lifted x) (lifted y)
+
+instance (LiftShow r, Show a) =>
+  Show (Lift r a) where
+  show = liftShow . lifted
+
+instance (LiftBinary r, Binary a) =>
+  Binary (Lift r a) where
+  get = (liftGet :: Get (r a)) >>= (pure . Lift)
+  put = liftPut . lifted
+
+instance LiftShow f =>
+  Show (Fix f) where
+  show = liftShow . out
+
+instance LiftEq f =>
+  Eq (Fix f) where
+  (==) x y = liftEq (out x) (out y)
 
 -- instance Functor r => Wrapping r Identity where
 --  wrap = pure
 
 instance PreWrapping a Identity Identity where
   wrap = Identity . Identity
+
 instance Wrapping a Identity Identity where
   unwrap x = x
 
-digest :: (Binary a, HashAlgorithm h) => a -> Digest h
-digest = hashlazy . encode
+instance PreWrapping a (Lift Identity) Identity where
+  wrap = Identity . Lift . Identity
 
-data DigestWrap h x = DigestWrap { wrappedValue :: x, wrappedDigest :: Digest h }
+instance Wrapping a (Lift Identity) Identity where
+  unwrap = lifted
 
-instance (Binary a, HashAlgorithm h) => PreWrapping a (DigestWrap h) Identity where
-  wrap x = Identity (DigestWrap x $ digest x)
 
-instance (Binary a, HashAlgorithm h) => Wrapping a (DigestWrap h) Identity where
-  unwrap (DigestWrap x _) = Identity x
+computeDigest :: (Binary a, HashAlgorithm ha) => a -> Digest ha
+computeDigest = hashlazy . encode
+
+class (Binary (Digest (HashAlgorithmOf r)), HashAlgorithm (HashAlgorithmOf r)) =>
+  Digestible r where
+  type HashAlgorithmOf r :: Type
+  getDigest :: r a -> Digest (HashAlgorithmOf r)
+
+data DigestRef ha x = DigestRef { digestRefValue :: x, digestRefDigest :: Digest ha }
+
+instance Eq (DigestRef ha x) where
+  (DigestRef _ ah) == (DigestRef _ bh) = ah == bh
+
+data DigestOnly ha x = DigestOnly { digestOnly :: Digest ha }
+  deriving (Eq, Show)
+
+instance Digestible Blake2b_256_Ref where
+  type HashAlgorithmOf Blake2b_256_Ref = Blake2b_256
+  getDigest = digestRefDigest
+
+instance Digestible Blake2b_256_Only where
+  type HashAlgorithmOf Blake2b_256_Only = Blake2b_256
+  getDigest = digestOnly
+
+type Blake2b_256_Ref = DigestRef Blake2b_256
+
+type Blake2b_256_Only = DigestOnly Blake2b_256
+
+instance (Binary a, HashAlgorithm ha) => PreWrapping a (DigestRef ha) Identity where
+  wrap x = Identity (DigestRef x $ computeDigest x)
+
+instance (Binary a, HashAlgorithm ha) => Wrapping a (DigestRef ha) Identity where
+  unwrap (DigestRef x _) = Identity x
 
 lookupDigest :: HashAlgorithm h => Digest h -> a
 lookupDigest = error "Cannot get a value from its digest"
 
 instance Binary (Digest Blake2b_256) where
   put = put . BS.pack . BA.unpack
-  get = error "Not Implemented Yet" -- readN 32 ?
+  get = (fromJust . digestFromByteString) `fmap` (get :: Get BSS.ByteString)
 
-instance (Binary a, HashAlgorithm h, Binary (Digest h)) => Binary (DigestWrap h a) where
-  put (DigestWrap _ d) = put d
-  get = lookupDigest <$> (get :: Get (Digest h))
+instance LiftBinary Blake2b_256_Ref where
+  liftPut = put . getDigest
+  liftGet = error "NIY"
+
+digestiblePut :: (Digestible r, Binary a) => r a -> Put
+digestiblePut = put . getDigest
+
+-- digestibleGet :: (Digestible r, Binary a) => Get (r a)
+-- digestibleGet = error "NIY" -- lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
+
+-- instance (Binary (Digest ha), HashAlgorithm ha) => LiftBinary (DigestRef ha) where
+--   liftPut = put . getDigest
+--   liftGet = lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
+
+-- instance Digestible r => LiftBinary r where
+--   liftPut = put . getDigest
+--   liftGet = lookupDigest . (get :: Get (Digest (HashAlgorithmOf r)))
 
 -- TODO: use a standard library function for that, or at least optimize to logarithmically faster
 -- TODO: a variant that returns both bit and height
@@ -86,8 +172,3 @@ lowBitsMask i = (1 `shiftL` i) - 1
 extractBitField :: (Bits n, Integral n) => Int -> Int -> n -> n
 extractBitField len start bits =
   (bits `shiftR` start) .&. (lowBitsMask len)
-
-{- How the hell do I express something like that???
-class MerkleRef r where
-  get : Binary a  => Binary (r a)
--}

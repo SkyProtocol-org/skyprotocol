@@ -6,17 +6,33 @@
 
 module MyTrieSpec (spec) where
 
-import Data.MyTrie
-import Data.Trie qualified as Trie
+import Debug.Trace
+
+import Data.Utils
+import Data.MyTrie as M
+
+import Data.Functor.Identity (Identity (..))
 import Data.WideWord (Word256)
 import Data.Word (Word8)
 import Test.Hspec
 import Test.QuickCheck
 
+type S = M.Trie Identity Word8 Word256 String
+type T = M.Trie Blake2b_256_Ref Word8 Word256 String
+
 spec :: Spec
 spec = describe "MyTrie" $ do
-  it "has nothing to see" $ do
-    True `shouldBe` True
+  let l3 = [(13,"13"),(34,"34"),(1597,"1597")]
+  it "should work" $ do
+    let t0 :: S = runIdentity $ M.empty
+        l0' = runIdentity $ M.listOf t0
+    --    t3 :: S = runIdentity $ M.ofList l3
+--        t3'' :: S = runIdentity $ M.insert "veni, vidi, vici" 1597 t3
+--        l3' = runIdentity $ M.listOf t3
+--        l3'' = runIdentity $ M.listOf t3''
+    -- l3' `shouldBe` l3
+    l0' `shouldBe` []
+    -- l3'' `shouldBe` [(13,"13"),(34,"34"),(1597,"veni, vidi, vici")]
 
 {-
     it "should generate a proof, validate it, and compute the root hash correctly" $ do

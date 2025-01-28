@@ -1,4 +1,6 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -13,12 +15,19 @@ module Data.MerkleTrie
 where
 
 import Crypto.Hash (Blake2b_256, Digest, digestFromByteString, hashlazy)
+import Data.Aeson hiding (decode, encode)
 import Data.Binary
 import Data.Bits
-import Data.ByteArray qualified as BA
-import Data.ByteString qualified as BSS
+import Data.ByteArray qualified as BA (unpack)
+import Data.ByteString qualified as BSS (ByteString, pack)
+import Data.ByteString.Char8 qualified as B
 import Data.ByteString.Lazy qualified as BS
+import Data.ByteString.Lazy.Char8 qualified as L
+import Data.Char (chr, ord)
+import Data.Maybe (fromJust)
+import Data.Text qualified as T
 import Data.Trie
+import GHC.Generics (Generic)
 
 data MerkleProof = MerkleProof
   { targetKey :: BuiltinByteString,
@@ -27,11 +36,86 @@ data MerkleProof = MerkleProof
     keyPath :: [Integer],
     siblingHashes :: [BuiltinByteString]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+class Hex t where
+  hex :: t -> t
+  unhex :: t -> Either String t
+
+c :: Char -> Either String Int
+c '0' = return 0
+c '1' = return 1
+c '2' = return 2
+c '3' = return 3
+c '4' = return 4
+c '5' = return 5
+c '6' = return 6
+c '7' = return 7
+c '8' = return 8
+c '9' = return 9
+c 'A' = return 10
+c 'B' = return 11
+c 'C' = return 12
+c 'D' = return 13
+c 'E' = return 14
+c 'F' = return 15
+c 'a' = return 10
+c 'b' = return 11
+c 'c' = return 12
+c 'd' = return 13
+c 'e' = return 14
+c 'f' = return 15
+c _ = Left "Invalid hex digit!"
+
+instance Hex String where
+  hex = concatMap w
+    where
+      w ch =
+        let s = "0123456789ABCDEF"
+            x = fromEnum ch
+         in [s !! div x 16, s !! mod x 16]
+  unhex [] = return []
+  unhex (a : b : r) = do
+    x <- c a
+    y <- c b
+    (toEnum ((x * 16) + y) :) <$> unhex r
+  unhex [_] = Left "Non-even length"
+
+instance Hex B.ByteString where
+  hex = B.pack . hex . B.unpack
+  unhex x = B.pack <$> unhex (B.unpack x)
+
+instance Hex L.ByteString where
+  hex = L.pack . hex . L.unpack
+  unhex x = L.pack <$> unhex (L.unpack x)
+
+instance ToJSON MerkleProof where
+  toJSON MerkleProof {..} =
+    object
+      [ "alternative" .= (0 :: Int),
+        "fields"
+          .= [ toJSON . T.pack . hex $ show targetKey,
+               toJSON . T.pack . hex $ L.unpack targetValue,
+               toJSON keySize,
+               toJSON keyPath,
+               toJSON $ T.pack . hex . (chr . fromIntegral <$>) <$> (BA.unpack <$> siblingHashes)
+             ]
+      ]
+
+-- instance FromJSON MerkleProof where
+--   parseJSON (Object v) = do
+--     [tKey, tValue, kSize, kPath, sHashes] <- v .: "fields"
+--     targetKey <- decode . BS.pack <$> parseJSON tKey
+--     targetValue <- BS.pack <$> parseJSON tValue
+--     keySize <- parseJSON kSize
+--     keyPath <- parseJSON kPath
+--     digests <- parseJSON sHashes
+--     let siblingHashes = fromJust . digestFromByteString . BSS.pack <$> digests
+--     pure MerkleProof {..}
 
 instance Binary MerkleProof where
   put MerkleProof {..} = do
-    put "proof"
+    put ("proof" :: String)
     put targetKey
     put targetValue
     put keySize
@@ -40,7 +124,7 @@ instance Binary MerkleProof where
   get = do
     iden <- get
     case iden of
-      "proof" -> MerkleProof <$> get <*> get <*> get <*> get <*> getSiblingHashes
+      ("proof" :: String) -> MerkleProof <$> get <*> get <*> get <*> get <*> getSiblingHashes
     where
       getSiblingHashes :: Get [Digest Blake2b_256]
       getSiblingHashes = do
