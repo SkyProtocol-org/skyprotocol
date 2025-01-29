@@ -15,6 +15,7 @@ import Data.ByteString.Char8 qualified as B
 import Data.ByteString.Lazy qualified as BS
 import Data.ByteString.Lazy.Char8 qualified as L
 import Data.Char (chr, ord, toLower)
+import Data.Either (fromRight)
 import Data.Maybe (fromJust)
 import Data.Text qualified as T
 import Data.Trie
@@ -26,8 +27,11 @@ data MerkleTrie k v = MerkleTrie
     trie :: Trie k v
   }
 
-merkelize :: (Binary k, Binary v, Binary (TrieHeight k)) => Trie k v -> MerkleTrie k v
-merkelize trie = let rootHash = computeRootHash trie in MerkleTrie rootHash trie
+merkelizeWith :: (Binary k, Binary a) => (v -> a) -> Trie k v -> MerkleTrie k v
+merkelizeWith f t = let rootHash = computeRootHashWith f t in MerkleTrie rootHash t
+
+merkelize :: (Binary k, Binary v) => Trie k v -> MerkleTrie k v
+merkelize = merkelizeWith id
 
 data ProofWithRootHash = MkProofWithRoot {root :: T.Text, proofData :: MerkleProof}
   deriving (Show, Eq, Generic)
@@ -38,11 +42,12 @@ mkProofWithHash h = MkProofWithRoot (T.pack . hex $ chr . fromIntegral <$> BA.un
 instance ToJSON ProofWithRootHash where
   toEncoding = genericToEncoding defaultOptions
 
-instance FromJSON ProofWithRootHash
+-- instance FromJSON ProofWithRootHash
 
 data MerkleProof = MerkleProof
   { targetKey :: Integer,
-    targetValue :: BS.ByteString,
+    targetValue :: Maybe BS.ByteString,
+    targetHash :: Digest Blake2b_256,
     keySize :: Int,
     keyPath :: [Integer],
     siblingHashes :: [Digest Blake2b_256]
@@ -55,37 +60,48 @@ instance ToJSON MerkleProof where
       [ "alternative" .= (0 :: Word8),
         "fields"
           .= [ toJSON . T.pack . (\r -> if even $ length r then r else '0' : r) $ showHex targetKey "",
-               toJSON . T.pack . hex $ L.unpack targetValue,
+               case targetValue of
+                 Just a -> toJSON . T.pack . hex $ L.unpack a
+                 Nothing -> toJSON ("null" :: T.Text),
+               toJSON . T.pack . hex . (chr . fromIntegral <$>) $ BA.unpack targetHash,
                toJSON keySize,
                toJSON keyPath,
                toJSON $ T.pack . hex . (chr . fromIntegral <$>) <$> (BA.unpack <$> siblingHashes)
              ]
       ]
 
-instance FromJSON MerkleProof where
-  parseJSON (Object v) = do
-    [tKey, tValue, kSize, kPath, sHashes] <- v .: "fields"
-    targetKey <- decode . BS.pack <$> parseJSON tKey
-    targetValue <- BS.pack <$> parseJSON tValue
-    keySize <- parseJSON kSize
-    keyPath <- parseJSON kPath
-    digests <- parseJSON sHashes
-    let siblingHashes = fromJust . digestFromByteString . BSS.pack <$> digests
-    pure MerkleProof {..}
+-- instance FromJSON MerkleProof where
+--   parseJSON (Object v) = do
+--     [tKey, tValue, tHash, kSize, kPath, sHashes] <- v .: "fields"
+--     targetKey <- decode . BS.pack <$> parseJSON tKey
+--     targetValue <- BS.pack <$> parseJSON tValue
+--     tHash <- fromJust . digestFromByteString . BSS.pack . (ord <$>) . fromRight "" . unhex $ parseJSON tHash
+--     keySize <- parseJSON kSize
+--     keyPath <- parseJSON kPath
+--     digests <- parseJSON sHashes
+--     let siblingHashes = fromJust . digestFromByteString . BSS.pack <$> digests
+--     pure MerkleProof {..}
 
 instance Binary MerkleProof where
   put MerkleProof {..} = do
     put ("proof" :: String)
     put targetKey
     put targetValue
+    put . BS.pack $ BA.unpack targetHash
     put keySize
     putList keyPath
     putList $ BS.pack . BA.unpack <$> siblingHashes
   get = do
     iden <- get
     case iden of
-      ("proof" :: String) -> MerkleProof <$> get <*> get <*> get <*> get <*> getSiblingHashes
+      ("proof" :: String) -> MerkleProof <$> get <*> get <*> getTargetHash <*> get <*> get <*> getSiblingHashes
     where
+      getTargetHash :: Get (Digest Blake2b_256)
+      getTargetHash = do
+        digest <- get :: Get BSS.ByteString
+        pure $ case digestFromByteString digest of
+          Just a -> a
+          Nothing -> error "Can't deserialize targetHash"
       getSiblingHashes :: Get [Digest Blake2b_256]
       getSiblingHashes = do
         digests <- get :: Get [BSS.ByteString]
@@ -101,13 +117,16 @@ computeHash = hashlazy . encode
 computeHashAsBS :: (Binary a) => a -> BS.ByteString
 computeHashAsBS = BS.pack . BA.unpack . computeHash
 
-computeRootHash :: forall k v. (Binary k, Binary (TrieHeight k), Binary v) => Trie k v -> Digest Blake2b_256
-computeRootHash = cata go
+computeRootHashWith :: forall k v a. (Binary k, Binary a) => (v -> a) -> Trie k v -> Digest Blake2b_256
+computeRootHashWith f = cata go
   where
     go :: Algebra (TrieF' k v) (Digest Blake2b_256)
     go Empty = computeHash (0 :: Word8)
-    go Leaf {..} = computeHash (1 :: Word8, value)
+    go Leaf {..} = computeHash (1 :: Word8, f value)
     go Branch {..} = hashlazy $ computeHashAsBS (2 :: Word8) <> BS.pack (BA.unpack left) <> BS.pack (BA.unpack right)
+
+computeRootHash :: forall k v. (Binary k, Binary v) => Trie k v -> Digest Blake2b_256
+computeRootHash = computeRootHashWith id
 
 -- | Utility typeclass to convert values to hex representation
 class Hex t where

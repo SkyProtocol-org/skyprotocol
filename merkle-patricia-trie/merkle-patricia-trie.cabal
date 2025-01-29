@@ -117,6 +117,8 @@ test-suite test
   build-depends:
     , aeson
     , base
+    , memory
+    , bytestring
     , binary
     , hspec
     , merkle-patricia-trie
