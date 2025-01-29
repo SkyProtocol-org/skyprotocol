@@ -3,7 +3,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     merkle-trie = {
-      url = "github:Skyprotocol-org/skyprotocol/issue-22/haskell-implementation-of-sky-node?dir=merkle-patricia-trie";
+      url = "github:Skyprotocol-org/skyprotocol?dir=merkle-patricia-trie";
     };
   };
   outputs = { self, nixpkgs, flake-utils, merkle-trie, ... }: flake-utils.lib.eachDefaultSystem (system:
@@ -22,6 +22,7 @@
         ];
         nativeBuildInputs = with haskPkgs; [
           cabal-install
+          cabal-fmt
           haskell-language-server
           hlint
         ];
