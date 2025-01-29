@@ -263,7 +263,7 @@ bountySpec = do
           , targetValue = hex "000000000000000676616C756531"
           , keySize = 256
           , keyPath = [0]
-          , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187D"]
+          , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
           }
     validate proof (hex "DFF0633F5C88ACA24A232C4981981837653ABAD1637688AD5E87535867D05F64") `shouldBe` True
 
