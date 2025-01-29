@@ -260,12 +260,12 @@ bountySpec = do
   it "valid merkle proof should be accepted" $ do
     let proof = MerkleProof
           { targetKey = hex "01"
-          , targetValue = hex "0676616C756531"
+          , targetValue = hex "000000000000000676616C756531"
           , keySize = 256
           , keyPath = [0]
-          , siblingHashes = [hex "6ABA713FC056E5E08753310916752186E51F146F1E5C5D52F2F24460E8053725"]
+          , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187D"]
           }
-    validate proof (hex "13CF32B50432CE2D875A6CB7B3B1906729C91D3AB6E63838BBD20B8216A9B580") `shouldBe` True
+    validate proof (hex "DFF0633F5C88ACA24A232C4981981837653ABAD1637688AD5E87535867D05F64") `shouldBe` True
 
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
