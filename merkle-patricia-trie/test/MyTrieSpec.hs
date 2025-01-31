@@ -26,7 +26,8 @@ spec = describe "MyTrie" $ do
   it "should work" $ do
     let t0 :: S = runIdentity $ M.empty
         l0' = runIdentity $ M.listOf t0
-    --    t3 :: S = runIdentity $ M.ofList l3
+        t3 :: S = runIdentity $ M.ofList l3
+--        _foo = trace "foo" 1
 --        t3'' :: S = runIdentity $ M.insert "veni, vidi, vici" 1597 t3
 --        l3' = runIdentity $ M.listOf t3
 --        l3'' = runIdentity $ M.listOf t3''
@@ -64,4 +65,3 @@ spec = describe "MyTrie" $ do
           validate invalidProof (rootHash merkleTrie) `shouldBe` False
         _ -> expectationFailure "Failed to generate proofs"
 -}
-

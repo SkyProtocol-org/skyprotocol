@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut) where
+module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest) where
 
 import Data.Internal.RecursionSchemes
 
@@ -43,6 +43,7 @@ class LiftShow r where
   liftShow :: Show a => (r a) -> String
 
 data Lift r a = Lift { lifted :: r a }
+  deriving Functor
 
 instance (LiftEq r, Eq a) =>
   Eq (Lift r a) where
@@ -64,6 +65,16 @@ instance LiftShow f =>
 instance LiftEq f =>
   Eq (Fix f) where
   (==) x y = liftEq (out x) (out y)
+
+instance LiftShow Identity where
+  liftShow = show . runIdentity
+
+instance LiftEq Identity where
+  liftEq x y = (runIdentity x) == (runIdentity y)
+
+instance LiftBinary Identity where
+  liftGet = get >>= pure . Identity
+  liftPut = put . runIdentity
 
 -- instance Functor r => Wrapping r Identity where
 --  wrap = pure

@@ -89,6 +89,7 @@ library
     , base        ^>=4.18.2.1
     , binary
     , bytestring
+    , composition-extra
     , crypton
     , memory
     , text

@@ -14,16 +14,17 @@ module Data.MyTrie (TrieNodeRef, TrieNode, TrieNodeF (..), Trie, TrieKey, TriePa
 
 import Prelude hiding (lookup)
 
-import Debug.Trace
-
 import Data.Internal.RecursionSchemes
 import Data.Utils
 
+--import Control.Arrow
 import Control.Monad
 import Crypto.Hash
 import Data.Binary (Binary, Get, put, get) -- Put, encode, decode
 import Data.Bits
 -- import Data.Function ((&))
+import Data.Function.Contravariant.Syntax
+import Data.Functor
 import Data.Kind (Type)
 import Data.WideWord (Word256)
 import Data.Word (Word8)
@@ -69,28 +70,36 @@ ofZipper :: Zipper e top node pathF stepF blur key => Zip pathF node node -> e t
 ofZipper z = zipUp stepUp z >>= ofTopZipper
 
 
-
 -- TODO make it work with Bits k as well as Bits k?
 -- h ::: a type for the height of keys, e.g. UInt8 for k==UInt256
 -- k ::: a type for the keys of the Trie, e.g. UInt256
-class (Num k, Integral k, Bits k, Eq k, Show k) =>
+class (Num k, Integral k, Bits k, Eq k, Show k, Binary k) =>
   TrieKey k where
-    lowestKeyBitSet :: k -> Int
-    lowestKeyBitSet m = lowestBitSet m
+    lowestKeyBitClear :: k -> Int
+    lowestKeyBitClear m = lowestBitClear m
 
-class (Num h, Integral h, Eq h, Show h, TrieKey k) =>
+class (Num h, Integral h, Eq h, Show h, Binary h) =>
+  TrieHeight h where
+
+class (TrieHeight h, TrieKey k) =>
   TrieHeightKey h k where
 
 -- TODO: add reference functor? synthesized attribute type on non-leaves?
 -- e.g. ... Wrapable r, Binary a... => Trie r h k a c
 -- c ::: a type for the content of the leaves of the Trie
-data (TrieHeightKey h k) =>
-  Trie r h k c = TrieTop {
+data TrieTop t = TrieTop {
     _trieHeight :: Int
       {- integerLength of the largest key in the Trie; -1 if empty -}
-  , _trieTopNode :: TrieNodeRef r h k c
+  , _trieTopNode :: t
       {- top node in the Trie -}
   } deriving (Show, Eq)
+
+instance Binary t =>
+  Binary (TrieTop t) where
+  put (TrieTop h t) = (put h) >> (put t)
+  get = do h <- get ; t <- get ; return (TrieTop h t)
+
+type Trie r h k c = TrieTop (TrieNodeRef r h k c)
 
 data TrieNodeF h k c t =
     Empty
@@ -195,30 +204,29 @@ instance (Monad e, TrieHeightKey h k) =>
   PreZipper e (TriePath h k) (TrieStep h k) where
   pathStep (TriePath h k m s) = pure $
     if testBit m 0 then
-      case s of
-        t : sr -> let hr = h - 1
-                      kr = k `shiftR` 1
-                      mr = m `shiftR` 1
-                      branch = if testBit k 0 then RightStep else LeftStep in
-                  Just (branch t, TriePath hr kr mr sr)
-        [] -> Nothing
-    else
-      let h1 = lowestKeyBitSet m
+      let h1 = lowestKeyBitClear m
           k1 = k .&. lowBitsMask h1
           hr = h + h1
           kr = k `shiftR` h1
           mr = m `shiftR` h1 in
-      Just (SkipStep (fromIntegral $ h1-1) k1, TriePath hr kr mr s)
+        Just (SkipStep (fromIntegral $ h1-1) k1, TriePath hr kr mr s)
+    else case s of
+      t : sr -> let hr = h - 1
+                    kr = k `shiftR` 1
+                    mr = m `shiftR` 1
+                    branch = if testBit m 0 then RightStep else LeftStep in
+                Just (branch t, TriePath hr kr mr sr)
+      [] -> Nothing
   -- stepDown from a TriePath
   stepDown step (TriePath h k m s) = pure $
     case step of
-      LeftStep t -> TriePath (h + 1) (k `shiftL` 1) ((m `shiftL` 1) .|. 1) (t : s)
-      RightStep t -> TriePath (h + 1) ((k `shiftL` 1) .|. 1) ((m `shiftL` 1) .|. 1) (t : s)
+      LeftStep t -> TriePath (h + 1) (k `shiftL` 1) (m `shiftL` 1) (t : s)
+      RightStep t -> TriePath (h + 1) ((k `shiftL` 1) .|. 1) (m `shiftL` 1) (t : s)
       SkipStep hd kd ->
         let ld = 1 + fromIntegral hd
             h1 = h - ld
             k1 = (k `shiftL` ld) .|. kd
-            m1 = m `shiftL` ld in
+            m1 = (m `shiftL` ld) .|. lowBitsMask ld in
         TriePath h1 k1 m1 s
 
 instance (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => Zipper e (Trie r h k c) (TrieNodeRef r h k c) (TriePath h k) (TrieStep h k) Int k where
@@ -356,6 +364,7 @@ instance (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => Zipper e
 trieTop :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => Int -> TrieNodeRef r h k c -> e (Trie r h k c)
 trieTop h x =
   fr x >>= \case
+    Empty -> return (TrieTop (-1) x)
     Skip hh mm c ->
       let hhi = fromIntegral hh in
       if testBit mm hhi then
@@ -368,8 +377,8 @@ trieTop h x =
         let l = integerLength mm
             hh' = fromIntegral (l - 1)
             h' = h + hhi - l in
-        rf (Skip hh' mm c) >>= pure . TrieTop h'
-    _ -> pure $ TrieTop h x
+        rf (Skip hh' mm c) >>= return . TrieTop h'
+    _ -> return (TrieTop h x)
 
 
 {- Probably not needed
@@ -403,19 +412,6 @@ stepBits (SkipStep h ks) k = (k `shiftL` (1 + fromIntegral h)) .|. ks
 
 type TrieProof h k ha = TriePath h k (Digest ha)
 
-{-
-getMerkleProof :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, Digestible r) =>
-  Trie r h k c -> k -> e (TrieProof h k (HashAlgorithmOf r))
-getMerkleProof t k =
-  zipperOf t >>= refocus 0 k >>= liftM (zipPath >> fmap getDigest)
-
-isMerkleProof :: (TrieHeightKey h k, HashAlgorithm ha) => k -> Digest ha -> Digest ha -> TrieProof h k ha -> Bool
-isMerkleProof key leafDigest trieDigest proof =
-  trieDigest == leafDigest &&
-    --zipUp digestSynth (Zip (DigestOnly leafDigest :: DigestOnly (HashAlgorithmOf r) ()) proof) &&
-  key == triePathKey proof
--}
-
 zipMapFocus :: Monad e => (node -> e node') -> Zip pathF node otherdata -> e (Zip pathF node' otherdata)
 zipMapFocus f (Zip node path) = f node >>= pure . flip Zip path
 
@@ -433,9 +429,9 @@ zipRemove = zipUpdate (pure . const Nothing)
 zipLookup :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, Monad e) => TrieZipper r h k c -> k -> e (Maybe c)
 zipLookup z k = refocus 0 k z >>= pure . zipFocus >>= maybeOfLeaf
 
-zipInsertList :: (Show k, Show c, TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => [(k,c)] -> TrieZipper r h k c -> e (TrieZipper r h k c)
-zipInsertList ((k, v):l) = trace ("zipInsertList " ++ show l) zipInsertList l >=> zipInsert v k
-zipInsertList [] = pure
+zipInsertList :: (Show c, LiftShow r, TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => [(k,c)] -> TrieZipper r h k c -> e (TrieZipper r h k c)
+zipInsertList ((k, v):l) = zipInsertList l >=> zipInsert v k
+zipInsertList [] = \ t -> return t
 
 appendListOfZipper :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => TrieZipper r h k c -> [(k,c)] -> e [(k, c)]
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
@@ -481,13 +477,35 @@ empty :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => e (Trie 
 empty = rf Empty >>= pure . TrieTop (-1)
 
 ofList :: (LiftShow r, Show h, Show k, Show c, TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => [(k, c)] -> e (Trie r h k c)
-ofList bindings = empty >>= zipperOf >>= \z -> trace ("ofList zipper: " ++ show z)
-   (zipInsertList bindings z >>= ofZipper)
+ofList bindings = empty >>= zipperOf >>= \z -> zipInsertList bindings z >>= ofZipper
 
 listOf :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e) => Trie r h k c -> e [(k, c)]
 listOf = zipperOf >=> flip appendListOfZipper []
 
 instance TrieKey Word256 where
-  lowestKeyBitSet = fbLowestBitSet
+  lowestKeyBitClear = fbLowestBitClear
+instance TrieHeight Word8 where
 
 instance TrieHeightKey Word8 Word256 where
+
+getMerkleProof :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, Digestible r) =>
+  Trie r h k c -> k -> e (TrieProof h k (HashAlgorithmOf r))
+getMerkleProof t k =
+  zipperOf t >>= refocus 0 k <&> zipPath -. fmap (getDigest . lifted)
+
+applyTrieStep :: TrieHeightKey h k => TrieStep h k t -> t -> TrieNodeF h k () t
+applyTrieStep s t = case s of
+  LeftStep r -> Branch t r
+  RightStep l -> Branch l t
+  SkipStep h k -> Skip h k t
+
+digestTrieStep :: (TrieHeightKey h k, HashAlgorithm ha, Binary (Digest ha)) =>
+  TrieStep h k (Digest ha) -> Digest ha -> Digest ha
+digestTrieStep s h = computeDigest $ applyTrieStep s h
+
+isMerkleProof :: (TrieHeightKey h k, HashAlgorithm ha, Binary (Digest ha), Monad e) => k -> Digest ha -> Digest ha -> TrieProof h k ha -> e Bool
+isMerkleProof key leafDigest topDigest proof =
+  do
+    synthTop <- zipUp (\ s h -> return $ digestTrieStep s h) (Zip leafDigest proof) <&>
+      \case Zip d (TriePath hh _ _ _) -> computeDigest $ TrieTop hh d
+    return (synthTop == topDigest && key == triePathKey proof)
