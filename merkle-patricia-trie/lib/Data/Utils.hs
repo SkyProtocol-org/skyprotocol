@@ -1,5 +1,5 @@
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -8,62 +8,75 @@
 
 module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest) where
 
-import Data.Internal.RecursionSchemes
-
 import Crypto.Hash
-import Data.Bits (Bits, FiniteBits, countTrailingZeros, complement, (.&.), shiftR, shiftL)
-import Data.ByteArray qualified as BA
-import Data.ByteString.Lazy qualified as BS
-import Data.ByteString qualified as BSS
-import Data.Binary (Binary, Get, Put, encode, put, get) -- , decode
+import Data.Binary (Binary, Get, Put, encode, get, put) -- , decode
 -- import Data.Binary.Get.Internal (readN)
 -- import Data.Function ((&))
+import Data.Bits (Bits, FiniteBits, complement, countTrailingZeros, shiftL, shiftR, (.&.))
+import Data.ByteArray qualified as BA
+import Data.ByteString qualified as BSS
+import Data.ByteString.Lazy qualified as BS
 import Data.Functor.Identity (Identity (..))
+import Data.Internal.RecursionSchemes
 import Data.Kind (Type)
 import Data.Maybe (fromJust)
 
 -- Wrappers (reference)
 -- Functor r =>
-class Monad e =>
-  PreWrapping a r e where
+class
+  (Monad e) =>
+  PreWrapping a r e
+  where
   wrap :: a -> e (r a)
 
-class PreWrapping a r e =>
-  Wrapping a r e where
+class
+  (PreWrapping a r e) =>
+  Wrapping a r e
+  where
   unwrap :: r a -> e a
 
 class LiftBinary r where
-  liftGet :: Binary a => Get (r a)
-  liftPut :: Binary a => r a -> Put
+  liftGet :: (Binary a) => Get (r a)
+  liftPut :: (Binary a) => r a -> Put
 
 class LiftEq r where
-  liftEq :: Eq a => (r a) -> (r a) -> Bool
+  liftEq :: (Eq a) => (r a) -> (r a) -> Bool
 
 class LiftShow r where
-  liftShow :: Show a => (r a) -> String
+  liftShow :: (Show a) => (r a) -> String
 
-data Lift r a = Lift { lifted :: r a }
-  deriving Functor
+data Lift r a = Lift {lifted :: r a}
+  deriving (Functor)
 
-instance (LiftEq r, Eq a) =>
-  Eq (Lift r a) where
+instance
+  (LiftEq r, Eq a) =>
+  Eq (Lift r a)
+  where
   (==) x y = liftEq (lifted x) (lifted y)
 
-instance (LiftShow r, Show a) =>
-  Show (Lift r a) where
+instance
+  (LiftShow r, Show a) =>
+  Show (Lift r a)
+  where
   show = liftShow . lifted
 
-instance (LiftBinary r, Binary a) =>
-  Binary (Lift r a) where
+instance
+  (LiftBinary r, Binary a) =>
+  Binary (Lift r a)
+  where
   get = (liftGet :: Get (r a)) >>= (pure . Lift)
   put = liftPut . lifted
 
-instance LiftShow f =>
-  Show (Fix f) where
+instance
+  (LiftShow f) =>
+  Show (Fix f)
+  where
   show = liftShow . out
 
-instance LiftEq f =>
-  Eq (Fix f) where
+instance
+  (LiftEq f) =>
+  Eq (Fix f)
+  where
   (==) x y = liftEq (out x) (out y)
 
 instance LiftShow Identity where
@@ -91,21 +104,22 @@ instance PreWrapping a (Lift Identity) Identity where
 instance Wrapping a (Lift Identity) Identity where
   unwrap = lifted
 
-
 computeDigest :: (Binary a, HashAlgorithm ha) => a -> Digest ha
 computeDigest = hashlazy . encode
 
-class (Binary (Digest (HashAlgorithmOf r)), HashAlgorithm (HashAlgorithmOf r)) =>
-  Digestible r where
+class
+  (Binary (Digest (HashAlgorithmOf r)), HashAlgorithm (HashAlgorithmOf r)) =>
+  Digestible r
+  where
   type HashAlgorithmOf r :: Type
   getDigest :: r a -> Digest (HashAlgorithmOf r)
 
-data DigestRef ha x = DigestRef { digestRefValue :: x, digestRefDigest :: Digest ha }
+data DigestRef ha x = DigestRef {digestRefValue :: x, digestRefDigest :: Digest ha}
 
 instance Eq (DigestRef ha x) where
   (DigestRef _ ah) == (DigestRef _ bh) = ah == bh
 
-data DigestOnly ha x = DigestOnly { digestOnly :: Digest ha }
+data DigestOnly ha x = DigestOnly {digestOnly :: Digest ha}
   deriving (Eq, Show)
 
 instance Digestible Blake2b_256_Ref where
@@ -126,7 +140,7 @@ instance (Binary a, HashAlgorithm ha) => PreWrapping a (DigestRef ha) Identity w
 instance (Binary a, HashAlgorithm ha) => Wrapping a (DigestRef ha) Identity where
   unwrap (DigestRef x _) = Identity x
 
-lookupDigest :: HashAlgorithm h => Digest h -> a
+lookupDigest :: (HashAlgorithm h) => Digest h -> a
 lookupDigest = error "Cannot get a value from its digest"
 
 instance Binary (Digest Blake2b_256) where
@@ -155,9 +169,12 @@ digestiblePut = put . getDigest
 -- TODO: a variant that returns both bit and height
 integerLength :: (Bits n, Integral n, Integral l) => n -> l
 integerLength n =
-  if n > 0 then 1 + (integerLength (n `shiftR` 1)) else
-  if n == 0 then 0 else
-  integerLength (- n)
+  if n > 0
+    then 1 + (integerLength (n `shiftR` 1))
+    else
+      if n == 0
+        then 0
+        else integerLength (-n)
 
 -- TODO: a variant that returns both bit and height
 -- TODO: make it work efficiently on Bits as well as FiniteBits???

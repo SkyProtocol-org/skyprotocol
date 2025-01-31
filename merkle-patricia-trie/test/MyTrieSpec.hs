@@ -1,39 +1,67 @@
 {-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
 module MyTrieSpec (spec) where
 
-import Debug.Trace
-
-import Data.Utils
-import Data.MyTrie as M
-
 import Data.Functor.Identity (Identity (..))
+import Data.MyTrie as M
+import Data.Utils
 import Data.WideWord (Word256)
-import Data.Word (Word8)
+import Data.Word (Word64, Word8)
+import Debug.Trace
 import Test.Hspec
 import Test.QuickCheck
 
-type S = M.Trie Identity Word8 Word256 String
-type T = M.Trie Blake2b_256_Ref Word8 Word256 String
+type S = M.Trie Identity Word8 Word64 String
+
+type T = M.Trie Blake2b_256_Ref Word8 Word64 String
+
+initialValues = [(13, "13"), (34, "34"), (1597, "1597")]
 
 spec :: Spec
 spec = describe "MyTrie" $ do
-  let l3 = [(13,"13"),(34,"34"),(1597,"1597")]
-  it "should work" $ do
-    let t0 :: S = runIdentity $ M.empty
-        l0' = runIdentity $ M.listOf t0
-        t3 :: S = runIdentity $ M.ofList l3
---        _foo = trace "foo" 1
---        t3'' :: S = runIdentity $ M.insert "veni, vidi, vici" 1597 t3
---        l3' = runIdentity $ M.listOf t3
---        l3'' = runIdentity $ M.listOf t3''
-    -- l3' `shouldBe` l3
-    l0' `shouldBe` []
-    -- l3'' `shouldBe` [(13,"13"),(34,"34"),(1597,"veni, vidi, vici")]
+  it "basic construction of the trie" $ do
+    let someTrie :: S = runIdentity $ M.ofList initialValues
+        someValues = runIdentity $ M.listOf someTrie
+    someValues `shouldBe` initialValues
+    runIdentity (M.lookup someTrie 34) `shouldBe` Just "34"
+
+  it "construction from trie should yield the same trie" $ do
+    let emptyTrie :: S = runIdentity M.empty
+        someTrie :: S = runIdentity $ M.ofList initialValues
+
+    runIdentity (M.listOf emptyTrie) `shouldBe` []
+    runIdentity (M.listOf someTrie) `shouldBe` initialValues
+
+  it "testing creation of random tries" $ property $ \(listOfK :: [Word64]) -> do
+    let someTrie :: S = runIdentity $ M.ofList $ zip (fmap fromIntegral listOfK) $ fmap show listOfK
+    case listOfK of
+      (k1 : k2 : ks) -> do
+        runIdentity (M.lookup someTrie k1) `shouldBe` Just (show k1)
+        runIdentity (M.lookup someTrie k2) `shouldBe` Just (show k2)
+      (k1 : ks) -> do
+        runIdentity (M.lookup someTrie k1) `shouldBe` Just (show k1)
+      _ -> pure ()
+
+  it "testing inserting and removing" $ property $ \(listOfK :: [Word64]) -> do
+    let someTrie :: S = runIdentity $ M.ofList $ zip (fmap fromIntegral listOfK) $ fmap show listOfK
+    case listOfK of
+      (k1 : k2 : ks) -> do
+        let newTrie = runIdentity $ M.remove k1 someTrie >>= M.remove k2
+        runIdentity (M.lookup newTrie k1) `shouldBe` Nothing
+        runIdentity (M.lookup newTrie k2) `shouldBe` Nothing
+        let newTrie' = runIdentity $ M.insert (show k1) k1 newTrie >>= M.insert (show k2) k2
+        runIdentity (M.lookup newTrie' k1) `shouldBe` Just (show k1)
+        runIdentity (M.lookup newTrie' k2) `shouldBe` Just (show k2)
+      (k1 : ks) -> do
+        let newTrie = runIdentity $ M.remove k1 someTrie
+        runIdentity (M.lookup newTrie k1) `shouldBe` Nothing
+        let newTrie' = runIdentity $ M.insert (show k1) k1 newTrie
+        runIdentity (M.lookup newTrie' k1) `shouldBe` Just (show k1)
+      _ -> pure ()
 
 {-
     it "should generate a proof, validate it, and compute the root hash correctly" $ do
