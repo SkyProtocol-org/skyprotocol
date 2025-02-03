@@ -174,7 +174,7 @@ integerLength n =
     else
       if n == 0
         then 0
-        else integerLength (-n)
+        else integerLength (-n-1)
 
 -- TODO: a variant that returns both bit and height
 -- TODO: make it work efficiently on Bits as well as FiniteBits???
@@ -197,6 +197,7 @@ lowBitsMask :: (Bits n, Integral n) => Int -> n
 lowBitsMask i = (1 `shiftL` i) - 1
 
 -- TODO: more efficient implementation?
+-- First argument is the length, second is the start (little endian), last is the bits
 extractBitField :: (Bits n, Integral n) => Int -> Int -> n -> n
 extractBitField len start bits =
   (bits `shiftR` start) .&. (lowBitsMask len)

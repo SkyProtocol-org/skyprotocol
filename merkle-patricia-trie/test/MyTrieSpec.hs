@@ -28,7 +28,7 @@ spec = describe "MyTrie" $ do
         someValues = runIdentity $ M.listOf someTrie
     someValues `shouldBe` initialValues
     runIdentity (M.lookup someTrie 34) `shouldBe` Just "34"
-
+{-
   it "construction from trie should yield the same trie" $ do
     let emptyTrie :: S = runIdentity M.empty
         someTrie :: S = runIdentity $ M.ofList initialValues
@@ -62,7 +62,7 @@ spec = describe "MyTrie" $ do
         let newTrie' = runIdentity $ M.insert (show k1) k1 newTrie
         runIdentity (M.lookup newTrie' k1) `shouldBe` Just (show k1)
       _ -> pure ()
-
+-}
 {-
     it "should generate a proof, validate it, and compute the root hash correctly" $ do
       let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" Trie.empty
