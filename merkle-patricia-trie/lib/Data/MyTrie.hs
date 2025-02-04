@@ -10,7 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Data.MyTrie (TrieNodeRef, TrieNode, TrieNodeF (..), Trie, TrieKey, TriePath, TrieZipper, TrieProof, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf {-getMerkleProof,-} {-isMerkleProof-}) where
+module Data.MyTrie (TrieNodeRef, TrieNode, TrieTop (..), TrieNodeF (..), TrieStep (..), Trie, TrieKey, TriePath (..), TrieZipper, TrieProof, Zip (..), pathStep, stepUp, stepDown, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf {-getMerkleProof,-} {-isMerkleProof-}) where
 
 import Control.Arrow ((>>>))
 import Control.Monad
@@ -28,10 +28,10 @@ import Prelude hiding (lookup)
 -- Abstract zippers
 -- should we further require that pathF a = (focusKey, shape, [a]) ?
 -- or that focusKey = (height, key) ?
-data Zip pathF point otherdata = Zip
-  { zipFocus :: point,
+data Zip pathF focus background = Zip
+  { zipFocus :: focus,
     {- a pointed node within a data structure, or abstraction thereof -}
-    zipPath :: pathF otherdata
+    zipPath :: pathF background
     {- path from the focus node back to the top,
        with abstractions of other branches -}
   }
@@ -47,12 +47,12 @@ class
 
 zipUp ::
   (Monad e, PreZipper e pathF stepF) =>
-  (stepF other -> focus -> e focus) ->
-  Zip pathF focus other ->
-  e (Zip pathF focus other)
-zipUp synth z@(Zip t p) =
+  (stepF background -> focus -> e focus) ->
+  Zip pathF focus background ->
+  e (Zip pathF focus background)
+zipUp synth z@(Zip f p) =
   pathStep p >>= \case
-    Just (s, p') -> synth s t >>= \a -> zipUp synth (Zip a p')
+    Just (s, p') -> synth s f >>= \a -> zipUp synth (Zip a p')
     Nothing -> return z
 
 -- merge blur and key into focusKey, and
@@ -216,7 +216,7 @@ data TrieStep h k t
   | SkipStep h k
   deriving (Show, Eq, Functor)
 
-type TrieZip h k = Zip (TriePath h k) :: Type -> Type -> Type
+type TrieZip h k f o = Zip (TriePath h k) f o
 
 type TrieZipper r h k c = TrieZip h k (TrieNodeRef r h k c) (TrieNodeRef r h k c) :: Type
 
@@ -236,7 +236,7 @@ instance
            in Just (SkipStep (fromIntegral $ h1 - 1) k1, TriePath hr kr mr s)
         else case s of
           t : sr ->
-            let hr = h - 1
+            let hr = h + 1
                 kr = k `shiftR` 1
                 mr = m `shiftR` 1
                 branch = if testBit m 0 then RightStep else LeftStep
@@ -246,8 +246,8 @@ instance
   -- stepDown from a TriePath
   stepDown step (TriePath h k m s) = pure $
     case step of
-      LeftStep t -> TriePath (h + 1) (k `shiftL` 1) (m `shiftL` 1) (t : s)
-      RightStep t -> TriePath (h + 1) ((k `shiftL` 1) .|. 1) (m `shiftL` 1) (t : s)
+      LeftStep t -> TriePath (h - 1) (k `shiftL` 1) (m `shiftL` 1) (t : s)
+      RightStep t -> TriePath (h - 1) ((k `shiftL` 1) .|. 1) (m `shiftL` 1) (t : s)
       SkipStep hd kd ->
         let ld = 1 + fromIntegral hd
             h1 = h - ld

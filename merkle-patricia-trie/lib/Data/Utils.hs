@@ -194,7 +194,7 @@ fbLowestBitClear :: (FiniteBits n, Integral n) => n -> Int
 fbLowestBitClear n = if n == -1 then -1 else countTrailingZeros $ complement n
 
 lowBitsMask :: (Bits n, Integral n) => Int -> n
-lowBitsMask i = (1 `shiftL` i) - 1
+lowBitsMask i = if i == -1 then -1 else (1 `shiftL` i) - 1
 
 -- TODO: more efficient implementation?
 -- First argument is the length, second is the start (little endian), last is the bits

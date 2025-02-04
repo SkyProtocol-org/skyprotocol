@@ -79,16 +79,25 @@ spec = do
     it "lowestBitClear" $ do
       let l = lowestBitClear :: Int -> Int
       map l [0, 1, 2, 3, 4, 8, 100, -1, -2, -100] `shouldBe` [0, 1, 0, 2, 0, 0, 0, -1, 0, 0]
+      let l' = lowestBitClear :: Word64 -> Int
+      map l' [0, 1, 2, 3, 4, 8, 100, fromIntegral (-1), fromIntegral(-2), fromIntegral (-100)] `shouldBe`
+        [0, 1, 0, 2, 0, 0, 0, -1, 0, 0]
 
     it "QuickCheck property: lowestBitClear" $
       property $
         \(n :: Word64) ->
           do
             let b = lowestBitClear n
-            b == -1 `shouldBe` n == -1
+            b == -1 `shouldBe` n == (fromIntegral (-1))
             b == -1 || not (testBit n b) `shouldBe` True
             fbLowestBitClear n `shouldBe` b
             b == -1 || n .&. lowBitsMask b == lowBitsMask b `shouldBe` True
+
+    it "lowBitsMax" $ do
+      let l = lowBitsMask :: Int -> Int
+      map l [0, 1, 2, 3, 4, 7, 8, 16, 32, 63] `shouldBe`
+        [0, 1, 3, 7, 15, 127, 255, 65535, 4294967295, 9223372036854775807]
+      ((lowBitsMask (-1)) :: Word64) `shouldBe` (fromIntegral (-1))
 
     it "extractBitField" $ do
       let e (len, start, bits :: Int) = extractBitField len start bits
