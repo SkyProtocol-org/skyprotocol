@@ -51,25 +51,30 @@ spec = describe "MyTrie" $ do
     runIdentity (su (LeftStep (rF $ Leaf "1")) (rF $ Leaf "0")) `shouldBe`
       rF (Branch (rF $ Leaf "0") (rF $ Leaf "1"))
 
+  let ol l = ofList l :: Identity S
+  let lo (t :: S) = listOf t :: Identity [(Word64, String)]
+
   it "construction from trie should yield the same trie" $ do
-    let testListOfList l1 l2 = runIdentity ((ofList l1 :: Identity S) >>= listOf) `shouldBe` l2
+    let testListOfList l1 l2 = runIdentity (ol l1 >>= lo) `shouldBe` l2
     let testListOfList' l1 = testListOfList l1 l1
     testListOfList' []
     testListOfList' [(13, "13"), (34, "34")]
-    testListOfList' [(13, "13"), (34, "34"), (1597, "1597")]
-    testListOfList [(34, "34"), (1597, "1597"), (13, "13")] [(13, "13"), (34, "34"), (1597, "1597")]
-    testListOfList [(1597, "1597"), (34, "34"), (13, "13")] [(13, "13"), (34, "34"), (1597, "1597")]
+    testListOfList' initialValues
+    testListOfList [(34, "34"), (1597, "1597"), (13, "13")] initialValues
+    testListOfList [(1597, "1597"), (34, "34"), (13, "13")] initialValues
 
-{-
   it "basic construction of the trie" $ do
-    -- let someTrie :: S = runIdentity $ ofList  initialValues
-    let emptyTrie :: S = runIdentity $ ofList  initialValues
-    (someTrie `seq` 1) `shouldBe` 1
---    someValues = runIdentity $ listOf someTrie
---    someValues `shouldBe` initialValues
-        someTrie :: S = runIdentity $ ofList initialValues
-
-    -- runIdentity (lookup someTrie 34) `shouldBe` Just "34"
+    let testLookup l k v = runIdentity (ol l >>= lookup k) `shouldBe` v
+    testLookup [] 3 Nothing
+    testLookup [(0,"0")] 1 Nothing
+    testLookup [(0,"0")] 0 $ Just "0"
+    testLookup [(42,"a")] 34 Nothing
+    testLookup [(42,"a")] 42 $ Just "a"
+{-
+    testLookup initialValues 13 $ Just "13"
+    testLookup initialValues 34 $ Just "34"
+    testLookup initialValues 1597 $ Just "1597"
+    testLookup initialValues 42 $ Nothing
 
   it "testing creation of random tries" $ property $ \(listOfK :: [Word64]) -> do
     let someTrie :: S = runIdentity $ ofList $ zip (fmap fromIntegral listOfK) $ fmap show listOfK
@@ -97,8 +102,7 @@ spec = describe "MyTrie" $ do
         let newTrie' = runIdentity $ insert (show k1) k1 newTrie
         runIdentity (lookup newTrie' k1) `shouldBe` Just (show k1)
       _ -> pure ()
--}
-{-
+
     it "should generate a proof, validate it, and compute the root hash correctly" $ do
       let t = Trie.insert @Word256 @_ 1 "value1" $ Trie.insert 2 "value2" Trie.empty
           merkleTrie = merkelize t
