@@ -10,6 +10,7 @@ module MyTrieSpec (spec) where
 import Data.Functor.Identity (Identity (..))
 import Data.MyTrie
 import Data.Utils
+import Data.Internal.RecursionSchemes
 import Data.WideWord (Word256)
 import Data.Word (Word64, Word8)
 import Debug.Trace
@@ -17,33 +18,47 @@ import Test.Hspec
 import Test.QuickCheck hiding (listOf)
 import Prelude hiding (lookup)
 
-type S = Trie Identity Word8 Word256 String
+type S = Trie Identity Word8 Word64 String
+type SR = TrieNodeRef Identity Word8 Word64 String
 
-type T = Trie Blake2b_256_Ref Word8 Word64 String
+type T = Trie Blake2b_256_Ref Word8 Word256 String
+type TR = TrieNodeRef Blake2b_256_Ref Word8 Word256 String
 
 initialValues = [(13, "13"), (34, "34"), (1597, "1597")]
 
 spec :: Spec
 spec = describe "MyTrie" $ do
 
-  let tp :: Int -> Word64 -> Word64 -> [Int] -> TriePath Word8 Word64 Int = TriePath
-  let sd :: TrieStep Word8 Word64 Int -> TriePath Word8 Word64 Int -> Identity (TriePath Word8 Word64 Int) = stepDown
+  let rF :: TrieNodeF Word8 Word64 String SR -> SR = Lift . Identity . In . TrieNodeFL
+  let fR :: SR -> TrieNodeF Word8 Word64 String SR = tfl . out . runIdentity . lifted
+  let tp :: Int -> Word64 -> Word64 -> [SR] -> TriePath Word8 Word64 SR = TriePath
+  let sd :: TrieStep Word8 Word64 SR -> TriePath Word8 Word64 SR -> Identity (TriePath Word8 Word64 SR) = stepDown
+  let su :: TrieStep Word8 Word64 SR -> SR -> Identity SR = stepUp
 
   it "pathStep" $ do
-    runIdentity (pathStep $ tp 0 1597 1023 [42]) `shouldBe` Just (SkipStep 9 573, tp 10 1 0 [42])
-    runIdentity (pathStep $ tp 5 0 30 [42, 69]) `shouldBe` Just (LeftStep 42, tp 6 0 15 [69])
+    runIdentity (pathStep $ tp 0 1597 1023 [rF $ Leaf "42"]) `shouldBe`
+      Just (SkipStep 9 573, tp 10 1 0 [rF $ Leaf "42"])
+    runIdentity (pathStep $ tp 5 0 30 [(rF $ Leaf "42"), (rF $ Leaf "69")]) `shouldBe`
+      Just (LeftStep (rF $ Leaf "42"), tp 6 0 15 [rF $ Leaf "69"])
 
   it "stepDown" $ do
-    runIdentity (sd (LeftStep 42) (tp 6 0 15 [69])) `shouldBe` tp 5 0 30 [42, 69]
-    runIdentity (sd (SkipStep 9 573) (tp 10 1 0 [42])) `shouldBe` tp 0 1597 1023 [42]
+    runIdentity (sd (LeftStep (rF $ Leaf "42")) (tp 6 0 15 [rF $ Leaf "69"])) `shouldBe`
+      tp 5 0 30 [(rF $ Leaf "42"), (rF $ Leaf "69")]
+    runIdentity (sd (SkipStep 9 573) (tp 10 1 0 [rF $ Leaf "42"])) `shouldBe`
+      tp 0 1597 1023 [rF $ Leaf "42"]
+
+  it "stepUp" $ do
+    runIdentity (su (LeftStep (rF $ Leaf "1")) (rF $ Leaf "0")) `shouldBe`
+      rF (Branch (rF $ Leaf "0") (rF $ Leaf "1"))
 
   it "construction from trie should yield the same trie" $ do
-    let emptyTrie :: S = runIdentity empty
-    runIdentity (listOf emptyTrie) `shouldBe` []
-    let initialTrie :: S = runIdentity $ ofList initialValues
-    -- runIdentity (listOf initialTrie) `shouldBe` initialValues
-    initialTrie `seq` 1 `shouldBe` 1
-
+    let testListOfList l1 l2 = runIdentity ((ofList l1 :: Identity S) >>= listOf) `shouldBe` l2
+    let testListOfList' l1 = testListOfList l1 l1
+    testListOfList' []
+    testListOfList' [(13, "13"), (34, "34")]
+    testListOfList' [(13, "13"), (34, "34"), (1597, "1597")]
+    testListOfList [(34, "34"), (1597, "1597"), (13, "13")] [(13, "13"), (34, "34"), (1597, "1597")]
+    testListOfList [(1597, "1597"), (34, "34"), (13, "13")] [(13, "13"), (34, "34"), (1597, "1597")]
 
 {-
   it "basic construction of the trie" $ do
