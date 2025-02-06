@@ -6,13 +6,15 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest) where
+module Data.Utils (PreWrapping, Wrapping, Lift (..), LiftBinary, LiftShow, LiftEq, Digestible, DigestRef (..), DigestOnly (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, fbIntegerLength, fbuIntegerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, fbuLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest, trace', trace1, trace2, trace3, etrace1, etrace2, etrace3) where
 
+import Debug.Trace
 import Crypto.Hash
+import Control.Monad
 import Data.Binary (Binary, Get, Put, encode, get, put) -- , decode
 -- import Data.Binary.Get.Internal (readN)
 -- import Data.Function ((&))
-import Data.Bits (Bits, FiniteBits, complement, countTrailingZeros, shiftL, shiftR, (.&.))
+import Data.Bits (Bits, FiniteBits, complement, finiteBitSize, countLeadingZeros, countTrailingZeros, shiftL, shiftR, (.&.))
 import Data.ByteArray qualified as BA
 import Data.ByteString qualified as BSS
 import Data.ByteString.Lazy qualified as BS
@@ -79,6 +81,14 @@ instance
   where
   (==) x y = liftEq (out x) (out y)
 
+instance
+  (LiftBinary f) =>
+  Binary (Fix f)
+  where
+  put = liftPut . out
+  get = (liftGet :: Get (f (Fix f))) >>= (pure . In)
+
+
 instance LiftShow Identity where
   liftShow = show . runIdentity
 
@@ -108,7 +118,7 @@ computeDigest :: (Binary a, HashAlgorithm ha) => a -> Digest ha
 computeDigest = hashlazy . encode
 
 class
-  (Binary (Digest (HashAlgorithmOf r)), HashAlgorithm (HashAlgorithmOf r)) =>
+  (Binary (Digest (HashAlgorithmOf r)), HashAlgorithm (HashAlgorithmOf r), Show (Digest (HashAlgorithmOf r))) =>
   Digestible r
   where
   type HashAlgorithmOf r :: Type
@@ -116,8 +126,15 @@ class
 
 data DigestRef ha x = DigestRef {digestRefValue :: x, digestRefDigest :: Digest ha}
 
+instance LiftShow (DigestRef ha) where
+  liftShow = show . digestRefDigest
+
 instance Eq (DigestRef ha x) where
   (DigestRef _ ah) == (DigestRef _ bh) = ah == bh
+
+instance (HashAlgorithm ha, Binary (Digest ha)) => Binary (DigestRef ha x) where
+   put = put . digestRefDigest
+   get = fmap lookupDigest (get :: Get (Digest ha))
 
 data DigestOnly ha x = DigestOnly {digestOnly :: Digest ha}
   deriving (Eq, Show)
@@ -134,11 +151,11 @@ type Blake2b_256_Ref = DigestRef Blake2b_256
 
 type Blake2b_256_Only = DigestOnly Blake2b_256
 
-instance (Binary a, HashAlgorithm ha) => PreWrapping a (DigestRef ha) Identity where
-  wrap x = Identity (DigestRef x $ computeDigest x)
+instance (Binary a, HashAlgorithm ha) => PreWrapping a (Lift (DigestRef ha)) Identity where
+  wrap x = Identity (Lift $ DigestRef x $ computeDigest x)
 
-instance (Binary a, HashAlgorithm ha) => Wrapping a (DigestRef ha) Identity where
-  unwrap (DigestRef x _) = Identity x
+instance (Binary a, HashAlgorithm ha) => Wrapping a (Lift (DigestRef ha)) Identity where
+  unwrap (Lift (DigestRef x _)) = Identity x
 
 lookupDigest :: (HashAlgorithm h) => Digest h -> a
 lookupDigest = error "Cannot get a value from its digest"
@@ -176,22 +193,43 @@ integerLength n =
         then 0
         else integerLength (-n-1)
 
+fbIntegerLength :: (FiniteBits n, Integral n, Integral l) => n -> l
+fbIntegerLength n =
+  if n >= 0 then fbuIntegerLength n else fbuIntegerLength $ complement n
+
+-- assumes non-negative
+fbuIntegerLength :: (FiniteBits n, Integral n, Integral l) => n -> l
+fbuIntegerLength n = fromIntegral $ finiteBitSize n - countLeadingZeros n
+
 -- TODO: a variant that returns both bit and height
 -- TODO: make it work efficiently on Bits as well as FiniteBits???
-lowestBitSet :: (Bits n, Integral n) => n -> Int
-lowestBitSet n = if n .&. 1 > 0 then 0 else if n == 0 then -1 else 1 + lowestBitSet (n `shiftR` 1)
+lowestBitSet :: (Bits n, Integral n, Show n) => n -> Int
+lowestBitSet n =
+-- trace (show ("lowestBitSet",n)) $
+  if n .&. 1 > 0 then 0 else if n == 0 then -1 else 1 + lowestBitSet (n `shiftR` 1)
 
-fbLowestBitSet :: (FiniteBits n, Integral n) => n -> Int
-fbLowestBitSet n = if n == 0 then -1 else countTrailingZeros n
+fbLowestBitSet :: (FiniteBits n, Integral n, Show n) => n -> Int
+fbLowestBitSet n =
+-- trace (show ("fbLowestBitSet",n)) $
+  if n == 0 then -1 else countTrailingZeros n
 
 -- TODO: use a standard library function for that, or at least optimize to logarithmically faster
 -- TODO: a variant that returns both bit and height
-lowestBitClear :: (Bits n, Integral n) => n -> Int
+lowestBitClear :: (Bits n, Integral n, Show n) => n -> Int
 lowestBitClear n =
+-- trace (show ("lowestBitClear",n)) $
   if n .&. 1 == 0 then 0 else if n == -1 then -1 else 1 + lowestBitClear (n `shiftR` 1)
 
-fbLowestBitClear :: (FiniteBits n, Integral n) => n -> Int
-fbLowestBitClear n = if n == -1 then -1 else countTrailingZeros $ complement n
+fbLowestBitClear :: (FiniteBits n, Integral n, Show n) => n -> Int
+fbLowestBitClear n =
+-- trace (show ("fbLowestBitClear",n)) $
+  if n == -1 then -1 else countTrailingZeros $ complement n
+
+-- assumes unsigned
+fbuLowestBitClear :: (FiniteBits n, Integral n, Show n) => n -> Int
+fbuLowestBitClear n =
+-- trace (show ("fbuLowestBitClear",n)) $
+  countTrailingZeros $ complement n
 
 lowBitsMask :: (Bits n, Integral n) => Int -> n
 lowBitsMask i = if i == -1 then -1 else (1 `shiftL` i) - 1
@@ -201,3 +239,30 @@ lowBitsMask i = if i == -1 then -1 else (1 `shiftL` i) - 1
 extractBitField :: (Bits n, Integral n) => Int -> Int -> n -> n
 extractBitField len start bits =
   (bits `shiftR` start) .&. (lowBitsMask len)
+
+trace':: (Show s) => s -> e -> e
+trace' s e = trace (show s) e
+
+trace1 :: (Show s, Show a, Show r) => s -> (a -> r) -> a -> r
+trace1 s f a = trace (">> " ++ show s ++ " " ++ show a) $
+  let r = f a in trace ("<< " ++ show s ++ " " ++ show r) r
+
+trace2 :: (Show s, Show a, Show b, Show r) => s -> (a -> b -> r) -> a -> b -> r
+trace2 s f a b = trace (">> " ++ show s ++ " " ++ show a ++ " " ++ show b) $
+  let r = f a b in trace ("<< " ++ show s ++ " " ++ show r) r
+
+trace3 :: (Show s, Show a, Show b, Show c, Show r) => s -> (a -> b -> c -> r) -> a -> b -> c -> r
+trace3 s f a b c = trace (">> " ++ show s ++ " " ++ show a ++ " " ++ show b ++ " " ++ show c) $
+  let r = f a b c in trace ("<< " ++ show s ++ " " ++ show r) r
+
+etrace1 :: (Monad e, Show s, Show a, Show r) => s -> (a -> e r) -> a -> e r
+etrace1 s f a = trace (">> " ++ show s ++ " " ++ show a) $
+  f a >>= \ r -> trace ("<< " ++ show s ++ " " ++ show r) $ return r
+
+etrace2 :: (Monad e, Show s, Show a, Show b, Show r) => s -> (a -> b -> e r) -> a -> b -> e r
+etrace2 s f a b = trace (">> " ++ show s ++ " " ++ show a ++ " " ++ show b) $
+  f a b >>= \ r -> trace ("<< " ++ show s ++ " " ++ show r) $ return r
+
+etrace3 :: (Monad e, Show s, Show a, Show b, Show c, Show r) => s -> (a -> b -> c -> e r) -> a -> b -> c -> e r
+etrace3 s f a b c = trace (">> " ++ show s ++ " " ++ show a ++ " " ++ show b ++ " " ++ show c) $
+  f a b c >>= \ r -> trace ("<< " ++ show s ++ " " ++ show r) $ return r

@@ -25,6 +25,7 @@ spec = do
   describe "Utils" $ do
     it "integerLength" $ do
       let i = integerLength :: Int -> Int
+      let j = integerLength :: Word64 -> Int
       i 0 `shouldBe` 0
       i 1 `shouldBe` 1
       i 2 `shouldBe` 2
@@ -45,6 +46,11 @@ spec = do
       i (-256) `shouldBe` 8
       i (-257) `shouldBe` 9
       i (-1000) `shouldBe` 10
+      j 0 `shouldBe` 0
+      j 1 `shouldBe` 1
+      j 2 `shouldBe` 2
+      j 3 `shouldBe` 2
+      j (-1) `shouldBe` 64
 
     it "QuickCheck property: integerLength" $
       property $

@@ -118,10 +118,11 @@ test-suite test
   build-depends:
     , aeson
     , base
-    , memory
     , bytestring
     , binary
+    , crypton
     , hspec
+    , memory
     , merkle-patricia-trie
     , QuickCheck
     , wide-word
