@@ -12,7 +12,7 @@
 
 module Data.MyTrie (TrieNodeRef, TrieNode, TrieTop (..), TrieNodeF (..), TrieNodeFL (..), TrieStep (..), Trie, TrieKey, TriePath (..), TrieZipper, TrieProof, Zip (..), pathStep, stepUp, stepDown, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, ofTrieZipperFocus, trieZipperFocusOnly, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf, rf, fr, getMerkleProof, isMerkleProof) where
 -- import Debug.Trace
-import Control.Arrow ((>>>))
+import Control.Composition ((-.))
 import Control.Monad
 import Crypto.Hash
 import Data.Binary (Binary, Get, get, put) -- Put, encode, decode
@@ -438,11 +438,11 @@ zipRemove :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, LiftSho
 zipRemove = zipUpdate (pure . const Nothing)
 
 zipLookup :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, Monad e, LiftShow r, Show c) => k -> TrieZipper r h k c -> e (Maybe c)
-zipLookup k z = refocus 0 k z >>= pure . zipFocus >>= maybeOfLeaf
+zipLookup k = refocus 0 k >=> pure . zipFocus >=> maybeOfLeaf
 
 zipInsertList :: (Show c, LiftShow r, TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, LiftShow r, Show c) => [(k, c)] -> TrieZipper r h k c -> e (TrieZipper r h k c)
 zipInsertList ((k, v) : l) = zipInsertList l >=> zipInsert v k
-zipInsertList [] = \t -> return t
+zipInsertList [] = return
 
 appendListOfZipper :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, LiftShow r, Show c) => TrieZipper r h k c -> [(k, c)] -> e [(k, c)]
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
@@ -471,7 +471,7 @@ remove :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, LiftShow r
 remove = update (pure . const Nothing)
 
 lookup :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, LiftShow r, Show c) => k -> Trie r h k c -> e (Maybe c)
-lookup k t = zipperOf t >>= zipLookup k
+lookup k = zipperOf >=> zipLookup k
 
 leafOfMaybe :: (PreWrapping (TrieNode r h k c) (Lift r) e) => Maybe c -> e (TrieNodeRef r h k c)
 leafOfMaybe Nothing = rf Empty
@@ -516,7 +516,7 @@ getMerkleProof ::
   k ->
   Trie r h k c ->
   e (TrieProof h k (HashAlgorithmOf r))
-getMerkleProof k t = zipperOf t >>= refocus 0 k <&> (zipPath >>> fmap (getDigest . lifted))
+getMerkleProof k t = zipperOf t >>= refocus 0 k <&> zipPath -. fmap (lifted -. getDigest)
 
 applyTrieStep :: (TrieHeightKey h k) => TrieStep h k t -> t -> TrieNodeF h k () t
 applyTrieStep s t = case s of

@@ -26,6 +26,10 @@ type SR = TrieNodeRef Identity Word8 Word64 String
 type T = Trie Blake2b_256_Ref Word8 Word256 String
 type TR = TrieNodeRef Blake2b_256_Ref Word8 Word256 String
 
+type U = Trie Blake2b_256_Ref Word8 Word256 (String, T)
+type UR = TrieNodeRef Blake2b_256_Ref Word8 Word256 (String, T)
+
+initialValues :: Num n => [(n,String)]
 initialValues = [(13, "13"), (34, "34"), (1597, "1597")]
 
 spec :: Spec
@@ -110,21 +114,21 @@ spec = describe "MyTrie" $ do
       _ -> pure ()
 
   it "should generate a proof, validate it, and compute the root hash correctly" $ do
-    let t = runIdentity $ olt [(1,"value1"),(2,"value2")]
-    let td :: Digest Blake2b_256 = computeDigest t
-    let proof1 = runIdentity $ getMerkleProof 1 t
+    let t1 = runIdentity $ olt [(1,"value1"),(2,"value2")]
+    let t1d :: Digest Blake2b_256 = computeDigest t1
+    let proof1 = runIdentity $ getMerkleProof 1 t1
     let l1d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value1") :: Identity TR)
-    let v1 = runIdentity $ isMerkleProof 1 l1d td proof1
+    let v1 = runIdentity $ isMerkleProof 1 l1d t1d proof1
     v1 `shouldBe` True
-    let proof2 = runIdentity $ getMerkleProof 2 t
-    let l2d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value2") :: Identity TR)
-    let v2 = runIdentity $ isMerkleProof 2 l2d td proof2
+    let t0 = runIdentity $ olt []
+    let t2 = runIdentity $ olt initialValues
+    let u :: U = runIdentity $ ofList [(42,("foo",t1)),(17,("bar",t2)),(0,("",t0))]
+    let ud :: Digest Blake2b_256 = computeDigest u
+    let proof2 = runIdentity $ getMerkleProof 42 u
+    let l2d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf ("foo", t1)) :: Identity UR)
+    let v2 = runIdentity $ isMerkleProof 42 l2d ud proof2
     v2 `shouldBe` True
-
-  it "should fail to validate an incorrect proof" $ do
-    let t = runIdentity $ olt [(1,"value1"),(2,"value2")]
-    let td :: Digest Blake2b_256 = computeDigest t
-    let proof1 = runIdentity $ getMerkleProof 1 t
-    let l1d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value3") :: Identity TR)
-    let v1 = runIdentity $ isMerkleProof 1 l1d td proof1
-    v1 `shouldBe` False
+    -- should fail to validate an incorrect proof
+    let l1d' :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value3") :: Identity TR)
+    let v1' = runIdentity $ isMerkleProof 1 l1d' t1d proof1
+    v1' `shouldBe` False
