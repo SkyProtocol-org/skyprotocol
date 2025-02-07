@@ -111,16 +111,18 @@ test-suite test
   other-modules:
     MerkleTrieSpec
     MyTrieSpec
+    UtilsSpec
     TrieKeySpec
     TrieSpec
 
   build-depends:
     , aeson
     , base
-    , memory
     , bytestring
     , binary
+    , crypton
     , hspec
+    , memory
     , merkle-patricia-trie
     , QuickCheck
     , wide-word
