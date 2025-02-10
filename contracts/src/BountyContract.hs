@@ -14,6 +14,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -48,6 +49,34 @@ import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, sha2_256)
+
+import Data.Bits
+import Data.Binary
+import Data.Utils
+import Crypto.Hash
+import Data.Functor.Identity (Identity (..))
+import Data.MyTrie
+import Data.WideWord (Word256)
+import Data.Word (Word64, Word8)
+
+------------------------------------------------------------------------------
+-- New Merkle Proof
+------------------------------------------------------------------------------
+
+type T = Trie Blake2b_256_Ref Word8 Word256 String
+type TR = TrieNodeRef Blake2b_256_Ref Word8 Word256 String
+
+
+
+--let lot (t :: T) = listOf t :: Identity [(Word256, String)]
+
+foo () = do
+  let olt l = ofList l :: Identity T
+  let t1 = runIdentity $ olt [(1,"value1"),(2,"value2")]
+  let t1d :: Digest Blake2b_256 = computeDigest t1
+  let proof1 = runIdentity $ getMerkleProof 1 t1
+  let l1d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value1") :: Identity TR)
+  runIdentity $ isMerkleProof 1 l1d t1d proof1
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -126,6 +155,7 @@ clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash ->
 clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
     PlutusTx.and conditions
   where
+    ls = ofList [(1,"value1"),(2,"value2")] :: Identity T
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the topic
