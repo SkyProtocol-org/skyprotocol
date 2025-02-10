@@ -17,4 +17,3 @@ index-state:
 
 packages:
   ./.
-  ../merkle-patricia-trie/
