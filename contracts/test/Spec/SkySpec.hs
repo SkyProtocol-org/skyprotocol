@@ -273,7 +273,7 @@ bountySpec = do
           , siblingHashes = []
           }
     validate proof (hex "DFF0633F5C88ACA24A232C4981981837653ABAD1637688AD5E87535867D05F64") `shouldBe` True
---    validate double_proof (hex "D21131E4176C8C2A5D952E8D4C52B928BD16C2A0A04D2E0EA2381E2939F2002D") `shouldBe` True
+    validate double_proof (hex "D21131E4176C8C2A5D952E8D4C52B928BD16C2A0A04D2E0EA2381E2939F2002D") `shouldBe` True
 
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
