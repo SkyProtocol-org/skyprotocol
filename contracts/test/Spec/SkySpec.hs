@@ -260,14 +260,16 @@ bountySpec = do
   it "valid merkle proofs should be accepted" $ do
     let proof = MerkleProof
           { targetKey = hex "01"
-          , targetValue = hex "000000000000000676616C756531"
+          , targetValue = Just $ hex "000000000000000676616C756531"
+          , targetHash = hex "968A7CEF8411F3DE46C437E53CC37542571F7CAD9D2CBFFF46607932AD74583F"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
           }
     let double_proof = MerkleProof
           { targetKey = hex "01"
-          , targetValue = hex "DFF0633F5C88ACA24A232C4981981837653ABAD1637688AD5E87535867D05F64"
+          , targetValue = Nothing
+          , targetHash = hex "AD7372446C20833149E3C288D9D24BEEF729CB53EDC566645CDE0D38A5691E4E"
           , keySize = 256
           , keyPath = []
           , siblingHashes = []
