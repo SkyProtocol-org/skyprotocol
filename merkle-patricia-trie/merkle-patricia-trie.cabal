@@ -89,6 +89,7 @@ library
     , base        ^>=4.18.2.1
     , binary
     , bytestring
+    , composition-prelude
     , crypton
     , memory
     , text
@@ -120,6 +121,7 @@ test-suite test
     , base
     , bytestring
     , binary
+    , composition-prelude
     , crypton
     , hspec
     , memory
