@@ -46,8 +46,6 @@ instance ToJSON ProofWithRootHash where
 
 data MerkleProof = MerkleProof
   { targetKey :: Integer,
-    targetValue :: Maybe BS.ByteString,
-    targetHash :: Digest Blake2b_256,
     keySize :: Int,
     keyPath :: [Integer],
     siblingHashes :: [Digest Blake2b_256]
@@ -60,10 +58,6 @@ instance ToJSON MerkleProof where
       [ "alternative" .= (0 :: Word8),
         "fields"
           .= [ toJSON . T.pack . (\r -> if even $ length r then r else '0' : r) $ showHex targetKey "",
-               case targetValue of
-                 Just a -> toJSON . T.pack . hex $ L.unpack a
-                 Nothing -> toJSON ("null" :: T.Text),
-               toJSON . T.pack . hex . (chr . fromIntegral <$>) $ BA.unpack targetHash,
                toJSON keySize,
                toJSON keyPath,
                toJSON $ T.pack . hex . (chr . fromIntegral <$>) <$> (BA.unpack <$> siblingHashes)
@@ -85,23 +79,14 @@ instance ToJSON MerkleProof where
 instance Binary MerkleProof where
   put MerkleProof {..} = do
     put ("proof" :: String)
-    put targetKey
-    put targetValue
-    put . BS.pack $ BA.unpack targetHash
     put keySize
     putList keyPath
     putList $ BS.pack . BA.unpack <$> siblingHashes
   get = do
     iden <- get
     case iden of
-      ("proof" :: String) -> MerkleProof <$> get <*> get <*> getTargetHash <*> get <*> get <*> getSiblingHashes
+      ("proof" :: String) -> MerkleProof <$> get <*> get <*> get <*> getSiblingHashes
     where
-      getTargetHash :: Get (Digest Blake2b_256)
-      getTargetHash = do
-        digest <- get :: Get BSS.ByteString
-        pure $ case digestFromByteString digest of
-          Just a -> a
-          Nothing -> error "Can't deserialize targetHash"
       getSiblingHashes :: Get [Digest Blake2b_256]
       getSiblingHashes = do
         digests <- get :: Get [BSS.ByteString]

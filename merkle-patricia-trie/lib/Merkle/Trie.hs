@@ -27,8 +27,8 @@ import Merkle.Types
 
 -- | Generate a Merkle proof for a given key in the trie
 -- Yeah, this variant always constructs whole proof even if the key is not there
-proofWith :: forall k v a. (TrieKey k, FiniteBits k, Binary a, Binary k) => (v -> a) -> k -> Trie k v -> Maybe MerkleProof
-proofWith f k t = let r = cata go t in if fst r then snd r else Nothing
+proofWith :: forall k v a. (TrieKey k, FiniteBits k, Binary a, Binary k) => (v -> Maybe a) -> (v -> Digest Blake2b_256) -> k -> Trie k v -> Maybe MerkleProof
+proofWith f fh k t = let r = cata go t in if fst r then snd r else Nothing
   where
     keySize = finiteBitSize k
     -- Bool to signify if the key was in the structure
@@ -37,10 +37,10 @@ proofWith f k t = let r = cata go t in if fst r then snd r else Nothing
     -- for every leaf we just compute merkle proof
     go Leaf {..} =
       let targetKey = fromIntegral key
-          targetValue = Just . encode $ f value
-          targetHash = computeHash $ f value
+          targetValue = encode <$> f value
+          targetHash = fh value
           keyPath = []
-          siblingHashes = [computeHash (1 :: Word8, f value) | key /= k]
+          siblingHashes = [computeHash (1 :: Word8, BS.pack . BA.unpack $ fh value) | key /= k]
        in (key == k, Just $ MerkleProof {..})
     go (Branch h _ (bl, Just pl) (br, Just pr))
       -- if one of the proofs containt the key, it means it comes from a path that we're interested in
@@ -76,7 +76,7 @@ proofWith f k t = let r = cata go t in if fst r then snd r else Nothing
     go Branch {} = (False, Nothing)
 
 proof :: forall k v. (TrieKey k, FiniteBits k, Binary v, Binary k) => k -> Trie k v -> Maybe MerkleProof
-proof = proofWith id
+proof = proofWith Just computeHash
 
 -- | Validate a Merkle proof against the root hash of the trie
 validate :: MerkleProof -> Digest Blake2b_256 -> Bool
@@ -94,7 +94,7 @@ validate MerkleProof {..} rootHash =
   where
     -- if targetValue is present, check that targetHash equals hashed targetValue
     valid = case targetValue of
-      Just v -> hashlazy @Blake2b_256 v == targetHash
+      Just v -> hashlazy @Blake2b_256 (encode v) == targetHash
       Nothing -> True
     val = case targetValue of
       Just v -> v

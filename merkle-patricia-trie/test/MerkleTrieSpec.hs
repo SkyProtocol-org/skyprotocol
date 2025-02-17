@@ -29,7 +29,7 @@ dumpExample = do
       merkleT2 = merkelizeWith (BS.pack . BA.unpack . computeRootHash) t2
       proof1 = proof 1 t
       proof2 = proof 2 t
-      proof3 = proofWith (BS.pack . BA.unpack . computeRootHash) 1 t2
+      proof3 = proofWith (Just . BS.pack . BA.unpack . computeRootHash) computeRootHash 1 t2
   case (proof1, proof2, proof3) of
     (Just p1, Just p2, Just p3) -> do
       let valid_p = mkProofWithHash (rootHash merkleT1) p1
@@ -58,6 +58,15 @@ spec = beforeAll dumpExample $ do
       let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
       proof 3 t `shouldBe` Nothing
 
+    it "should validate proof without targetValue" $ do
+      let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+          proof = proofWith @_ @_ @String (const Nothing) computeHash 1 t
+          merkleTrie = merkelize t
+      case proof of
+        (Just p) -> do
+          validate p (rootHash merkleTrie) `shouldBe` True
+        _ -> expectationFailure "Failed to generate proofs"
+
     it "should fail to validate an incorrect proof" $ do
       let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
           merkleTrie = merkelize t
@@ -71,18 +80,20 @@ spec = beforeAll dumpExample $ do
           let invalidProof = p1 {targetValue = Just "invalidValue"}
           validate invalidProof (rootHash merkleTrie) `shouldBe` False
         _ -> expectationFailure "Failed to generate proofs"
+
     it "double proof of a value in a trie in a trie" $ do
       let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
           t2 = Trie.insert @Word256 @_ 1 t Trie.empty
           merkle1 = merkelize t
           merkle2 = merkelizeWith (BS.pack . BA.unpack . computeRootHash) t2
           proof1 = proof 2 t
-          proof2 = proofWith (BS.pack . BA.unpack . computeRootHash) 1 t2
+          proof2 = proofWith (Just . BS.pack . BA.unpack . computeRootHash) computeRootHash 1 t2
       case (proof1, proof2) of
         (Just p1, Just p2) -> do
           validate p1 (rootHash merkle1) `shouldBe` True
           validate p2 (rootHash merkle2) `shouldBe` True
         _ -> expectationFailure "Failed to generate proofs"
+
     it "decode . encode should equal id" $ do
       let t = Trie.insert @Word256 @String 1 "value1" Trie.empty
           proof1 = proof 1 t
