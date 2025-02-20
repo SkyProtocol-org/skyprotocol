@@ -1,3 +1,4 @@
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -33,19 +34,18 @@ merkelizeWith f t = let rootHash = computeRootHashWith f t in MerkleTrie rootHas
 merkelize :: (Binary k, Binary v) => Trie k v -> MerkleTrie k v
 merkelize = merkelizeWith id
 
-data ProofWithRootHash = MkProofWithRoot {root :: T.Text, proofData :: MerkleProof}
+data ProofWithRootHash = MkProofWithRoot {root :: T.Text, targetHash :: T.Text, proofData :: MerkleProof}
   deriving (Show, Eq, Generic)
 
 mkProofWithHash :: Digest Blake2b_256 -> MerkleProof -> ProofWithRootHash
-mkProofWithHash h = MkProofWithRoot (T.pack . hex $ chr . fromIntegral <$> BA.unpack h)
+mkProofWithHash rHash p = MkProofWithRoot (T.pack . hex $ chr . fromIntegral <$> BA.unpack rHash) (T.pack . hex $ chr . fromIntegral <$> BA.unpack p.targetHash) p
 
 instance ToJSON ProofWithRootHash where
   toEncoding = genericToEncoding defaultOptions
 
--- instance FromJSON ProofWithRootHash
-
 data MerkleProof = MerkleProof
   { targetKey :: Integer,
+    targetHash :: Digest Blake2b_256,
     keySize :: Int,
     keyPath :: [Integer],
     siblingHashes :: [Digest Blake2b_256]
@@ -64,35 +64,23 @@ instance ToJSON MerkleProof where
              ]
       ]
 
--- instance FromJSON MerkleProof where
---   parseJSON (Object v) = do
---     [tKey, tValue, tHash, kSize, kPath, sHashes] <- v .: "fields"
---     targetKey <- decode . BS.pack <$> parseJSON tKey
---     targetValue <- BS.pack <$> parseJSON tValue
---     tHash <- fromJust . digestFromByteString . BSS.pack . (ord <$>) . fromRight "" . unhex $ parseJSON tHash
---     keySize <- parseJSON kSize
---     keyPath <- parseJSON kPath
---     digests <- parseJSON sHashes
---     let siblingHashes = fromJust . digestFromByteString . BSS.pack <$> digests
---     pure MerkleProof {..}
-
-instance Binary MerkleProof where
-  put MerkleProof {..} = do
-    put ("proof" :: String)
-    put keySize
-    putList keyPath
-    putList $ BS.pack . BA.unpack <$> siblingHashes
-  get = do
-    iden <- get
-    case iden of
-      ("proof" :: String) -> MerkleProof <$> get <*> get <*> get <*> getSiblingHashes
-    where
-      getSiblingHashes :: Get [Digest Blake2b_256]
-      getSiblingHashes = do
-        digests <- get :: Get [BSS.ByteString]
-        pure $ case mapM digestFromByteString digests of
-          Just a -> a
-          Nothing -> error "Can't deserialize siblingHashes"
+-- instance Binary MerkleProof where
+--   put MerkleProof {..} = do
+--     put ("proof" :: String)
+--     put keySize
+--     putList keyPath
+--     putList $ BS.pack . BA.unpack <$> siblingHashes
+--   get = do
+--     iden <- get
+--     case iden of
+--       ("proof" :: String) -> MerkleProof <$> get <*> get <*> get <*> getSiblingHashes
+--     where
+--       getSiblingHashes :: Get [Digest Blake2b_256]
+--       getSiblingHashes = do
+--         digests <- get :: Get [BSS.ByteString]
+--         pure $ case mapM digestFromByteString digests of
+--           Just a -> a
+--           Nothing -> error "Can't deserialize siblingHashes"
 
 -- Some utils functions
 
@@ -102,13 +90,18 @@ computeHash = hashlazy . encode
 computeHashAsBS :: (Binary a) => a -> BS.ByteString
 computeHashAsBS = BS.pack . BA.unpack . computeHash
 
+emptyHashPrefix, leafHashPrefix, branchHashPrefix :: Word8
+emptyHashPrefix = 0
+leafHashPrefix = 1
+branchHashPrefix = 2
+
 computeRootHashWith :: forall k v a. (Binary k, Binary a) => (v -> a) -> Trie k v -> Digest Blake2b_256
 computeRootHashWith f = cata go
   where
     go :: Algebra (TrieF' k v) (Digest Blake2b_256)
-    go Empty = computeHash (0 :: Word8)
-    go Leaf {..} = computeHash (1 :: Word8, f value)
-    go Branch {..} = hashlazy $ computeHashAsBS (2 :: Word8) <> BS.pack (BA.unpack left) <> BS.pack (BA.unpack right)
+    go Empty = computeHash emptyHashPrefix
+    go Leaf {..} = computeHash (leafHashPrefix, f value)
+    go Branch {..} = hashlazy . computeHashAsBS $ BS.pack (branchHashPrefix : BA.unpack left) <> BS.pack (BA.unpack right)
 
 computeRootHash :: forall k v. (Binary k, Binary v) => Trie k v -> Digest Blake2b_256
 computeRootHash = computeRootHashWith id
