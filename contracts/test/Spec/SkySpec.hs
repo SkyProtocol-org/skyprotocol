@@ -272,10 +272,10 @@ bountySpec = do
           { targetKey = hex "01"
           , targetHash = hex "7438A2C6FC716F841BD8E97E44BC3F72B859F4AA93C385777E11F05F09D1C06A"
           , keySize = 256
-          , keyPath = []
-          , siblingHashes = []
+          , keyPath = [0]
+          , siblingHashes = [hex "7C3F01781BCA14B089887B6E5EBA54461E0F6CA154CDA338B9A436AEDDEB2FED"]
           }
-    validate double_proof (hex "7438A2C6FC716F841BD8E97E44BC3F72B859F4AA93C385777E11F05F09D1C06A") `shouldBe` True
+    validate double_proof (hex "62FD7DCBC10C21CBFA95C8A9BB89AC41C6B4C0BDA82213FF6DF6E1987C3FEE75") `shouldBe` True
 
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
