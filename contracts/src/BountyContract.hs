@@ -54,7 +54,6 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
 
 data MerkleProof = MerkleProof
   { targetKey :: BuiltinByteString,
-    targetValue :: Maybe BuiltinByteString,
     targetHash :: BuiltinByteString,
     keySize :: Integer,
     keyPath :: [Integer],
@@ -78,23 +77,15 @@ const2 = consByteString 2 emptyByteString
 
 validate :: MerkleProof -> BuiltinByteString -> Bool
 validate MerkleProof {..} rootHash =
-  valid
-    && rootHash
-      == foldr
-        ( \(h, hs) acc ->
-            if not (targetKey `readBit` h)
-              then hashlazy $ computeHashAsBS const2 <> acc <> hs
-              else hashlazy $ computeHashAsBS const2 <> hs <> acc
-        )
-        (hashlazy $ const1 <> val)
-        (reverse $ zip keyPath siblingHashes)
-  where
-    valid = case targetValue of
-      Just v -> hashlazy v == targetHash
-      Nothing -> True
-    val = case targetValue of
-      Just v -> v
-      Nothing -> targetHash
+  rootHash
+    == foldr
+      ( \(h, hs) acc ->
+          if not (targetKey `readBit` h)
+            then hashlazy $ computeHashAsBS const2 <> acc <> hs
+            else hashlazy $ computeHashAsBS const2 <> hs <> acc
+      )
+      targetHash
+      (reverse $ zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof

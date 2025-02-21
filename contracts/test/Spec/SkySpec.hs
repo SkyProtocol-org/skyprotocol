@@ -260,22 +260,20 @@ bountySpec = do
   it "valid merkle proofs should be accepted" $ do
     let proof = MerkleProof
           { targetKey = hex "01"
-          , targetValue = Just $ hex "000000000000000676616C756531"
-          , targetHash = hex "968A7CEF8411F3DE46C437E53CC37542571F7CAD9D2CBFFF46607932AD74583F"
+          , targetHash = hex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
           }
     let double_proof = MerkleProof
           { targetKey = hex "01"
-          , targetValue = Nothing
-          , targetHash = hex "AD7372446C20833149E3C288D9D24BEEF729CB53EDC566645CDE0D38A5691E4E"
+          , targetHash = hex "7438A2C6FC716F841BD8E97E44BC3F72B859F4AA93C385777E11F05F09D1C06A"
           , keySize = 256
           , keyPath = []
           , siblingHashes = []
           }
-    validate proof (hex "DFF0633F5C88ACA24A232C4981981837653ABAD1637688AD5E87535867D05F64") `shouldBe` True
-    validate double_proof (hex "D21131E4176C8C2A5D952E8D4C52B928BD16C2A0A04D2E0EA2381E2939F2002D") `shouldBe` True
+    validate proof (hex "C494736A99F955A428FF80E7E966120F449E381DECE10B61310283846E4F3C13") `shouldBe` True
+    validate double_proof (hex "7438A2C6FC716F841BD8E97E44BC3F72B859F4AA93C385777E11F05F09D1C06A") `shouldBe` True
 
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
