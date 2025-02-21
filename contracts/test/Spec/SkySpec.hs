@@ -257,7 +257,7 @@ topHash3 = pairHash topic1CommitteeFP mainRootHash1
 bountySpec :: Spec
 bountySpec = do
 
-  it "valid merkle proofs should be accepted" $ do
+  it "valid merkle proofs should be accepted 1" $ do
     let proof = MerkleProof
           { targetKey = hex "01"
           , targetHash = hex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
@@ -265,6 +265,9 @@ bountySpec = do
           , keyPath = [0]
           , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
           }
+    validate proof (hex "C494736A99F955A428FF80E7E966120F449E381DECE10B61310283846E4F3C13") `shouldBe` True
+
+  it "valid merkle proofs should be accepted 2" $ do
     let double_proof = MerkleProof
           { targetKey = hex "01"
           , targetHash = hex "7438A2C6FC716F841BD8E97E44BC3F72B859F4AA93C385777E11F05F09D1C06A"
@@ -272,7 +275,6 @@ bountySpec = do
           , keyPath = []
           , siblingHashes = []
           }
-    validate proof (hex "C494736A99F955A428FF80E7E966120F449E381DECE10B61310283846E4F3C13") `shouldBe` True
     validate double_proof (hex "7438A2C6FC716F841BD8E97E44BC3F72B859F4AA93C385777E11F05F09D1C06A") `shouldBe` True
 
   it "main root hash 1 should be correct" $ do

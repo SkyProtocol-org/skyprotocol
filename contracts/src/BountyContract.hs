@@ -81,8 +81,8 @@ validate MerkleProof {..} rootHash =
     == foldr
       ( \(h, hs) acc ->
           if not (targetKey `readBit` h)
-            then hashlazy $ computeHashAsBS const2 <> acc <> hs
-            else hashlazy $ computeHashAsBS const2 <> hs <> acc
+            then hashlazy $ computeHashAsBS (const2 <> acc <> hs)
+            else hashlazy $ computeHashAsBS (const2 <> hs <> acc)
       )
       targetHash
       (reverse $ zip keyPath siblingHashes)
