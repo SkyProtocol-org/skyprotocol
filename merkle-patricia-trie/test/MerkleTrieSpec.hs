@@ -84,12 +84,13 @@ spec = beforeAll dumpExample $ do
         _ -> expectationFailure "Failed to generate proofs"
 
     it "double proof of a value in a trie in a trie" $ do
-      let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
-          t2 = Trie.insert @Word256 @_ 1 t Trie.empty
-          merkle1 = merkelize t
-          merkle2 = merkelizeWith (BS.pack . BA.unpack . computeRootHash) t2
-          proof1 = proof 2 t
-          proof2 = proofWith (BS.pack . BA.unpack . computeRootHash) 1 t2
+      let t1 = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+          t2 = Trie.insert 3 "value3" t1
+          t3 = Trie.insert 2 t2 $ Trie.insert @Word256 @_ 1 t1 Trie.empty
+          merkle1 = merkelize t1
+          merkle2 = merkelizeWith (BS.pack . BA.unpack . computeRootHash) t3
+          proof1 = proof 2 t1
+          proof2 = proofWith (BS.pack . BA.unpack . computeRootHash) 1 t3
       case (proof1, proof2) of
         (Just p1, Just p2) -> do
           validate p1 (rootHash merkle1) `shouldBe` True
