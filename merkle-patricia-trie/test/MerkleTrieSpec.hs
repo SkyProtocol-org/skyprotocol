@@ -25,13 +25,14 @@ instance Trie.TrieKey Word256 where
 
 dumpExample :: IO ()
 dumpExample = do
-  let t = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
-      t2 = Trie.insert @Word256 @(Trie.Trie Word256 String) 1 t Trie.empty
-      merkleT1 = merkelize t
-      merkleT2 = merkelizeWith (BS.pack . BA.unpack . computeRootHash) t2
-      proof1 = proof 1 t
-      proof2 = proof 2 t
-      proof3 = proofWith (BS.pack . BA.unpack . computeRootHash) 1 t2
+  let t1 = Trie.insert @Word256 @String 1 "value1" $ Trie.insert 2 "value2" Trie.empty
+      t2 = Trie.insert 3 "value3" t1
+      t3 = Trie.insert @Word256 @(Trie.Trie Word256 String) 1 t1 $ Trie.insert 2 t2 Trie.empty
+      merkleT1 = merkelize t1
+      merkleT2 = merkelizeWith (BS.pack . BA.unpack . computeRootHash) t3
+      proof1 = proof 1 t1
+      proof2 = proof 2 t1
+      proof3 = proofWith (BS.pack . BA.unpack . computeRootHash) 1 t3
   case (proof1, proof2, proof3) of
     (Just p1, Just p2, Just p3) -> do
       let valid_p = mkProofWithHash (rootHash merkleT1) p1
