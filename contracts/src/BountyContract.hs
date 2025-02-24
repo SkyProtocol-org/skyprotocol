@@ -14,6 +14,8 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE RecordWildCards            #-}
+
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -47,7 +49,39 @@ import PlutusTx.Blueprint
 import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
+                          readBit, blake2b_256, consByteString, emptyByteString,
                           verifyEd25519Signature, appendByteString, sha2_256)
+
+data MerkleProof = MerkleProof
+  { targetKey :: BuiltinByteString,
+    targetHash :: BuiltinByteString,
+    keySize :: Integer,
+    keyPath :: [Integer],
+    siblingHashes :: [BuiltinByteString]
+  }
+  deriving (Eq, Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+PlutusTx.makeLift ''MerkleProof
+PlutusTx.makeIsDataSchemaIndexed ''MerkleProof [('MerkleProof, 0)]
+
+hashlazy :: BuiltinByteString -> BuiltinByteString
+hashlazy = blake2b_256
+
+const2 = consByteString 2 emptyByteString
+
+validate :: MerkleProof -> BuiltinByteString -> Bool
+validate MerkleProof {..} rootHash =
+  rootHash
+    == foldr
+      ( \(h, hs) acc ->
+          if not (targetKey `readBit` h)
+            then hashlazy $ const2 <> acc <> hs
+            else hashlazy $ const2 <> hs <> acc
+      )
+      targetHash
+      (reverse $ zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -123,7 +157,7 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 
 -- Validator function without logic for fetching NFT from script context, for easy testing
 clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
-clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
+clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash@(DataHash bm) nftTopHash =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
