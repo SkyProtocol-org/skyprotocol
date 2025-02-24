@@ -101,7 +101,7 @@ computeRootHashWith f = cata go
     go :: Algebra (TrieF' k v) (Digest Blake2b_256)
     go Empty = computeHash emptyHashPrefix
     go Leaf {..} = computeHash (leafHashPrefix, f value)
-    go Branch {..} = hashlazy . computeHashAsBS $ BS.pack (branchHashPrefix : BA.unpack left) <> BS.pack (BA.unpack right)
+    go Branch {..} = hashlazy $ BS.pack (branchHashPrefix : BA.unpack left) <> BS.pack (BA.unpack right)
 
 computeRootHash :: forall k v. (Binary k, Binary v) => Trie k v -> Digest Blake2b_256
 computeRootHash = computeRootHashWith id

@@ -79,8 +79,8 @@ validate MerkleProof {..} rHash =
     == foldr
       ( \(h, hs) acc ->
           if not (targetKey `testBit` fromIntegral h)
-            then hashlazy . computeHashAsBS $ BS.pack (branchHashPrefix : BA.unpack acc) <> BS.pack (BA.unpack hs)
-            else hashlazy . computeHashAsBS $ BS.pack (branchHashPrefix : BA.unpack hs) <> BS.pack (BA.unpack acc)
+            then hashlazy $ BS.pack (branchHashPrefix : BA.unpack acc) <> BS.pack (BA.unpack hs)
+            else hashlazy $ BS.pack (branchHashPrefix : BA.unpack hs) <> BS.pack (BA.unpack acc)
       )
       targetHash
       (reverse $ zip keyPath siblingHashes)
