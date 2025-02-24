@@ -16,14 +16,17 @@ library scripts
     SkyBridgeContract
     SkyMintingPolicy
     BountyContract
-    MyTrieStuff
+    TrieUtils
+    Trie
 
   build-depends:
     , base ^>=4.18.2.1
     , containers ^>=0.6.7
+    , composition-prelude
     , plutus-core ^>=1.34.1.0
     , plutus-ledger-api ^>=1.34.1.0
     , plutus-tx ^>=1.34.1.0
+    , serialise ^>=0.2.6.1
 
   if !(impl(ghcjs) || os(ghcjs))
     build-depends: plutus-tx-plugin
