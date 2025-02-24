@@ -69,10 +69,6 @@ PlutusTx.makeIsDataSchemaIndexed ''MerkleProof [('MerkleProof, 0)]
 hashlazy :: BuiltinByteString -> BuiltinByteString
 hashlazy = blake2b_256
 
-computeHashAsBS :: BuiltinByteString -> BuiltinByteString
-computeHashAsBS = hashlazy
-
-const1 = consByteString 1 emptyByteString
 const2 = consByteString 2 emptyByteString
 
 validate :: MerkleProof -> BuiltinByteString -> Bool
@@ -81,8 +77,8 @@ validate MerkleProof {..} rootHash =
     == foldr
       ( \(h, hs) acc ->
           if not (targetKey `readBit` h)
-            then hashlazy $ computeHashAsBS (const2 <> acc <> hs)
-            else hashlazy $ computeHashAsBS (const2 <> hs <> acc)
+            then hashlazy $ const2 <> acc <> hs
+            else hashlazy $ const2 <> hs <> acc
       )
       targetHash
       (reverse $ zip keyPath siblingHashes)
