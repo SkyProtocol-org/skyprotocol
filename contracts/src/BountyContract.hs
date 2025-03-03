@@ -84,20 +84,6 @@ computeRootHash MerkleProof {..} targetHash =
     (PlutusTx.reverse $ PlutusTx.zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
--- Simplified Merkle Proof
-------------------------------------------------------------------------------
-
--- Trivial form of Merkle proof for a left and a right data hash -
--- i.e. a one-level binary Merkle tree.
-data SimplifiedMerkleProof =
-  SimplifiedMerkleProof { left :: DataHash, right :: DataHash }
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
-PlutusTx.makeLift ''SimplifiedMerkleProof
-PlutusTx.makeIsDataSchemaIndexed ''SimplifiedMerkleProof [('SimplifiedMerkleProof, 0)]
-
-------------------------------------------------------------------------------
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
 
@@ -155,7 +141,7 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 dataDirKey :: BuiltinByteString
 dataDirKey = consByteString 0 emptyByteString
 metaDirKey :: BuiltinByteString
-metaDirKey = consByteString 0 emptyByteString
+metaDirKey = consByteString 1 emptyByteString
 
 -- Validator function without logic for fetching NFT from script context, for easy testing
 clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
@@ -206,21 +192,6 @@ clientTypedValidator params () redeemer ctx =
       PlutusTx.all (\o -> addressCredential (txOutAddress o)
                           PlutusTx.== PubKeyCredential (bountyClaimantPubKeyHash params))
                    outputs
-
--- Verify whether a (leaf) hash is included in a Merkle proof
-hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
-hashInMerkleProof (SimplifiedMerkleProof leftHash rightHash) hash =
-  (hash PlutusTx.== leftHash PlutusTx.|| hash PlutusTx.== rightHash)
-
--- The topic top hash includes the topic ID, topic committee fingerprint, and topic root hash
-makeTopicTopHash :: TopicID -> DataHash -> DataHash -> DataHash
-makeTopicTopHash (TopicID topicID) (DataHash committeeFingerprint) (DataHash topicRootHash) =
-  DataHash (sha2_256 (appendByteString topicID (appendByteString committeeFingerprint topicRootHash)))
-
--- Hashes a merkle proof to produce the root data hash
-merkleProofToDataHash :: SimplifiedMerkleProof -> DataHash
-merkleProofToDataHash (SimplifiedMerkleProof leftHash rightHash) =
-  pairHash leftHash rightHash
 
 ------------------------------------------------------------------------------
 -- Untyped Validator
