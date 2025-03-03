@@ -54,7 +54,6 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
 
 data MerkleProof = MerkleProof
   { targetKey :: BuiltinByteString,
-    targetHash :: BuiltinByteString,
     keySize :: Integer,
     keyPath :: [Integer],
     siblingHashes :: [BuiltinByteString]
@@ -66,22 +65,22 @@ data MerkleProof = MerkleProof
 PlutusTx.makeLift ''MerkleProof
 PlutusTx.makeIsDataSchemaIndexed ''MerkleProof [('MerkleProof, 0)]
 
-hashlazy :: BuiltinByteString -> BuiltinByteString
-hashlazy = blake2b_256
-
 const2 = consByteString 2 emptyByteString
 
-validate :: MerkleProof -> BuiltinByteString -> Bool
-validate MerkleProof {..} rootHash =
-  rootHash
-    == foldr
-      ( \(h, hs) acc ->
-          if not (targetKey `readBit` h)
-            then hashlazy $ const2 <> acc <> hs
-            else hashlazy $ const2 <> hs <> acc
-      )
-      targetHash
-      (reverse $ zip keyPath siblingHashes)
+validate :: BuiltinByteString -> MerkleProof -> BuiltinByteString -> Bool
+validate rootHash proof targetHash =
+  rootHash == computeRootHash proof targetHash
+
+computeRootHash :: MerkleProof -> BuiltinByteString -> BuiltinByteString
+computeRootHash MerkleProof {..} targetHash =
+  foldr
+    ( \(h, hs) acc ->
+        if not (targetKey `readBit` h)
+          then blake2b_256 $ const2 <> acc <> hs
+          else blake2b_256 $ const2 <> hs <> acc
+    )
+    targetHash
+    (reverse $ zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof

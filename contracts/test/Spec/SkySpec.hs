@@ -260,32 +260,35 @@ bountySpec = do
   it "valid merkle proofs should be accepted 1" $ do
     let proof = MerkleProof
           { targetKey = hex "02"
-          , targetHash = hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [hex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"]
           }
-    validate proof (hex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369") `shouldBe` True
+    let targetHash = hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"
+    let rootHash = hex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
+    validate rootHash proof targetHash `shouldBe` True
 
   it "valid merkle proofs should be accepted 2" $ do
-    let double_proof = MerkleProof
+    let doubleProof = MerkleProof
           { targetKey = hex "01"
-          , targetHash = hex "AADDAD8B4DA8F0A58CBF948CA41553DB039285D3A4C207B46F3C5F95FB28449A"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [hex "303D2543F7E1AEEF893A9DC0C097A5A1C55522D73855BB597C36C94A7D99F5AF"]
           }
-    validate double_proof (hex "AAA668EACAC5BD082FACE0281D63849C422F1FB776B6D17365F55A2DA432E188") `shouldBe` True
+    let targetHash = hex "AADDAD8B4DA8F0A58CBF948CA41553DB039285D3A4C207B46F3C5F95FB28449A"
+    let rootHash = hex "AAA668EACAC5BD082FACE0281D63849C422F1FB776B6D17365F55A2DA432E188"
+    validate rootHash doubleProof targetHash `shouldBe` True
 
   it "invalid merkle proofs should not be accepted" $ do
-    let invalid_proof = MerkleProof
+    let invalidProof = MerkleProof
           { targetKey = hex "01"
-          , targetHash = hex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [hex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
           }
-    validate invalid_proof (hex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369") `shouldBe` True
+    let targetHash = hex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
+    let rootHash = hex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
+    validate rootHash invalidProof targetHash `shouldBe` True
 
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
