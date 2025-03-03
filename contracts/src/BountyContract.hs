@@ -138,10 +138,10 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- Client contract validator
 ------------------------------------------------------------------------------
 
-dataDirKey :: BuiltinByteString
-dataDirKey = consByteString 0 emptyByteString
 metaDirKey :: BuiltinByteString
-metaDirKey = consByteString 1 emptyByteString
+metaDirKey = consByteString 0 emptyByteString
+dataDirKey :: BuiltinByteString
+dataDirKey = consByteString 1 emptyByteString
 
 -- Validator function without logic for fetching NFT from script context, for easy testing
 clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
