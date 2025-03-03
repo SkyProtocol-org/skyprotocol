@@ -23,6 +23,9 @@ library scripts
     , plutus-core ^>=1.34.1.0
     , plutus-ledger-api ^>=1.34.1.0
     , plutus-tx ^>=1.34.1.0
+    , crypton
+    , bytestring
+    , binary
 
   if !(impl(ghcjs) || os(ghcjs))
     build-depends: plutus-tx-plugin

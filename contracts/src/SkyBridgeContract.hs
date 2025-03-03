@@ -54,6 +54,7 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
 
 -- A hash
 data DataHash = DataHash PlutusTx.BuiltinByteString
+  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
