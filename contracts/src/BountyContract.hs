@@ -53,7 +53,7 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, sha2_256)
 
 data MerkleProof = MerkleProof
-  { targetKey :: DataHash,
+  { targetKey :: BuiltinByteString,
     keySize :: Integer,
     keyPath :: [Integer],
     siblingHashes :: [DataHash]
@@ -73,15 +73,15 @@ validate rootHash proof targetHash =
   rootHash == computeRootHash proof targetHash
 
 computeRootHash :: MerkleProof -> DataHash -> DataHash
-computeRootHash MerkleProof { targetKey = (DataHash tk), keyPath = kp, siblingHashes = sh } targetHash =
+computeRootHash MerkleProof {..} targetHash =
   PlutusTx.foldr
     ( \(h, (DataHash hs)) (DataHash acc) ->
-        if not (tk `readBit` h)
+        if not (targetKey `readBit` h)
           then DataHash (blake2b_256 (appendByteString const2 (appendByteString acc hs)))
           else DataHash (blake2b_256 (appendByteString const2 (appendByteString hs acc)))
     )
     targetHash
-    (PlutusTx.reverse $ PlutusTx.zip kp sh)
+    (PlutusTx.reverse $ PlutusTx.zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
 -- Simplified Merkle Proof
@@ -152,16 +152,24 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- Client contract validator
 ------------------------------------------------------------------------------
 
+dataDirKey :: BuiltinByteString
+dataDirKey = consByteString 0 emptyByteString
+metaDirKey :: BuiltinByteString
+metaDirKey = consByteString 0 emptyByteString
+
 -- Validator function without logic for fetching NFT from script context, for easy testing
 clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
-clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
+clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID@(TopicID ti) bountyMessageHash nftTopHash =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
     conditions =
       [ -- The bounty's message hash is in the DA
         topHash PlutusTx.== nftTopHash
-        -- topic ID + data directory check
+        -- topic ID matches
+      , ti PlutusTx.== (targetKey (topicInDAProof claim))
+        -- it's in the data directory
+      , dataDirKey PlutusTx.== (targetKey (dataInTopicProof claim))
       ]
     -- Root hash for message in data directory
     dataRootHash = computeRootHash (messageInDataProof claim) bountyMessageHash

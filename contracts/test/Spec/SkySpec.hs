@@ -262,7 +262,7 @@ bountySpec = do
 
   it "valid merkle proofs should be accepted 1" $ do
     let proof = MerkleProof
-          { targetKey = dhex "02"
+          { targetKey = hex "02"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [dhex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"]
@@ -273,7 +273,7 @@ bountySpec = do
 
   it "valid merkle proofs should be accepted 2" $ do
     let doubleProof = MerkleProof
-          { targetKey = dhex "01"
+          { targetKey = hex "01"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [dhex "303D2543F7E1AEEF893A9DC0C097A5A1C55522D73855BB597C36C94A7D99F5AF"]
@@ -284,7 +284,7 @@ bountySpec = do
 
   it "invalid merkle proofs should not be accepted" $ do
     let invalidProof = MerkleProof
-          { targetKey = dhex "01"
+          { targetKey = hex "01"
           , keySize = 256
           , keyPath = [0]
           , siblingHashes = [dhex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
