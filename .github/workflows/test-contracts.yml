@@ -14,7 +14,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run: nix develop --log-lines 10000 .
+    - run: nix develop --accept-flake-config --log-lines 1000 .
+      working-directory: ./contracts
+    - run: nix log /nix/store/9qw2ga4mx552w3mk5sfibyl4dzryvj42-cardano-binary-1.7.1.0.tar.gz.drv
+      if: always()
       working-directory: ./contracts
     - uses: actions/setup-node@v4
     - name: Setup and run tests
