@@ -16,6 +16,8 @@ jobs:
     - uses: cachix/install-nix-action@v27
     - run: nix develop --accept-flake-config --log-lines 1000 .
       working-directory: ./contracts
+    - run: ghc -v
+      working-directory: ./contracts
     - uses: actions/setup-node@v4
     - name: Setup and run tests
       working-directory: ./contracts/off-chain
