@@ -13,9 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - run: ghc -v
     - uses: cachix/install-nix-action@v27
-    - run: cabal
-    - run: ghc
     - run: nix develop --accept-flake-config --log-lines 1000 .
       working-directory: ./contracts
     - run: nix flake metadata --json
