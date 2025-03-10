@@ -14,8 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run cabal
-    - run ghc
+    - run: cabal
+    - run: ghc
     - run: nix develop --accept-flake-config --log-lines 1000 .
       working-directory: ./contracts
     - run: nix flake metadata --json
