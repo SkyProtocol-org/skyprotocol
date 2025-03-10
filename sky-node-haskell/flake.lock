@@ -43,17 +43,16 @@
       },
       "locked": {
         "dir": "merkle-patricia-trie",
-        "lastModified": 1733057365,
-        "narHash": "sha256-zv4Ezyes0jSmCTs2EZUz8Ckotwaj+kbElmBdcXxU+xo=",
+        "lastModified": 1737591391,
+        "narHash": "sha256-glGbHDSaPNhSPOtFGgip5cjZ9mM5IY4hNidqd3/trjg=",
         "owner": "Skyprotocol-org",
         "repo": "skyprotocol",
-        "rev": "6be2686e0f53b6f2ba31e557090bd5bf4f56289a",
+        "rev": "509f70d93d278ffdd7f41634b20e02d96939b2f6",
         "type": "github"
       },
       "original": {
         "dir": "merkle-patricia-trie",
         "owner": "Skyprotocol-org",
-        "ref": "issue-22/haskell-implementation-of-sky-node",
         "repo": "skyprotocol",
         "type": "github"
       }

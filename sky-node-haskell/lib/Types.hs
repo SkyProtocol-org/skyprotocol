@@ -1,36 +1,37 @@
+{-# LANGUAGE TypeFamilies #-}
+
 module Types where
 
-import Data.Binary
-import qualified Data.ByteString as BS
-import Data.IntMap.Strict (IntMap)
+import Data.Bits (Bits, FiniteBits)
+import Data.ByteString qualified as BS
+import Data.Trie
+import Data.Word (Word8)
 import GHC.Generics
 
 newtype TopicId = TopicId {id :: Int}
   deriving stock (Show, Eq, Generic)
+  -- derive THROUGH the newtype using the underlying type
+  deriving newtype (Enum, Num, Ord, Real, Bits, FiniteBits, Integral)
 
-instance Binary TopicId
+instance TrieKey TopicId where
+  type TrieHeight TopicId = Word8
 
 newtype TopicMetaData = TopicMetaData {id :: TopicId}
   deriving stock (Show, Eq, Generic)
 
-instance Binary TopicMetaData
-
 data Topic = Topic
   { metadata :: TopicMetaData,
-    messages :: IntMap BlockData
+    messages :: Trie BlockId BlockData
   }
-  deriving stock (Show, Eq, Generic)
-
-instance Binary Topic
-
-data Block
+  deriving stock (Generic)
 
 newtype BlockData = BlockData {blockData :: BS.ByteString}
   deriving stock (Show, Eq, Generic)
 
-instance Binary BlockData
-
-newtype Certificate = Certificate {cert :: BS.ByteString}
+newtype BlockId = BlockId {id :: Int}
   deriving stock (Show, Eq, Generic)
+  -- derive THROUGH the newtype using the underlying type
+  deriving newtype (Enum, Num, Ord, Real, Bits, FiniteBits, Integral)
 
-instance Binary Certificate
+instance TrieKey BlockId where
+  type TrieHeight BlockId = Word8

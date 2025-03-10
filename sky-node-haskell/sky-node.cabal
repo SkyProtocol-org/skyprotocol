@@ -1,4 +1,5 @@
-cabal-version:      3.0
+cabal-version:   3.0
+
 -- The cabal-version field refers to the version of the .cabal specification,
 -- and can be different from the cabal-install (the tool) version and the
 -- Cabal (the library) version you are using. As such, the Cabal (the library)
@@ -11,7 +12,7 @@ cabal-version:      3.0
 --   http://haskell.org/cabal/users-guide/
 --
 -- The name of the package.
-name:               sky-node
+name:            sky-node
 
 -- The package version.
 -- See the Haskell package versioning policy (PVP) for standards
@@ -20,139 +21,134 @@ name:               sky-node
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            0.1.0.0
+version:         0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:           Data Availability network for Cardano
+synopsis:        Data Availability network for Cardano
 
 -- A longer description of the package.
 -- description:
 
 -- URL for the project homepage or repository.
-homepage:           https://www.skyprotocol.org/
+homepage:        https://www.skyprotocol.org/
 
 -- The license under which the package is released.
-license:            NONE
+license:
 
 -- The package author(s).
-author:             Yaroslav Kozhevnikov
+author:          Yaroslav Kozhevnikov
 
 -- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         yroslav541@gmail.com
+maintainer:      yroslav541@gmail.com
 
 -- A copyright notice.
 -- copyright:
-category:           Network
-build-type:         Simple
+category:        Network
+build-type:      Simple
 
 -- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files:    CHANGELOG.md
+extra-doc-files: CHANGELOG.md
 
 -- Extra source files to be distributed with the package, such as examples, or a tutorial module.
 -- extra-source-files:
 
 common warnings
-    ghc-options: -Wall
+  ghc-options: -Wall
 
 common base
-    default-language: GHC2021
-    build-depends:
-        base ^>=4.18.2.1,
-        yaml,
-        log-base,
+  default-language: GHC2021
+  build-depends:
+    , base      ^>=4.18.2.1
+    , log-base
+    , yaml
 
 library sky-lib
-    import: base, warnings
+  import:             base, warnings
+  exposed-modules:
+    App
+    App.Env
+    App.Error
+    Config
+    Effect
+    Effect.PeerEff
+    Effect.SocketEff
+    Peer
+    Types
+    Utils
 
-    exposed-modules:
-        App
-        App.Error
-        App.Env
-        Config
-        Peer
-        Effect
-        Effect.PeerEff
-        Effect.SocketEff
-        Types
-        Utils
+  build-depends:
+    , async
+    , binary
+    , bytestring
+    , containers
+    , effectful
+    , effectful-core
+    , effectful-plugin
+    , effectful-th
+    , exceptions
+    , log-effectful
+    , merkle-patricia-trie
+    , network
+    , stm
+    , text
+    , unliftio
+    , wide-word
 
-    build-depends:
-        binary,
-        network,
-        effectful,
-        effectful-core,
-        log-effectful,
-        effectful-plugin,
-        effectful-th,
-        async,
-        text,
-        bytestring,
-        containers,
-        -- resourcet,
-        -- mtl,
-        unliftio,
-        exceptions,
-        stm,
-        data-default,
-        merkle-patricia-trie
+  default-extensions:
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    DisambiguateRecordFields
+    DuplicateRecordFields
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    LambdaCase
+    MultiParamTypeClasses
+    NamedFieldPuns
+    NoFieldSelectors
+    OverloadedRecordDot
+    OverloadedStrings
+    RecordWildCards
+    StandaloneDeriving
+    TypeApplications
+    TypeOperators
 
-    default-extensions:
-        -- enables {..} syntax for records
-        RecordWildCards,
-        -- enables {a} syntax to use instead of {a = a}
-        NamedFieldPuns,
-        -- doesn't generate field selector functions
-        NoFieldSelectors,
-        -- allows to have multiple fields with the same name(but no same name fields in one constructor!)
-        DuplicateRecordFields,
-        -- disambiguates between the same name fields in different records
-        DisambiguateRecordFields,
-        -- enables a.b syntax for records
-        OverloadedRecordDot,
-        -- allows to use "string" literals to get different string types(i.e. Text, String, ByteString)
-        OverloadedStrings,
-        -- some relaxing of GHC constraints on typeclass declaration/resolution
-        FlexibleContexts,
-        FlexibleInstances,
-        MultiParamTypeClasses,
-        -- relaxing of deriving mechanism to allow more types of deriving
-        DeriveAnyClass,
-        DeriveGeneric,
-        GeneralizedNewtypeDeriving,
-        StandaloneDeriving,
-        DerivingStrategies,
-        GADTs,
-        -- Convenience stuff
-        LambdaCase,
-        -- some HKT stuff
-        TypeOperators,
-        TypeApplications
-
-    ghc-options: -fplugin=Effectful.Plugin
-
-    hs-source-dirs: lib
-
-    default-language: Haskell2010
+  -- enables {..} syntax for records
+  -- enables {a} syntax to use instead of {a = a}
+  -- doesn't generate field selector functions
+  -- allows to have multiple fields with the same name(but no same name fields in one constructor!)
+  -- disambiguates between the same name fields in different records
+  -- enables a.b syntax for records
+  -- allows to use "string" literals to get different string types(i.e. Text, String, ByteString)
+  -- some relaxing of GHC constraints on typeclass declaration/resolution
+  -- relaxing of deriving mechanism to allow more types of deriving
+  -- Convenience stuff
+  -- some HKT stuff
+  ghc-options:        -fplugin=Effectful.Plugin
+  hs-source-dirs:     lib
+  default-language:   Haskell2010
 
 executable sky-node
-    -- Import common warning flags.
-    import: base, warnings
+  -- Import common warning flags.
+  import:           base, warnings
 
-    -- .hs or .lhs file containing the Main module.
-    main-is:          Main.hs
+  -- .hs or .lhs file containing the Main module.
+  main-is:          Main.hs
 
-    -- Modules included in this executable, other than Main.
-    -- other-modules:
+  -- Modules included in this executable, other than Main.
+  -- other-modules:
 
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
+  -- LANGUAGE extensions used by modules in this package.
+  -- other-extensions:
 
-    -- Other library packages from which modules are imported.
-    build-depends:
-        sky-lib
+  -- Other library packages from which modules are imported.
+  build-depends:    sky-lib
 
-    -- Directories containing source files.
-    hs-source-dirs: app
+  -- Directories containing source files.
+  hs-source-dirs:   app
 
-    -- Base language which the package is written in.
-    default-language: Haskell2010
+  -- Base language which the package is written in.
+  default-language: Haskell2010
