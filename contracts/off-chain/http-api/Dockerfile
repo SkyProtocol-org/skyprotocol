@@ -11,8 +11,5 @@ COPY . .
 # Expose the port that the server listens on
 EXPOSE 3030
 
-# Install (erm, probably better way to do this...)
-CMD ["npm", "i"]
-
-# Command to start the server
-CMD ["node", "server.mjs"]
+# Run
+ENTRYPOINT ["/usr/src/app/start.sh"]
