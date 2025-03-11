@@ -15,5 +15,5 @@ jobs:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
     - uses: actions/setup-node@v4
-    - run: ./test-setup.sh
+    - run: nix develop --accept-flake-config --command ./test-setup.sh
       working-directory: ./contracts/off-chain
