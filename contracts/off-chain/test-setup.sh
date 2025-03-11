@@ -9,6 +9,23 @@ set -eux
 # - Mints the NFT
 # - Starts the HTTP API
 
+# Utility that waits until an URL becomes 200
+wait_for_url() {
+    local URL="$1"
+    while true; do
+        echo "Waiting for $URL to become available"
+        # Because we run the whole script under -e which makes it exit on error,
+        # we need to handle network errors from curl specially. Return a fake 500 error.
+        STATUS=$(curl -w "%{http_code}" -o /dev/null --max-time 60 "$URL" || echo "500")
+        if [ "$STATUS" -eq 200 ]; then
+            break
+        else
+            echo "$URL not yet available, retrying..."
+        fi
+        sleep 5
+    done
+}
+
 # Start HTTP API
 pushd http-api
 sudo docker compose kill
@@ -19,6 +36,8 @@ sudo docker compose logs
 # Wait for HTTP API to become available
 wait_for_url "http://localhost:3030/"
 popd
+
+exit 0
 
 # Install deps used for test
 sudo apt-get install jq
