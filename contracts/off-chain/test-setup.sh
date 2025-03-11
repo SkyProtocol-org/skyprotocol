@@ -9,6 +9,17 @@ set -eux
 # - Mints the NFT
 # - Starts the HTTP API
 
+# Start HTTP API
+pushd http-api
+sudo docker compose kill
+sudo docker compose up --build -d
+sleep 10
+sudo docker ps -a
+sudo docker compose logs
+# Wait for HTTP API to become available
+wait_for_url "http://localhost:3030/"
+popd
+
 # Install deps used for test
 sudo apt-get install jq
 npm install
@@ -80,13 +91,3 @@ wait_for_url "http://localhost:8080/api/v1/addresses/$CLAIMANT_ADDR/balance"
 
 # Finally, after all addresses have been topped up, we can mint the bridge NFT.
 node mint-nft.mjs var/admin
-
-# Start HTTP API
-pushd http-api
-sudo docker compose kill
-sudo docker compose up --build -d
-sleep 10
-sudo docker ps -a
-# Wait for HTTP API to become available
-wait_for_url "http://localhost:3030/"
-popd
