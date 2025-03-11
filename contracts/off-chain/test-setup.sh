@@ -13,8 +13,8 @@ set -eux
 sudo apt-get install jq
 npm install
 
-cabal update
-# No idea why this is needed
+# No idea why this is needed -- would be better to get those values
+# from cabal.project
 cabal v2-update 'cardano-haskell-packages,2024-11-27T20:49:28Z'
 cabal v2-update 'hackage.haskell.org,2024-12-02T09:19:04Z'
 
