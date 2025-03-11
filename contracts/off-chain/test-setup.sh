@@ -85,6 +85,8 @@ node mint-nft.mjs var/admin
 pushd http-api
 sudo docker compose kill
 sudo docker compose up --build -d
+sleep 10
+sudo docker ps -a
 # Wait for HTTP API to become available
 wait_for_url "http://localhost:3030/"
 popd
