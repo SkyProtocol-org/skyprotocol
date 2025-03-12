@@ -131,7 +131,8 @@ data
 instance
   (StaticLength len) =>
   Partial (FixedLengthInteger len) where
-  isElement (FixedLengthInteger i) = i < exponential 2 (staticLength @len)
+  isElement (FixedLengthInteger i) = i <= maxValue
+    where maxValue = (exponential 2 (staticLength @len)) - 1
   validate f@(FixedLengthInteger i) =
     let b = integerToByteString BigEndian (staticLength @len) i in
       if b == b then f else mustBeReplaced "Bad integer"
