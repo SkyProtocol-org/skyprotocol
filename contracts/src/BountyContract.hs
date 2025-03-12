@@ -15,6 +15,8 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE RecordWildCards            #-}
+
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -48,21 +50,39 @@ import PlutusTx.Blueprint
 import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
+                          readBit, blake2b_256, consByteString, emptyByteString,
                           verifyEd25519Signature, appendByteString, sha2_256)
 
-------------------------------------------------------------------------------
--- Simplified Merkle Proof
-------------------------------------------------------------------------------
-
--- Trivial form of Merkle proof for a left and a right data hash -
--- i.e. a one-level binary Merkle tree.
-data SimplifiedMerkleProof =
-  SimplifiedMerkleProof { left :: DataHash, right :: DataHash }
+data MerkleProof = MerkleProof
+  { targetKey :: BuiltinByteString,
+    keySize :: Integer,
+    keyPath :: [Integer],
+    siblingHashes :: [DataHash]
+  }
+  deriving (Eq, Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-PlutusTx.makeLift ''SimplifiedMerkleProof
-PlutusTx.makeIsDataSchemaIndexed ''SimplifiedMerkleProof [('SimplifiedMerkleProof, 0)]
+PlutusTx.makeLift ''MerkleProof
+PlutusTx.makeIsDataSchemaIndexed ''MerkleProof [('MerkleProof, 0)]
+
+const2 :: BuiltinByteString
+const2 = consByteString (2::Integer) emptyByteString
+
+validate :: DataHash -> MerkleProof -> DataHash -> Bool
+validate rootHash proof targetHash =
+  rootHash == computeRootHash proof targetHash
+
+computeRootHash :: MerkleProof -> DataHash -> DataHash
+computeRootHash MerkleProof {..} targetHash =
+  PlutusTx.foldr
+    ( \(h, (DataHash hs)) (DataHash acc) ->
+        if not (targetKey `readBit` h)
+          then DataHash (blake2b_256 (appendByteString const2 (appendByteString acc hs)))
+          else DataHash (blake2b_256 (appendByteString const2 (appendByteString hs acc)))
+    )
+    targetHash
+    (PlutusTx.reverse $ PlutusTx.zip keyPath siblingHashes)
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for client contract
@@ -98,9 +118,11 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 
 data ClientRedeemer
     = ClaimBounty
-        { messageInTopicProof :: SimplifiedMerkleProof
-          -- ^ Proof that data is included in topic
-        , topicInDAProof :: SimplifiedMerkleProof
+        { messageInDataProof :: MerkleProof
+          -- ^ Proof that message is included in data directory
+        , dataInTopicProof :: MerkleProof
+          -- ^ Proof that data directory is included in topic
+        , topicInDAProof :: MerkleProof
           -- ^ Proof that topic is included in DA root
         , topicCommitteeFingerprint :: DataHash
           -- ^ Fingerprint of topic committee multisig
@@ -117,36 +139,32 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
 -- Client contract validator
 ------------------------------------------------------------------------------
 
--- top_hash = hash(main_committee_fingerprint ++ main_root_hash)
--- main_root_hash = hash(left_topic_top_hash ++ right_topic_top_hash)
--- left_topic_top_hash = hash(left_topic_id ++ left_committee_fingerprint ++ left_topic_root_hash)
--- (same for right topic committee)
+metaDirKey :: BuiltinByteString
+metaDirKey = consByteString 0 emptyByteString
+dataDirKey :: BuiltinByteString
+dataDirKey = consByteString 1 emptyByteString
 
 -- Validator function without logic for fetching NFT from script context, for easy testing
 clientTypedValidatorCore :: ClientRedeemer -> TopicID -> DataHash -> DataHash -> Bool
-clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID bountyMessageHash nftTopHash =
+clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID@(TopicID ti) bountyMessageHash nftTopHash =
     PlutusTx.and conditions
   where
     conditions :: [Bool]
     conditions =
-      [ -- The bounty's message hash is in the topic
-        hashInMerkleProof (messageInTopicProof claim) bountyMessageHash
-        -- The topic's top hash is in the DA
-      , hashInMerkleProof (topicInDAProof claim) topicTopHash
-        -- The claimed top hash matches the one stored in the NFT
-      , topHash PlutusTx.== nftTopHash
+      [ -- The bounty's message hash is in the DA
+        topHash PlutusTx.== nftTopHash
+        -- topic ID matches
+      , ti PlutusTx.== (targetKey (topicInDAProof claim))
+        -- it's in the data directory
+      , dataDirKey PlutusTx.== (targetKey (dataInTopicProof claim))
       ]
-    -- Root hash of topic trie produced by claim
-    topicRootHash :: DataHash
-    topicRootHash = merkleProofToDataHash (messageInTopicProof claim)
-    -- Topic top hash produced by claim
-    topicTopHash :: DataHash
-    topicTopHash = makeTopicTopHash bountyTopicID (topicCommitteeFingerprint claim) topicRootHash
-    -- Main root hash produced by claim
-    mainRootHash :: DataHash
-    mainRootHash = merkleProofToDataHash (topicInDAProof claim)
+    -- Root hash for message in data directory
+    dataRootHash = computeRootHash (messageInDataProof claim) bountyMessageHash
+    -- Root hash for data directory in topic
+    topicRootHash = computeRootHash (dataInTopicProof claim) dataRootHash
+    -- Root hash for topic in DA
+    mainRootHash = computeRootHash (topicInDAProof claim) topicRootHash
     -- Top hash produced by claim
-    topHash :: DataHash
     topHash = pairHash (mainCommitteeFingerprint claim) mainRootHash
 
 -- Main validator function
@@ -175,21 +193,6 @@ clientTypedValidator params () redeemer ctx =
       PlutusTx.all (\o -> addressCredential (txOutAddress o)
                           PlutusTx.== PubKeyCredential (bountyClaimantPubKeyHash params))
                    outputs
-
--- Verify whether a (leaf) hash is included in a Merkle proof
-hashInMerkleProof :: SimplifiedMerkleProof -> DataHash -> Bool
-hashInMerkleProof (SimplifiedMerkleProof leftHash rightHash) hash =
-  (hash PlutusTx.== leftHash PlutusTx.|| hash PlutusTx.== rightHash)
-
--- The topic top hash includes the topic ID, topic committee fingerprint, and topic root hash
-makeTopicTopHash :: TopicID -> DataHash -> DataHash -> DataHash
-makeTopicTopHash (TopicID topicID) (DataHash committeeFingerprint) (DataHash topicRootHash) =
-  DataHash (sha2_256 (appendByteString topicID (appendByteString committeeFingerprint topicRootHash)))
-
--- Hashes a merkle proof to produce the root data hash
-merkleProofToDataHash :: SimplifiedMerkleProof -> DataHash
-merkleProofToDataHash (SimplifiedMerkleProof leftHash rightHash) =
-  pairHash leftHash rightHash
 
 ------------------------------------------------------------------------------
 -- Untyped Validator

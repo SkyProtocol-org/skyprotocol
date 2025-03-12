@@ -46,7 +46,7 @@ import PlutusTx.Blueprint
 import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
-                          verifyEd25519Signature, appendByteString, sha2_256)
+                          verifyEd25519Signature, appendByteString, blake2b_256)
 
 ------------------------------------------------------------------------------
 -- Core Data Types
@@ -54,6 +54,7 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
 
 -- A hash
 data DataHash = DataHash PlutusTx.BuiltinByteString
+  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -64,7 +65,7 @@ instance PlutusTx.Eq DataHash where
 
 -- Hashes the concatenation of a pair of hashes
 pairHash :: DataHash -> DataHash -> DataHash
-pairHash (DataHash a) (DataHash b) = DataHash (sha2_256 (a `appendByteString` b))
+pairHash (DataHash a) (DataHash b) = DataHash (blake2b_256 (a `appendByteString` b))
 
 -- A public key
 data PubKey = PubKey PlutusTx.BuiltinByteString
@@ -305,8 +306,8 @@ multiSigToDataHash (MultiSigPubKey pubKeys _) =
   let
     -- Step 1: Concatenate the public keys manually
     concatenated = concatPubKeys pubKeys
-    -- Step 2: Apply sha2_256 to the concatenated byte string
-    hashed = sha2_256 concatenated
+    -- Step 2: Apply hash to the concatenated byte string
+    hashed = blake2b_256 concatenated
   in DataHash hashed
 
 -- Helper function to concatenate a list of PubKey byte strings

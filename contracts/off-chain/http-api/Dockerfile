@@ -11,5 +11,5 @@ COPY . .
 # Expose the port that the server listens on
 EXPOSE 3030
 
-# Command to start the server
-CMD ["node", "server.mjs"]
+# Run
+ENTRYPOINT ["/usr/src/app/start.sh"]
