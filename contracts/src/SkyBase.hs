@@ -34,12 +34,15 @@
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 -- (trace')
-module TrieUtils where
---module MyTrieUtils (PreWrapping, Wrapping, LiftRef (..), LiftBinary, LiftShow, LiftEq, DigestibleRef, DigestRef (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, fbIntegerLength, fbuIntegerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, fbuLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest, trace', trace1, trace2, trace3, etrace1, etrace2, etrace3) where
+module SkyBase where
+--module SkyBase (PreWrapping, Wrapping, LiftRef (..), LiftBinary, LiftShow, LiftEq, DigestibleRef, DigestRef (..), Blake2b_256_Ref, HashAlgorithmOf, wrap, unwrap, integerLength, fbIntegerLength, fbuIntegerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, fbuLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest, trace', trace1, trace2, trace3, etrace1, etrace2, etrace3) where
 -- DigestOnly (..),
+
+import GHC.Generics (Generic)
 
 import PlutusTx.Prelude
 import PlutusTx
+import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Show
 import PlutusTx.Utils
@@ -65,31 +68,41 @@ class Partial a where
 -- | Static Dimensions
 class StaticLength i where
   staticLength :: Integer
+data L4
+instance StaticLength L4 where
+  staticLength = 4
+data L8
+instance StaticLength L8 where
+  staticLength = 8
 data L32
 instance StaticLength L32 where
   staticLength = 32
+data L64
+instance StaticLength L64 where
+  staticLength = 64
 
 
 -- ||| ByteString of known length or not
 data
   (StaticLength len) =>
   FixedLengthByteString len = FixedLengthByteString BuiltinByteString
+  deriving (Show, Eq)
+  deriving anyclass (HasBlueprintDefinition)
 instance
   (StaticLength len) =>
   Partial (FixedLengthByteString len) where
   isElement (FixedLengthByteString b) = lengthOfByteString b == staticLength @len
-instance Eq (FixedLengthByteString len) where
-  (FixedLengthByteString x) == (FixedLengthByteString y) = x == y
 
 -- NB: To fit on-chain on Cardano (or affordably on any L1,
 -- and thus on any L2 that gets verified by a L2),
 -- a VariableLengthByteString has to be of length <= 65535
 -- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
 data VariableLengthByteString = VariableLengthByteString BuiltinByteString
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 instance Partial VariableLengthByteString where
   isElement (VariableLengthByteString b) = lengthOfByteString b <= 65535
-instance Eq VariableLengthByteString where
-  (VariableLengthByteString x) == (VariableLengthByteString y) = x == y
 
 
 -- ||| Numbers
@@ -108,26 +121,30 @@ exponential = multiplyByExponential 1
 
 -- | Byte
 data Byte = Byte { fromByte :: Integer }
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 instance Partial Byte where
   isElement (Byte b) = 0 <= b && b <= 255
 toByte :: Integer -> Byte
 toByte n = validate (Byte n)
-instance Eq Byte where
-  (Byte x) == (Byte y) = x == y
 
 -- | UInt16
 data UInt16 = UInt16 { fromUInt16 :: Integer }
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 instance Partial UInt16 where
   isElement (UInt16 b) = 0 <= b && b <= 65535
 toUInt16 :: Integer -> UInt16
 toUInt16 n = validate (UInt16 n)
-instance Eq UInt16 where
-  (UInt16 x) == (UInt16 y) = x == y
 
 -- | FixedLengthInteger
 data
   (StaticLength len) =>
   FixedLengthInteger len = FixedLengthInteger Integer
+  deriving (Show, Eq)
+  deriving anyclass (HasBlueprintDefinition)
 instance
   (StaticLength len) =>
   Partial (FixedLengthInteger len) where
@@ -136,13 +153,14 @@ instance
   validate f@(FixedLengthInteger i) =
     let b = integerToByteString BigEndian (staticLength @len) i in
       if b == b then f else mustBeReplaced "Bad integer"
-instance Eq (FixedLengthInteger len) where
-  (FixedLengthInteger x) == (FixedLengthInteger y) = x == y
 
 -- | VariableLengthInteger
 data VariableLengthInteger = VariableLengthInteger
   { vliBitLength :: Integer
   , vliInteger :: Integer }
+  deriving Show
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 instance Eq VariableLengthInteger where
   x == y = vliInteger x == vliInteger y
 
@@ -256,8 +274,16 @@ class HasBitLogic a where
   lowBitsMask :: Integer -> a
   logicalOr :: a -> a -> a
   logicalAnd :: a -> a -> a
+  logicalXor :: a -> a -> a
   shiftRight :: a -> Integer -> a
   shiftLeft :: a -> Integer -> a
+  shiftLeftWithBits :: a -> Integer -> a -> a
+  shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
+
+-- First argument is the length, second is the start (little endian), last is the bits
+extractBitField :: HasBitLogic a => Integer -> Integer -> a -> a
+extractBitField length height bits = (bits `shiftRight` height) `logicalAnd` lowBitsMask length
+
 bitLength16 :: Integer -> Integer -- assumes input in [0,65535]
 bitLength16 n = if n < 256 then bitLength8 n else 8 + bitLength8 (n `divide` 256)
 bitLength8 :: Integer -> Integer -- assumes input in [0,255]
@@ -275,8 +301,10 @@ instance HasBitLogic Byte where
   lowBitsMask l = Byte $ indexByteString (shiftByteString byteStringFF $ l - 8) 0
   logicalOr a b = Byte $ indexByteString (orByteString False (toByteString a) (toByteString b)) 0
   logicalAnd a b = Byte $ indexByteString (andByteString False (toByteString a) (toByteString b)) 0
+  logicalXor a b = Byte $ indexByteString (xorByteString False (toByteString a) (toByteString b)) 0
   shiftRight b i = Byte $ indexByteString (shiftByteString (toByteString b) $ -i) 0
   shiftLeft b i = Byte $ indexByteString (shiftByteString (toByteString b) i) 0
+  shiftLeftWithBits (Byte a) l (Byte b) = Byte $ (a `shiftLeft` l) + b
 instance HasBitLogic UInt16 where
   bitLength (UInt16 n) = bitLength16 n
   lowestBitClear (UInt16 b) = findFirstSetBit $ toByteString $ 65535-b
@@ -284,8 +312,10 @@ instance HasBitLogic UInt16 where
   lowBitsMask l = UInt16 $ indexByteString (shiftByteString byteStringFFFF $ l - 16) 0
   logicalOr a b = UInt16 $ indexByteString (orByteString False (toByteString a) (toByteString b)) 0
   logicalAnd a b = UInt16 $ indexByteString (andByteString False (toByteString a) (toByteString b)) 0
+  logicalXor a b = UInt16 $ indexByteString (xorByteString False (toByteString a) (toByteString b)) 0
   shiftRight b i = UInt16 $ indexByteString (shiftByteString (toByteString b) $ -i) 0
   shiftLeft b i = UInt16 $ indexByteString (shiftByteString (toByteString b) i) 0
+  shiftLeftWithBits (UInt16 a) l (UInt16 b) = UInt16 $ (a `shiftLeft` l) + b
 instance HasBitLogic Integer where
   bitLength n =
     if n < 0 then
@@ -312,8 +342,11 @@ instance HasBitLogic Integer where
                                     (VariableLengthByteString $ toByteString b)
   logicalAnd a b = toInt $ logicalAnd (VariableLengthByteString $ toByteString a)
                                       (VariableLengthByteString $ toByteString b)
+  logicalXor a b = toInt $ logicalXor (VariableLengthByteString $ toByteString a)
+                                      (VariableLengthByteString $ toByteString b)
   shiftRight b i = b `divide` exponential 2 i
   shiftLeft b i = b * exponential 2 i
+  shiftLeftWithBits a l b = (a `shiftLeft` l) + b
 equalizeByteStringLength :: BuiltinByteString -> BuiltinByteString -> (BuiltinByteString, BuiltinByteString)
 equalizeByteStringLength a b =
   let la = lengthOfByteString a
@@ -333,6 +366,7 @@ instance HasBitLogic BuiltinByteString where
   lowBitsMask l = shiftByteString (replicateByte 0xFF $ bitLengthToByteLength l) $ (-l) `quotient` 8
   logicalOr a b = let (a', b') = equalizeByteStringLength a b in orByteString False a' b'
   logicalAnd a b = let (a', b') = equalizeByteStringLength a b in andByteString False a' b'
+  logicalXor a b = let (a', b') = equalizeByteStringLength a b in xorByteString False a' b'
   shiftRight b i = shiftByteString b $ -i
   shiftLeft b i = shiftByteString (toByteString b) i
 instance
@@ -346,6 +380,8 @@ instance
     FixedLengthByteString $ orByteString False a b
   logicalAnd (FixedLengthByteString a) (FixedLengthByteString b) =
     FixedLengthByteString $ andByteString False a b
+  logicalXor (FixedLengthByteString a) (FixedLengthByteString b) =
+    FixedLengthByteString $ xorByteString False a b
   shiftRight (FixedLengthByteString b) i = FixedLengthByteString $ shiftByteString b $ -i
   shiftLeft (FixedLengthByteString b) i = FixedLengthByteString $ shiftByteString (toByteString b) i
 instance HasBitLogic VariableLengthByteString where
@@ -357,6 +393,8 @@ instance HasBitLogic VariableLengthByteString where
     VariableLengthByteString $ logicalOr a b
   logicalAnd (VariableLengthByteString a) (VariableLengthByteString b) =
     VariableLengthByteString $ logicalAnd a b
+  logicalXor (VariableLengthByteString a) (VariableLengthByteString b) =
+    VariableLengthByteString $ logicalXor a b
   shiftRight (VariableLengthByteString b) i = VariableLengthByteString $ shiftRight b i
   shiftLeft (VariableLengthByteString b) i = VariableLengthByteString $ shiftLeft b i
 instance
@@ -370,8 +408,11 @@ instance
     FixedLengthInteger . toInt $ logicalOr (fromInt a :: FixedLengthByteString len) (fromInt b)
   logicalAnd (FixedLengthInteger a) (FixedLengthInteger b) =
     FixedLengthInteger . toInt $ logicalAnd (fromInt a :: FixedLengthByteString len) (fromInt b)
+  logicalXor (FixedLengthInteger a) (FixedLengthInteger b) =
+    FixedLengthInteger . toInt $ logicalXor (fromInt a :: FixedLengthByteString len) (fromInt b)
   shiftRight (FixedLengthInteger b) i = FixedLengthInteger $ shiftRight b i
   shiftLeft (FixedLengthInteger b) i = FixedLengthInteger . toInt $ shiftByteString (toByteString b) i
+  shiftLeftWithBits (FixedLengthInteger a) l (FixedLengthInteger b) = FixedLengthInteger $ (a `shiftLeft` l) + b
 instance HasBitLogic VariableLengthInteger where
   bitLength (VariableLengthInteger l _) = l
   lowestBitClear n = lowestBitClear $ toByteString n
@@ -385,8 +426,14 @@ instance HasBitLogic VariableLengthInteger where
     let v = logicalAnd (VariableLengthByteString $ toByteString a)
                        (VariableLengthByteString $ toByteString b) in
     VariableLengthInteger (bitLength v) $ toInt v
+  logicalXor a b =
+    let v = logicalXor (VariableLengthByteString $ toByteString a)
+                       (VariableLengthByteString $ toByteString b) in
+    VariableLengthInteger (bitLength v) $ toInt v
   shiftRight (VariableLengthInteger l b) i = VariableLengthInteger (l - i `max` 0) $ shiftRight b i
   shiftLeft (VariableLengthInteger l b) i = VariableLengthInteger (l + i) $ shiftLeft b i
+  shiftLeftWithBits (VariableLengthInteger la a) l vb@(VariableLengthInteger _ b) =
+    if la == 0 then vb else VariableLengthInteger (la + l) $ (a `shiftLeft` l) + b
 
 -- ||| (De)Serializing to(from) bytes
 
@@ -395,6 +442,8 @@ class ByteStringOut a where
   byteStringOut :: a -> BuiltinByteString -> BuiltinByteString
 toByteStringOut :: ByteStringOut a => a -> BuiltinByteString
 toByteStringOut = flip byteStringOut emptyByteString
+instance ByteStringOut () where
+  byteStringOut () s  = s
 instance
   (ByteStringOut a, ByteStringOut b) =>
   ByteStringOut (a, b) where
@@ -441,13 +490,18 @@ instance ByteStringOut VariableLengthInteger where
 -- | Pure Input from ByteString
 class ByteStringIn a where
   byteStringIn :: ByteStringCursor -> Maybe (a, ByteStringCursor)
-fromByteStringIn :: ByteStringIn a => BuiltinByteString -> Maybe a
-fromByteStringIn bs = byteStringCursor bs & byteStringIn >>= \ (a, bs') ->
+maybeFromByteStringIn :: ByteStringIn a => BuiltinByteString -> Maybe a
+maybeFromByteStringIn bs = byteStringCursor bs & byteStringIn >>= \ (a, bs') ->
   if emptyByteStringCursor bs' then Just a else Nothing
+fromByteStringIn :: ByteStringIn a => BuiltinByteString -> a
+fromByteStringIn = fromJust . maybeFromByteStringIn
 data ByteStringCursor = ByteStringCursor
   { cursorByteString :: BuiltinByteString -- the bytes
   , cursorStart :: Integer -- start index included
   , cursorEnd :: Integer } -- end index not included
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 byteStringCursor :: BuiltinByteString -> ByteStringCursor
 byteStringCursor bs = ByteStringCursor bs 0 (lengthOfByteString bs)
 emptyByteStringCursor :: ByteStringCursor -> Bool
@@ -569,10 +623,9 @@ class
   hashFunction :: BuiltinByteString -> Digest hf
 
 data Digest hf = Digest { digestByteString :: FixedLengthByteString (HashLength hf) }
-instance
-  (HashFunction hf) =>
-  Eq (Digest hf) where
-  (Digest x) == (Digest y) = x == y
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 instance
   (HashFunction hf) =>
   ByteStringIn (Digest hf) where
@@ -581,9 +634,13 @@ instance
   (HashFunction hf) =>
   ByteStringOut (Digest hf) where
   byteStringOut (Digest b) = byteStringOut b
+instance HasToByteString (Digest hf) where
+  toByteString (Digest (FixedLengthByteString b)) = b
 
 data Message hf = Message BuiltinByteString
-
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 digest :: HashFunction hf => Message hf -> Digest hf
 digest (Message m :: Message hf) = hashFunction @hf m
 
@@ -603,6 +660,9 @@ class
   getDigest :: r a -> Digest hf
 
 data DigestRef hf x = DigestRef {digestRefValue :: x, digestRefDigest :: Digest hf}
+  deriving (Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
 -- instance LiftShow (DigestRef hf) where
 --   liftShow = show . digestRefDigest
@@ -631,14 +691,6 @@ instance (ByteStringOut a, HashFunction hf) => Wrapping a (LiftRef (DigestRef hf
 
 lookupDigest :: (HashFunction hf) => Digest hf -> a
 lookupDigest = mustBeReplaced "Cannot get a value from its digest"
-
-{-
--- TODO: more efficient implementation?
--- First argument is the length, second is the start (little endian), last is the bits
-extractBitField :: (Bits n, Integral n) => Int -> Int -> n -> n
-extractBitField len start bits =
-  (bits `shiftR` start) .&. (lowBitsMask len)
--}
 
 trace':: (Show s) => s -> e -> e
 trace' s e = trace (show s) e
@@ -692,13 +744,13 @@ class LiftShow r where
 instance LiftShow Identity where
   liftShow = show . runIdentity
 
--- | Datum
+-- | Dato
 class
   (ByteStringOut d, Show d, Eq d) =>
-  Datum d
+  Dato d
 class
   (LiftByteStringOut r, LiftShow r, LiftEq r) =>
-  LiftDatum r
+  LiftDato r
 
 -- | Y-combinator or fixed point combinator for types
 newtype Fix f = In {out :: f (Fix f)}
@@ -718,8 +770,8 @@ instance
   where
   show = liftShow . out
 instance
-  (LiftDatum r) =>
-  Datum (Fix r)
+  (LiftDato r) =>
+  Dato (Fix r)
   where
 
 -- | LiftRef
@@ -736,8 +788,8 @@ instance
   where
   show = liftShow . liftref
 instance
-  (LiftDatum r, Datum a) =>
-  Datum (LiftRef r a)
+  (LiftDato r, Dato a) =>
+  Dato (LiftRef r a)
   where
 
 instance
@@ -759,3 +811,28 @@ class
   Wrapping a r e
   where
   unwrap :: r a -> e a
+
+-- | Fixed size data structures
+type Byte4 = FixedLengthByteString L4
+type UInt32 = FixedLengthInteger L4
+type Byte8 = FixedLengthByteString L8
+type UInt64 = FixedLengthInteger L8
+type Byte32 = FixedLengthByteString L32
+type UInt256 = FixedLengthInteger L32
+type Byte64 = FixedLengthByteString L64
+
+type DataHash = Digest Blake2b_256
+
+data PubKey = PubKey Byte32
+  deriving (Show, Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+instance HasToByteString PubKey where
+  toByteString (PubKey (FixedLengthByteString pk)) = pk
+instance HasFromByteString PubKey where
+  fromByteString pk = PubKey (FixedLengthByteString pk)
+instance ByteStringOut PubKey where
+  byteStringOut (PubKey pk) = byteStringOut pk
+instance ByteStringIn PubKey where
+  byteStringIn s = byteStringIn s >>= \ (pk, s') ->
+    return (PubKey pk, s')

@@ -16,7 +16,7 @@ library scripts
     SkyBridgeContract
     SkyMintingPolicy
     BountyContract
-    TrieUtils
+    SkyBase
     Trie
 
   build-depends:

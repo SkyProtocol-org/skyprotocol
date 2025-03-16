@@ -17,7 +17,6 @@ import PlutusTx.Utils
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
 
-typedef Byte32 = FixedLengthByteString L32
 
 instance
   (StaticLength len) =>

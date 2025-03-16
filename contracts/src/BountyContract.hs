@@ -52,9 +52,14 @@ import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           readBit, blake2b_256, consByteString, emptyByteString,
                           verifyEd25519Signature, appendByteString, sha2_256)
+import Trie
+import TrieUtils
+
+
 
 data MerkleProof = MerkleProof
-  { targetKey :: BuiltinByteString,
+  { messageMetadata :: [ metadata
+    
     keySize :: Integer,
     keyPath :: [Integer],
     siblingHashes :: [DataHash]
@@ -118,7 +123,9 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 
 data ClientRedeemer
     = ClaimBounty
-        { messageInDataProof :: MerkleProof
+        { messageMetaData :: DataHash
+          -- ^ metadata associated with the message
+        , messageInDataProof :: MerkleProof
           -- ^ Proof that message is included in data directory
         , dataInTopicProof :: MerkleProof
           -- ^ Proof that data directory is included in topic
@@ -160,11 +167,13 @@ clientTypedValidatorCore claim@ClaimBounty{} bountyTopicID@(TopicID ti) bountyMe
       ]
     -- Root hash for message in data directory
     dataRootHash = computeRootHash (messageInDataProof claim) bountyMessageHash
+--    topicDataHash = pairHash (topicMetaDataHash claim) dataRootHash
     -- Root hash for data directory in topic
     topicRootHash = computeRootHash (dataInTopicProof claim) dataRootHash
     -- Root hash for topic in DA
     mainRootHash = computeRootHash (topicInDAProof claim) topicRootHash
     -- Top hash produced by claim
+--    topicRootHash = computeRootHash (topicInDAProof claim) topicDataHash
     topHash = pairHash (mainCommitteeFingerprint claim) mainRootHash
 
 -- Main validator function
