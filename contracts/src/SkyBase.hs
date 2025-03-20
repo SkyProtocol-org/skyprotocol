@@ -70,7 +70,7 @@ fromJust (Just a) = a
 class Partial a where
   isElement :: a -> Bool
   validate :: a -> a
-  validate a = if isElement a then a else mustBeReplaced "Bad value"
+  validate a = if isElement a then a else traceError "Bad value"
 
 -- | Static Dimensions
 class StaticLength i where
@@ -130,9 +130,11 @@ exponential = multiplyByExponential 1
 
 -- | Byte
 data Byte = Byte { fromByte :: Integer }
-  deriving (Show, Eq)
+  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+instance Eq Byte where
+  (Byte a) == (Byte b) = a == b
 instance Partial Byte where
   isElement (Byte b) = 0 <= b && b <= 255
 toByte :: Integer -> Byte
@@ -161,7 +163,7 @@ instance
     where maxValue = (exponential 2 (staticLength @len)) - 1
   validate f@(FixedLengthInteger i) =
     let b = integerToByteString BigEndian (staticLength @len) i in
-      if b == b then f else mustBeReplaced "Bad integer"
+      if b == b then f else traceError "Bad integer"
 
 -- | VariableLengthInteger
 data VariableLengthInteger = VariableLengthInteger
@@ -268,7 +270,7 @@ instance
   (StaticLength len) =>
   FromByteString (FixedLengthInteger len) where
   fromByteString bs =
-    if lengthOfByteString bs > staticLength @len then mustBeReplaced "ByteString too long" else
+    if lengthOfByteString bs > staticLength @len then traceError "ByteString too long" else
       FixedLengthInteger $ byteStringToInteger BigEndian bs
 instance
   FromByteString VariableLengthInteger where
@@ -579,10 +581,10 @@ instance ByteStringIn () where
 instance
   (ByteStringIn a, ByteStringIn b) =>
   ByteStringIn (Either a b) where
-  byteStringIn = byteStringIn >>= \case
-    Byte 0 -> byteStringIn <&> Left
-    Byte 1 -> byteStringIn <&> Right
-    _ -> byteStringReaderFail
+  byteStringIn = byteStringIn >>= \ b ->
+    if b == Byte 0 then byteStringIn <&> Left
+    else if b == Byte 1 then byteStringIn <&> Right
+    else byteStringReaderFail
 instance
   (ByteStringIn a, ByteStringIn b) =>
   ByteStringIn (a, b) where
@@ -800,7 +802,7 @@ instance (ByteStringOut a, HashFunction hf) => Wrapping a (LiftRef (DigestRef hf
   unwrap (LiftRef (DigestRef x _)) = Identity x
 
 lookupDigest :: (HashFunction hf) => Digest hf -> a
-lookupDigest = mustBeReplaced "Cannot get a value from its digest"
+lookupDigest = traceError "Cannot get a value from its digest"
 
 trace':: (Show s) => s -> e -> e
 trace' s e = trace (show s) e

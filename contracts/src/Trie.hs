@@ -72,6 +72,7 @@ class
   pathStep :: pathF a -> e (Maybe (stepF a, pathF a))
   stepDown :: stepF a -> pathF a -> e (pathF a)
 
+{-# INLINEABLE zipUp #-}
 zipUp ::
   (Monad e, PreZipper e pathF stepF) =>
   (stepF background -> focus -> e focus) ->
@@ -252,6 +253,7 @@ instance
   (Monad e, TrieHeightKey h k) =>
   PreZipper e (TriePath h k) (TrieStep h k)
   where
+  {-# INLINEABLE pathStep #-}
   pathStep (TriePath h k m s) =
     return $
       if isBitSet 0 m
@@ -272,6 +274,7 @@ instance
           [] -> Nothing
 
   -- stepDown from a TriePath
+  {-# INLINEABLE stepDown #-}
   stepDown step p@(TriePath h k m s) = return $
     let branch t k' = TriePath (h - 1) k' (m `shiftLeft` 1) (t : s) in
     case step of
@@ -574,6 +577,7 @@ data SkyDataProof = SkyDataProof
 instance ByteStringIn SkyDataProof where
   byteStringIn = byteStringIn <&> uncurry5 SkyDataProof
 
+{-# INLINEABLE applySkyDataProof #-}
 applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
 applySkyDataProof SkyDataProof {..} messageDataHash =
   runIdentity $ do
