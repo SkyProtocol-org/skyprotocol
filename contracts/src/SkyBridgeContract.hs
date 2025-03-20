@@ -7,6 +7,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -41,6 +42,7 @@ import PlutusLedgerApi.V2 (CurrencySymbol, Value (..), Datum (..),
                            txOutDatum, TxInInfo, TxInfo,
                            from, to, txInInfoResolved)
 import PlutusLedgerApi.V2.Contexts (getContinuingOutputs, findDatum)
+import PlutusTx.Prelude
 import PlutusTx
 import PlutusTx.AsData qualified as PlutusTx
 import PlutusTx.Blueprint
@@ -49,7 +51,6 @@ import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, blake2b_256)
 
-import Data.Maybe (fromJust)
 import SkyBase
 
 ------------------------------------------------------------------------------
@@ -61,25 +62,22 @@ data MultiSigPubKey = MultiSigPubKey [PubKey] Integer
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn MultiSigPubKey where
-  byteStringIn s = byteStringIn s >>= \ ((l, n), s') ->
-    return (MultiSigPubKey l (fromUInt16 n), s')
+  byteStringIn = byteStringIn <&> \ (l, n) -> MultiSigPubKey l (fromUInt16 n)
 
 -- A single signature by a single data operator public key
-data SingleSig = SingleSig PubKey Byte64
+data SingleSig = SingleSig PubKey Bytes64
   deriving (PlutusTx.Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn SingleSig where
-  byteStringIn s = byteStringIn s >>= \ ((pk, sig), s') ->
-    return (SingleSig pk sig, s')
+  byteStringIn = byteStringIn <&> uncurry SingleSig
 
 -- Signatures produced by data operators for top hash
 data MultiSig = MultiSig [SingleSig]
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn MultiSig where
-  byteStringIn s = byteStringIn s >>= \ (l, s') ->
-    return (MultiSig l, s')
+  byteStringIn = byteStringIn <&> MultiSig
 
 {-
 PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
@@ -105,7 +103,7 @@ data BridgeNFTDatum = BridgeNFTDatum
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn BridgeNFTDatum where
-  byteStringIn s = byteStringIn s >>= \ (h, s') -> return (BridgeNFTDatum h, s')
+  byteStringIn = byteStringIn <&> BridgeNFTDatum
 
 
 --PlutusTx.makeLift ''BridgeNFTDatum
@@ -138,10 +136,9 @@ data BridgeRedeemer = UpdateBridge
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn BridgeRedeemer where
-  byteStringIn s = byteStringIn s >>= \ ((mspk, orh, nth, sig), s') ->
-    return (UpdateBridge mspk orh nth sig, s')
-instance HasFromByteString BridgeRedeemer where
-  
+  byteStringIn = byteStringIn <&> uncurry4 UpdateBridge
+instance FromByteString BridgeRedeemer where
+
 
 --PlutusTx.makeLift ''BridgeRedeemer
 --PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]

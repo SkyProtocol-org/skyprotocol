@@ -4,12 +4,12 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE EmptyCase                  #-}
-{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
--- {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -18,8 +18,8 @@
 {-# LANGUAGE Strict                     #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
 {-# LANGUAGE DeriveFunctor              #-}
@@ -40,14 +40,19 @@ module SkyBase where
 
 import GHC.Generics (Generic)
 
-import PlutusTx.Prelude
+import PlutusTx.Prelude -- hiding (Applicative, Functor, fmap, pure, (<*>))
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Show
 import PlutusTx.Utils
+import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
+import PlutusLedgerApi.V1.Time (POSIXTime(..))
+import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
 
+import qualified GHC.Base as GB
 import Control.Monad (Monad)
+--import Control.Monad.State.Lazy (State)
 -- import Codec.Serialise (serialise, deserialise)
 -- import Codec.Serialise.Class (Serialise, encode, decode, encodeList, decodeList)
 -- import Codec.Serialise.Encoding (Encoding)
@@ -55,7 +60,9 @@ import Control.Monad (Monad)
 import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
-import Data.Maybe (fromJust)
+--import Data.Maybe (fromJust)
+fromJust :: Maybe a -> a
+fromJust (Just a) = a
 
 -- ||| Basic Type Functionality
 
@@ -86,12 +93,14 @@ instance StaticLength L64 where
 data
   (StaticLength len) =>
   FixedLengthByteString len = FixedLengthByteString BuiltinByteString
-  deriving (Show, Eq)
+  deriving (Show)
   deriving anyclass (HasBlueprintDefinition)
 instance
   (StaticLength len) =>
   Partial (FixedLengthByteString len) where
   isElement (FixedLengthByteString b) = lengthOfByteString b == staticLength @len
+instance Eq (FixedLengthByteString len) where
+  (FixedLengthByteString x) == (FixedLengthByteString y) = x == y
 
 -- NB: To fit on-chain on Cardano (or affordably on any L1,
 -- and thus on any L2 that gets verified by a L2),
@@ -165,104 +174,104 @@ instance Eq VariableLengthInteger where
   x == y = vliInteger x == vliInteger y
 
 -- | toInt
-class HasToInt a where
+class ToInt a where
   toInt :: a -> Integer
-instance HasToInt Byte where
+instance ToInt Byte where
   toInt = fromByte
-instance HasToInt UInt16 where
+instance ToInt UInt16 where
   toInt = fromUInt16
 instance
-  HasToInt BuiltinByteString where
+  ToInt BuiltinByteString where
   toInt b = byteStringToInteger BigEndian b
 instance
   (StaticLength len) =>
-  HasToInt (FixedLengthByteString len) where
+  ToInt (FixedLengthByteString len) where
   toInt (FixedLengthByteString b) = toInt b
 instance
-  HasToInt VariableLengthByteString where
+  ToInt VariableLengthByteString where
   toInt (VariableLengthByteString b) = toInt b
 instance
-  HasToInt (FixedLengthInteger len) where
+  ToInt (FixedLengthInteger len) where
   toInt (FixedLengthInteger n) = n
 instance
-  HasToInt VariableLengthInteger where
+  ToInt VariableLengthInteger where
   toInt = vliInteger
 
 -- | fromInt
-class HasFromInt a where
+class FromInt a where
   fromInt :: Integer -> a
-instance HasFromInt Byte where
+instance FromInt Byte where
   fromInt = toByte
-instance HasFromInt UInt16 where
+instance FromInt UInt16 where
   fromInt = toUInt16
 instance
   (StaticLength len) =>
-  HasFromInt (FixedLengthByteString len) where
+  FromInt (FixedLengthByteString len) where
   fromInt = FixedLengthByteString . integerToByteString BigEndian (staticLength @len)
 instance
-  HasFromInt VariableLengthByteString where
+  FromInt VariableLengthByteString where
   fromInt = VariableLengthByteString . toByteString
 instance
   (StaticLength len) =>
-  HasFromInt (FixedLengthInteger len) where
+  FromInt (FixedLengthInteger len) where
   fromInt = validate . FixedLengthInteger
 instance
-  HasFromInt VariableLengthInteger where
+  FromInt VariableLengthInteger where
   fromInt n = VariableLengthInteger (bitLength n) n
 
 -- | toByteString
-class HasToByteString a where
+class ToByteString a where
   toByteString :: a -> BuiltinByteString
-instance HasToByteString Byte where
+instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
-instance HasToByteString UInt16 where
+instance ToByteString UInt16 where
   toByteString (UInt16 n) = integerToByteString BigEndian 2 n
-instance HasToByteString Integer where
+instance ToByteString Integer where
   toByteString n = integerToByteString BigEndian (bitLengthToByteLength $ bitLength n) n
-instance HasToByteString BuiltinByteString where
+instance ToByteString BuiltinByteString where
   toByteString x = x
 instance
   (StaticLength len) =>
-  HasToByteString (FixedLengthByteString len) where
+  ToByteString (FixedLengthByteString len) where
   toByteString (FixedLengthByteString b) = b
 instance
-  HasToByteString VariableLengthByteString where
+  ToByteString VariableLengthByteString where
   toByteString (VariableLengthByteString b) = b
 instance
   (StaticLength len) =>
-  HasToByteString (FixedLengthInteger len) where
+  ToByteString (FixedLengthInteger len) where
   toByteString (FixedLengthInteger n) = integerToByteString BigEndian (staticLength @len) n
 instance
-  HasToByteString VariableLengthInteger where
+  ToByteString VariableLengthInteger where
   toByteString (VariableLengthInteger l n) = integerToByteString BigEndian (bitLengthToByteLength l) n
 
 bitLengthToByteLength :: Integer -> Integer
 bitLengthToByteLength n = (n + 7) `divide` 8
 
 -- | fromByteString
-class HasFromByteString a where
+class FromByteString a where
   fromByteString :: BuiltinByteString -> a
-instance HasFromByteString Byte where
+instance FromByteString Byte where
   fromByteString = toByte . byteStringToInteger BigEndian
-instance HasFromByteString UInt16 where
+instance FromByteString UInt16 where
   fromByteString = toUInt16 . byteStringToInteger BigEndian
-instance HasFromByteString BuiltinByteString where
+instance FromByteString BuiltinByteString where
   fromByteString x = x
 instance
   (StaticLength len) =>
-  HasFromByteString (FixedLengthByteString len) where
+  FromByteString (FixedLengthByteString len) where
   fromByteString = validate . FixedLengthByteString
 instance
-  HasFromByteString VariableLengthByteString where
+  FromByteString VariableLengthByteString where
   fromByteString = VariableLengthByteString
 instance
   (StaticLength len) =>
-  HasFromByteString (FixedLengthInteger len) where
+  FromByteString (FixedLengthInteger len) where
   fromByteString bs =
     if lengthOfByteString bs > staticLength @len then mustBeReplaced "ByteString too long" else
       FixedLengthInteger $ byteStringToInteger BigEndian bs
 instance
-  HasFromByteString VariableLengthInteger where
+  FromByteString VariableLengthInteger where
   fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
 
 {- Failure to include bitLength in either Haskell or Plutus seems incompetent to me. --fare
@@ -440,30 +449,60 @@ instance HasBitLogic VariableLengthInteger where
 -- | Output to ByteString
 class ByteStringOut a where
   byteStringOut :: a -> BuiltinByteString -> BuiltinByteString
+{-type ByteStringWriter a = State (BuiltinByteString -> BuiltinByteString) a
+writeByteString :: ByteStringOut a => a -> ByteStringWriter ()
+writeByteString a = get >>= \ suffix -> put (byteStringOut a . suffix)
+byteStringWriterResult :: ByteStringWriter a -> BuiltinByteString
+byteStringWriterResult m = execState m emptyByteString-}
 toByteStringOut :: ByteStringOut a => a -> BuiltinByteString
-toByteStringOut = flip byteStringOut emptyByteString
+toByteStringOut a = byteStringOut a emptyByteString
 instance ByteStringOut () where
   byteStringOut () s  = s
 instance
   (ByteStringOut a, ByteStringOut b) =>
   ByteStringOut (a, b) where
-  byteStringOut (a, b) s  = byteStringOut a (byteStringOut b s)
+  byteStringOut (a, b) s =
+    byteStringOut a $
+    byteStringOut b s
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c) =>
   ByteStringOut (a, b, c) where
-  byteStringOut (a, b, c) s  = byteStringOut a (byteStringOut b (byteStringOut c s))
+  byteStringOut (a, b, c) s =
+    byteStringOut a $
+    byteStringOut b $
+    byteStringOut c s
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
   ByteStringOut (a, b, c, d) where
-  byteStringOut (a, b, c, d) s  = byteStringOut a (byteStringOut b (byteStringOut c (byteStringOut d s)))
+  byteStringOut (a, b, c, d) s =
+    byteStringOut a $
+    byteStringOut b $
+    byteStringOut c $
+    byteStringOut d s
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
   ByteStringOut (a, b, c, d, e) where
-  byteStringOut (a, b, c, d, e) s  = byteStringOut a (byteStringOut b (byteStringOut c (byteStringOut d (byteStringOut e s))))
+  byteStringOut (a, b, c, d, e) s =
+    byteStringOut a $
+    byteStringOut b $
+    byteStringOut c $
+    byteStringOut d $
+    byteStringOut e s
+instance
+  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
+  ByteStringOut (a, b, c, d, e, f) where
+  byteStringOut (a, b, c, d, e, f) s =
+    byteStringOut a $
+    byteStringOut b $
+    byteStringOut c $
+    byteStringOut d $
+    byteStringOut e $
+    byteStringOut e s
 instance
   (ByteStringOut a) =>
   ByteStringOut [a] where -- length limit 65535
-  byteStringOut l s = byteStringOut (toUInt16 $ length l) $ foldr byteStringOut s l
+  byteStringOut l s =
+    byteStringOut (toUInt16 $ length l) $ foldr byteStringOut s l
 instance ByteStringOut Byte where
   byteStringOut (Byte b) = consByteString b
 instance ByteStringOut UInt16 where
@@ -488,10 +527,34 @@ instance ByteStringOut VariableLengthInteger where
 
 
 -- | Pure Input from ByteString
+data ByteStringReader a = ByteStringReader
+  { getByteStringReader :: ByteStringCursor -> Maybe (a, ByteStringCursor) }
+--  deriving (Applicative, Functor)
+byteStringReaderFail :: ByteStringReader a
+byteStringReaderFail = ByteStringReader $ \ s -> Nothing
+instance GB.Functor ByteStringReader where
+  fmap f (ByteStringReader r) = ByteStringReader $ \ s ->
+    r s <&> \ (a, s') -> (f a, s')
+instance Functor ByteStringReader where
+  fmap = GB.fmap
+instance Applicative ByteStringReader where
+  pure = GB.pure
+  (<*>) = (GB.<*>)
+instance GB.Applicative ByteStringReader where
+  pure a = ByteStringReader $ \ s -> Just (a, s)
+  ByteStringReader x <*> ByteStringReader y = ByteStringReader $ \s ->
+    x s >>= \ (f, s') ->
+    y s' <&> \ (v, s'') -> (f v, s'')
+instance Monad ByteStringReader where
+  return = pure
+  m >>= f =
+    ByteStringReader (\s -> getByteStringReader m s >>=
+      \ (a, s') -> getByteStringReader (f a) s')
 class ByteStringIn a where
-  byteStringIn :: ByteStringCursor -> Maybe (a, ByteStringCursor)
+  byteStringIn :: ByteStringReader a
 maybeFromByteStringIn :: ByteStringIn a => BuiltinByteString -> Maybe a
-maybeFromByteStringIn bs = byteStringCursor bs & byteStringIn >>= \ (a, bs') ->
+maybeFromByteStringIn bs = byteStringCursor bs &
+  getByteStringReader byteStringIn >>= \ (a, bs') ->
   if emptyByteStringCursor bs' then Just a else Nothing
 fromByteStringIn :: ByteStringIn a => BuiltinByteString -> a
 fromByteStringIn = fromJust . maybeFromByteStringIn
@@ -511,76 +574,121 @@ nextByteStringCursor bsc =
   if emptyByteStringCursor bsc then Nothing else
     Just (Byte $ indexByteString (cursorByteString bsc) (cursorStart bsc),
           ByteStringCursor (cursorByteString bsc) (cursorStart bsc + 1) (cursorEnd bsc))
+instance ByteStringIn () where
+  byteStringIn = return ()
+instance
+  (ByteStringIn a, ByteStringIn b) =>
+  ByteStringIn (Either a b) where
+  byteStringIn = byteStringIn >>= \case
+    Byte 0 -> byteStringIn <&> Left
+    Byte 1 -> byteStringIn <&> Right
+    _ -> byteStringReaderFail
 instance
   (ByteStringIn a, ByteStringIn b) =>
   ByteStringIn (a, b) where
-  byteStringIn s = byteStringIn s >>= \ (a, s') ->
-             byteStringIn s' <&> \ (b, s'') ->
-             ((a, b), s'')
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 return (a, b)
 instance
   (ByteStringIn a, ByteStringIn b, ByteStringIn c) =>
   ByteStringIn (a, b, c) where
-  byteStringIn s = byteStringIn s >>= \ (a, s') ->
-             byteStringIn s' >>= \ (b, s'') ->
-             byteStringIn s'' <&> \ (c, s''') ->
-             ((a, b, c), s''')
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 return (a, b, c)
 instance
   (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d) =>
   ByteStringIn (a, b, c, d) where
-  byteStringIn s = byteStringIn s >>= \ (a, s') ->
-             byteStringIn s' >>= \ (b, s'') ->
-             byteStringIn s'' >>= \ (c, s''') ->
-             byteStringIn s''' <&> \ (d, s'''') ->
-             ((a, b, c, d), s'''')
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 byteStringIn >>= \ d ->
+                 return (a, b, c, d)
 instance
   (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e) =>
   ByteStringIn (a, b, c, d, e) where
-  byteStringIn s = byteStringIn s >>= \ (a, s') ->
-             byteStringIn s' >>= \ (b, s'') ->
-             byteStringIn s'' >>= \ (c, s''') ->
-             byteStringIn s''' >>= \ (d, s'''') ->
-             byteStringIn s'''' <&> \ (e, s''''') ->
-             ((a, b, c, d, e), s''''')
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 byteStringIn >>= \ d ->
+                 byteStringIn >>= \ e ->
+                 return (a, b, c, d, e)
+instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e, ByteStringIn f) =>
+  ByteStringIn (a, b, c, d, e, f) where
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 byteStringIn >>= \ d ->
+                 byteStringIn >>= \ e ->
+                 byteStringIn >>= \ f ->
+                 return (a, b, c, d, e, f)
 instance
   (ByteStringIn a) =>
   ByteStringIn [a] where -- length limit 65535
-  byteStringIn s =
-    byteStringIn s >>= \ (UInt16 len, s') -> loop len s' where
-      loop n s'' = if n == 0 then Just ([], s'') else
-        byteStringIn s'' >>= \ (a, s''') -> loop (n - 1) s''' <&> \ (l, s'''') -> ((a : l), s'''')
+  byteStringIn = byteStringIn >>= \ (UInt16 len) -> loop len where
+    loop n = if n == 0 then return [] else
+      byteStringIn >>= \ a -> loop (n - 1) <&> (a :)
 
 instance ByteStringIn Byte where
-  byteStringIn = nextByteStringCursor
+  byteStringIn = ByteStringReader nextByteStringCursor
 instance ByteStringIn UInt16 where
-  byteStringIn s = nextByteStringCursor s >>= \ (Byte hi, s') ->
-             nextByteStringCursor s' <&> \ (Byte lo, s'') ->
-             (UInt16 (hi * 256 + lo), s'')
-byteStringInByteString :: Integer -> ByteStringCursor -> Maybe (BuiltinByteString, ByteStringCursor)
-byteStringInByteString n bsc =
-  let next = cursorStart bsc + n in
-    if next <= cursorEnd bsc then
-      Just (sliceByteString (cursorStart bsc) n (cursorByteString bsc),
-            ByteStringCursor (cursorByteString bsc) next (cursorEnd bsc))
-    else Nothing
+  byteStringIn = byteStringIn >>= \ (Byte hi) ->
+             byteStringIn <&> \ (Byte lo) ->
+             UInt16 (hi * 256 + lo)
+byteStringInByteString :: Integer -> ByteStringReader BuiltinByteString
+byteStringInByteString n =
+  ByteStringReader $ \ bsc ->
+    let next = cursorStart bsc + n in
+      if next <= cursorEnd bsc then
+        Just (sliceByteString (cursorStart bsc) n (cursorByteString bsc),
+              ByteStringCursor (cursorByteString bsc) next (cursorEnd bsc))
+      else Nothing
 instance
   (StaticLength len) =>
   ByteStringIn (FixedLengthByteString len) where
-  byteStringIn s =
-    byteStringInByteString (staticLength @len) s <&> \ (b, s') ->
-    (FixedLengthByteString b, s')
+  byteStringIn =
+    byteStringInByteString (staticLength @len) <&> FixedLengthByteString
 instance ByteStringIn VariableLengthByteString where
-  byteStringIn s =
-    byteStringIn s >>= \ (UInt16 len, s') ->
-    byteStringInByteString len s' <&> \ (b, s'') ->
-    (VariableLengthByteString b, s'')
+  byteStringIn =
+    byteStringIn >>= \ (UInt16 len) ->
+    byteStringInByteString len <&> VariableLengthByteString
 instance
   (StaticLength len) =>
   ByteStringIn (FixedLengthInteger len) where
-  byteStringIn s =
-    byteStringInByteString (staticLength @len) s <&> \ (b, s') ->
-    (FixedLengthInteger $ byteStringToInteger BigEndian b, s')
+  byteStringIn = byteStringInByteString (staticLength @len) <&>
+    FixedLengthInteger . byteStringToInteger BigEndian
+{- Limitation:
+ - only integers of length less than 65536
+ - only non-negative integers (for now)
+ - and we do not reject non-canonical input (leading zeros) -}
+instance
+  ByteStringIn Integer where
+  byteStringIn = byteStringIn <&> toInt @VariableLengthByteString
+instance
+  ByteStringIn BuiltinByteString where
+  byteStringIn = byteStringIn <&> toByteString @VariableLengthByteString
 
+instance
+  ByteStringIn POSIXTime where
+  byteStringIn = byteStringIn <&> POSIXTime
+instance
+  ByteStringOut POSIXTime where
+  byteStringOut = byteStringOut . getPOSIXTime
 
+instance
+  ByteStringIn CurrencySymbol where
+  byteStringIn = byteStringIn <&> CurrencySymbol
+instance
+  ByteStringOut CurrencySymbol where
+  byteStringOut = byteStringOut . unCurrencySymbol
+
+instance
+  ByteStringIn PubKeyHash where
+  byteStringIn = byteStringIn <&> PubKeyHash
+instance
+  ByteStringOut PubKeyHash where
+  byteStringOut = byteStringOut . getPubKeyHash
 
 {-
 instance
@@ -617,24 +725,25 @@ instance Wrapping a (LiftRef Identity) Identity where
   unwrap = liftref
 
 class
-  (StaticLength (HashLength hf)) =>
+  (StaticLength hf) =>
   HashFunction hf where
-  type HashLength hf
   hashFunction :: BuiltinByteString -> Digest hf
 
-data Digest hf = Digest { digestByteString :: FixedLengthByteString (HashLength hf) }
-  deriving (Show, Eq)
+data Digest hf = Digest { digestByteString :: FixedLengthByteString hf }
+  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+instance Eq (Digest len) where
+  (Digest x) == (Digest y) = x == y
 instance
   (HashFunction hf) =>
   ByteStringIn (Digest hf) where
-  byteStringIn s = byteStringIn s <&> \ (b, s') -> (Digest b, s)
+  byteStringIn = byteStringIn <&> Digest
 instance
   (HashFunction hf) =>
   ByteStringOut (Digest hf) where
   byteStringOut (Digest b) = byteStringOut b
-instance HasToByteString (Digest hf) where
+instance ToByteString (Digest hf) where
   toByteString (Digest (FixedLengthByteString b)) = b
 
 data Message hf = Message BuiltinByteString
@@ -646,8 +755,9 @@ digest (Message m :: Message hf) = hashFunction @hf m
 
 data Blake2b_256
 instance HashFunction Blake2b_256 where
-  type HashLength Blake2b_256 = L32
   hashFunction = Digest . FixedLengthByteString . blake2b_256
+instance StaticLength Blake2b_256 where
+  staticLength = 32
 
 computeDigest :: (ByteStringOut a, HashFunction hf) => a -> Digest hf
 computeDigest x = -- digest ((Message (toByteStringOut x)) :: Message hf)
@@ -673,10 +783,10 @@ instance
   (DigestRef _ ah) == (DigestRef _ bh) = ah == bh
 
 instance (HashFunction hf) => ByteStringOut (DigestRef hf x) where
-   byteStringOut = byteStringOut . digestRefDigest
+  byteStringOut = byteStringOut . digestRefDigest
 {-
 instance (HashFunction hf) => ByteStringIn (DigestRef hf x) where
-    byteStringIn s = byteStringIn s >>= \ (b, s') -> Just (lookupDigest b, s') -}
+  byteStringIn = byteStringIn <&> lookupDigest -}
 
 instance DigestibleRef Blake2b_256 Blake2b_256_Ref where
   getDigest = digestRefDigest
@@ -734,7 +844,7 @@ class LiftByteStringOut r where
   liftByteStringOut :: (ByteStringOut a) => r a -> BuiltinByteString -> BuiltinByteString
 
 class LiftByteStringIn r where
-  liftByteStringIn :: (ByteStringIn a) => BuiltinByteString -> Maybe (r a, BuiltinByteString)
+  liftByteStringIn :: (ByteStringIn a) => ByteStringReader (r a)
 
 class LiftEq r where
   liftEq :: (Eq a) => r a -> r a -> Bool
@@ -813,26 +923,51 @@ class
   unwrap :: r a -> e a
 
 -- | Fixed size data structures
-type Byte4 = FixedLengthByteString L4
+type Bytes4 = FixedLengthByteString L4
 type UInt32 = FixedLengthInteger L4
-type Byte8 = FixedLengthByteString L8
+type Bytes8 = FixedLengthByteString L8
 type UInt64 = FixedLengthInteger L8
-type Byte32 = FixedLengthByteString L32
+type Bytes32 = FixedLengthByteString L32
 type UInt256 = FixedLengthInteger L32
-type Byte64 = FixedLengthByteString L64
+type Bytes64 = FixedLengthByteString L64
 
 type DataHash = Digest Blake2b_256
 
-data PubKey = PubKey Byte32
-  deriving (Show, Eq)
+data PubKey = PubKey Bytes32
+  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-instance HasToByteString PubKey where
+instance Eq PubKey where
+  (PubKey x) == (PubKey y) = x == y
+instance ToByteString PubKey where
   toByteString (PubKey (FixedLengthByteString pk)) = pk
-instance HasFromByteString PubKey where
+instance FromByteString PubKey where
   fromByteString pk = PubKey (FixedLengthByteString pk)
 instance ByteStringOut PubKey where
   byteStringOut (PubKey pk) = byteStringOut pk
 instance ByteStringIn PubKey where
-  byteStringIn s = byteStringIn s >>= \ (pk, s') ->
-    return (PubKey pk, s')
+  byteStringIn = byteStringIn <&> PubKey
+
+{-
+PlutusTx.makeLift ''FixedLengthByteString
+PlutusTx.makeIsDataSchemaIndexed ''FixedLengthByteString [('FixedLengthByteString, 0)]
+PlutusTx.makeLift ''Digest
+PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
+-}
+
+uncurry3 :: (a->b->c->d)->(a,b,c)->d
+uncurry3 f (a,b,c) = f a b c
+uncurry4 :: (a->b->c->d->e)->(a,b,c,d)->e
+uncurry4 f (a,b,c,d) = f a b c d
+uncurry5 :: (a->b->c->d->e->f)->(a,b,c,d,e)->f
+uncurry5 f (a,b,c,d,e) = f a b c d e
+uncurry6 :: (a->b->c->d->e->f->g)->(a,b,c,d,e,f)->g
+uncurry6 g (a,b,c,d,e,f) = g a b c d e f
+curry3 :: ((a,b,c)->d)->a->b->c->d
+curry3 f a b c = f (a, b, c)
+curry4 :: ((a,b,c,d)->e)->a->b->c->d->e
+curry4 f a b c d = f (a, b, c, d)
+curry5 :: ((a,b,c,d,e)->f)->a->b->c->d->e->f
+curry5 f a b c d e = f (a, b, c, d, e)
+curry6 :: ((a,b,c,d,e,f)->g)->a->b->c->d->e->f->g
+curry6 g a b c d e f = g (a, b, c, d, e, f)

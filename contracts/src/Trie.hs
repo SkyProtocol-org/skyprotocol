@@ -16,6 +16,7 @@
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE Strict                     #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -38,6 +39,7 @@ import SkyBase
 
 import PlutusTx.Prelude
 import PlutusTx
+import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Functor
 import PlutusTx.Show
@@ -46,6 +48,8 @@ import PlutusTx.Utils
 import Control.Composition ((-.))
 import Control.Monad (Monad, (>=>))
 import Data.Function ((&))
+import Data.Functor.Identity (Identity (..))
+import GHC.Generics (Generic)
 
 
 -- Abstract zippers
@@ -100,7 +104,7 @@ class
   TrieKey k
 
 class
-  (Dato h, HasToInt h, HasFromInt h) =>
+  (Dato h, ToInt h, FromInt h) =>
   TrieHeight h
 
 class
@@ -208,6 +212,10 @@ data
        to the first (low-order) bits of k1. -}
   }
   deriving (Eq, Show, Functor)
+instance
+  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn d) =>
+  ByteStringIn (TriePath h k d) where
+  byteStringIn = byteStringIn <&> \ (ph, pk, psm, po) -> TriePath ph pk psm po
 instance
   (TrieHeightKey h k, Dato d) =>
   ByteStringOut (TriePath h k d)
@@ -519,6 +527,7 @@ ofList bindings = empty >>= zipperOf >>= zipInsertList bindings >>= ofZipper
 listOf :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => Trie r h k c -> e [(k, c)]
 listOf = zipperOf >=> flip appendListOfZipper []
 
+
 -- TODO: have merkle proofs of Non-Inclusion, by showing the last not before Empty.
 getMerkleProof ::
   (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, DigestibleRef hf r, LiftDato r, Dato c) =>
@@ -540,11 +549,39 @@ digestTrieStep ::
   Digest hf
 digestTrieStep s h = computeDigest $ applyTrieStep s h
 
-isMerkleProof :: (TrieHeightKey h k, HashFunction hf, ByteStringOut (Digest hf), Monad e) => k -> Digest hf -> Digest hf -> TrieProof h k hf -> e Bool
-isMerkleProof key leafDigest topDigest proof =
-  do
-    synthTop <-
-      zipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof)
---        <&> \case Zip d (TriePath hh _ _ _) -> computeDigest $ TrieTop hh d
-        >>= \case Zip d (TriePath hh _ _ _) -> return . computeDigest $ TrieTop hh d
-    return (synthTop == topDigest && key == triePathKey proof)
+applyMerkleProof :: (TrieHeightKey h k, HashFunction hf, ByteStringOut (Digest hf), Monad e) => Digest hf -> TrieProof h k hf -> e (Digest hf)
+applyMerkleProof leafDigest proof =
+  zipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof) >>=
+  \case Zip d (TriePath hh _ _ _) -> return . computeDigest $ TrieTop hh d
+
+-- MerkleProof for metadata and data in Sky
+type Trie64Proof = TrieProof Byte Bytes8 Blake2b_256
+instance Dato Byte where
+instance TrieHeight Byte where
+instance Dato Bytes8 where
+instance TrieKey Bytes8 where
+instance TrieHeightKey Byte Bytes8 where
+-- Chain metadata, Path to Topic, Topic metadata, Path to Message, Message metadata, Message
+data SkyDataProof = SkyDataProof
+  { skyMessageMetaDataHash :: DataHash
+  , skyMessageInTopicProof :: Trie64Proof
+  , skyTopicMetaDataHash :: DataHash
+  , skyTopicInDaProof :: Trie64Proof
+  , skyDaMetaDataHash :: DataHash }
+  deriving (Eq, Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+instance ByteStringIn SkyDataProof where
+  byteStringIn = byteStringIn <&> uncurry5 SkyDataProof
+
+applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
+applySkyDataProof SkyDataProof {..} messageDataHash =
+  runIdentity $ do
+     let messageLeaf :: TrieNodeF Byte Bytes8 (DataHash, DataHash) ()
+         messageLeaf = Leaf (skyMessageMetaDataHash, messageDataHash)
+     let messageLeafHash = computeDigest messageLeaf :: DataHash
+     topicDataHash <- applyMerkleProof messageLeafHash skyMessageInTopicProof
+     let topicLeaf = Leaf (skyTopicMetaDataHash, topicDataHash) :: TrieNodeF Byte Bytes8 (DataHash, DataHash) ()
+     let topicLeafHash = computeDigest topicLeaf :: DataHash
+     daDataHash <- applyMerkleProof topicLeafHash skyTopicInDaProof
+     return . computeDigest $ (skyDaMetaDataHash, daDataHash)
