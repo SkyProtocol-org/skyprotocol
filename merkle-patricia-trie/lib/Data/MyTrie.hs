@@ -6,9 +6,9 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 -- {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 -- {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module Data.MyTrie (TrieNodeRef, TrieNode, TrieTop (..), TrieNodeF (..), TrieNodeFL (..), TrieStep (..), Trie, TrieKey, TriePath (..), TrieZipper, TrieProof, Zip (..), pathStep, stepUp, stepDown, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, ofTrieZipperFocus, trieZipperFocusOnly, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf, rf, fr, getMerkleProof, isMerkleProof) where
 -- import Debug.Trace
@@ -280,7 +280,11 @@ instance (TrieHeightKey h k, Wrapping (TrieNode r h k c) (Lift r) e, LiftShow r,
         RightStep l -> rf $ Branch l x
         SkipStep h k -> rf $ Skip h k x
 
-{- refocus the zipper toward the set of keys from k' `shiftL` h' included to (k' + 1) `shiftL` h' excluded -}
+{- refocus the zipper toward the set of keys from k' `shiftL` h' included to (k' + 1) `shiftL` h' excluded.
+   A more generic API might generalize the "blur" (which is the type h for height in tries, but could be
+   an interval width in another tree structure, or whatever) from being a number to being a typeclass
+   (Blur blur) with a method pinSharp :: blur instead of 0. Or it might generalize the pair (blur, key)
+   by a typeclass (Focus focus key) with an injection pinSharp :: key -> focus. -}
   refocus h' k' z@(Zip node path@(TriePath h0 k0 _ _)) =
     --trace (show ("refocus", h', k', z)) $
     if h' == (-1) then -- focus from infinity
