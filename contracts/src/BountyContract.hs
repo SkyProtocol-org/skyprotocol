@@ -34,7 +34,9 @@ module BountyContract where
 
 import SkyBase
 import Trie
+import SkyDA
 import SkyBridgeContract (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
+
 import GHC.Generics (Generic)
 
 import PlutusCore.Version (plcVersion100)

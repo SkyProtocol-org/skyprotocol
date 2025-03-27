@@ -52,45 +52,7 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, blake2b_256)
 
 import SkyBase
-
-------------------------------------------------------------------------------
--- Core Data Types
-------------------------------------------------------------------------------
-
--- List of data operators that must sign and minimum number of them that must sign
-data MultiSigPubKey = MultiSigPubKey [PubKey] Integer
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn MultiSigPubKey where
-  byteStringIn = byteStringIn <&> \ (l, n) -> MultiSigPubKey l (fromUInt16 n)
-
--- A single signature by a single data operator public key
-data SingleSig = SingleSig PubKey Bytes64
-  deriving (PlutusTx.Eq)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn SingleSig where
-  byteStringIn = byteStringIn <&> uncurry SingleSig
-
--- Signatures produced by data operators for top hash
-data MultiSig = MultiSig [SingleSig]
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn MultiSig where
-  byteStringIn = byteStringIn <&> MultiSig
-
-{-
-PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''PubKey [('PubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSigPubKey [('MultiSigPubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''SingleSig [('SingleSig, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSig [('MultiSig, 0)]
-PlutusTx.makeLift ''DataHash
-PlutusTx.makeLift ''PubKey
-PlutusTx.makeLift ''MultiSigPubKey
-PlutusTx.makeLift ''SingleSig
-PlutusTx.makeLift ''MultiSig
--}
+import SkyDA
 
 ------------------------------------------------------------------------------
 -- Datum Stored in Bridge NFT
@@ -99,7 +61,7 @@ PlutusTx.makeLift ''MultiSig
 data BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: DataHash
   }
-  deriving (PlutusTx.Eq)
+  deriving (Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn BridgeNFTDatum where
@@ -286,7 +248,7 @@ multiSigValid (MultiSigPubKey pubKeys minSigs) topHash (MultiSig singleSigs) =
      then False -- Duplicates found, return False
      else let -- Filter for valid signatures from required public keys
               validSignatures = PlutusTx.filter (\ss@(SingleSig pubKey sig) -> pubKey `PlutusTx.elem` pubKeys && singleSigValid topHash ss) singleSigs
-          in PlutusTx.length validSignatures PlutusTx.>= minSigs
+          in PlutusTx.length validSignatures PlutusTx.>= toInt minSigs
 
 -- Create fingerprint of a multisig pubkey
 multiSigToDataHash :: MultiSigPubKey -> DataHash

@@ -60,7 +60,7 @@ import Control.Monad (Monad)
 import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
---import Data.Maybe (fromJust)
+--import Data.Maybe (fromJust) -- won't compile to Plutus (!) so we redefine it.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
 
@@ -467,12 +467,20 @@ instance
     byteStringOut a $
     byteStringOut b s
 instance
+  (ByteStringOut a, ByteStringOut b) =>
+  ToByteString (a, b) where
+  toByteString = toByteStringOut
+instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c) =>
   ByteStringOut (a, b, c) where
   byteStringOut (a, b, c) s =
     byteStringOut a $
     byteStringOut b $
     byteStringOut c s
+instance
+  (ByteStringOut a, ByteStringOut b, ByteStringOut c) =>
+  ToByteString (a, b, c) where
+  toByteString = toByteStringOut
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
   ByteStringOut (a, b, c, d) where
@@ -481,6 +489,10 @@ instance
     byteStringOut b $
     byteStringOut c $
     byteStringOut d s
+instance
+  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
+  ToByteString (a, b, c, d) where
+  toByteString = toByteStringOut
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
   ByteStringOut (a, b, c, d, e) where
@@ -491,6 +503,10 @@ instance
     byteStringOut d $
     byteStringOut e s
 instance
+  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
+  ToByteString (a, b, c, d, e) where
+  toByteString = toByteStringOut
+instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
   ByteStringOut (a, b, c, d, e, f) where
   byteStringOut (a, b, c, d, e, f) s =
@@ -499,12 +515,18 @@ instance
     byteStringOut c $
     byteStringOut d $
     byteStringOut e $
-    byteStringOut e s
+    byteStringOut f s
+instance
+  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
+  ToByteString (a, b, c, d, e, f) where
+  toByteString = toByteStringOut
 instance
   (ByteStringOut a) =>
   ByteStringOut [a] where -- length limit 65535
   byteStringOut l s =
     byteStringOut (toUInt16 $ length l) $ foldr byteStringOut s l
+instance (ByteStringOut a) => ToByteString [a] where
+  toByteString = toByteStringOut
 instance ByteStringOut Byte where
   byteStringOut (Byte b) = consByteString b
 instance ByteStringOut UInt16 where
@@ -526,7 +548,6 @@ instance
     appendByteString (integerToByteString BigEndian (staticLength @len) i)
 instance ByteStringOut VariableLengthInteger where
   byteStringOut = byteStringOut . toByteString
-
 
 -- | Pure Input from ByteString
 data ByteStringReader a = ByteStringReader
@@ -748,12 +769,12 @@ instance
 instance ToByteString (Digest hf) where
   toByteString (Digest (FixedLengthByteString b)) = b
 
-data Message hf = Message BuiltinByteString
+data PlainText hf = PlainText BuiltinByteString
   deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-digest :: HashFunction hf => Message hf -> Digest hf
-digest (Message m :: Message hf) = hashFunction @hf m
+digest :: HashFunction hf => PlainText hf -> Digest hf
+digest (PlainText m :: PlainText hf) = hashFunction @hf m
 
 data Blake2b_256
 instance HashFunction Blake2b_256 where
@@ -761,9 +782,8 @@ instance HashFunction Blake2b_256 where
 instance StaticLength Blake2b_256 where
   staticLength = 32
 
-computeDigest :: (ByteStringOut a, HashFunction hf) => a -> Digest hf
-computeDigest x = -- digest ((Message (toByteStringOut x)) :: Message hf)
-  hashFunction (toByteStringOut x)
+computeDigest :: (ToByteString a, HashFunction hf) => a -> Digest hf
+computeDigest a = hashFunction (toByteString a)
 
 class
   (HashFunction hf) =>
@@ -772,9 +792,11 @@ class
   getDigest :: r a -> Digest hf
 
 data DigestRef hf x = DigestRef {digestRefValue :: x, digestRefDigest :: Digest hf}
-  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+
+digestRef :: (ToByteString a, HashFunction hf) => a -> DigestRef hf a
+digestRef x = DigestRef x (computeDigest x)
 
 -- instance LiftShow (DigestRef hf) where
 --   liftShow = show . digestRefDigest
@@ -795,11 +817,27 @@ instance DigestibleRef Blake2b_256 Blake2b_256_Ref where
 
 type Blake2b_256_Ref = DigestRef Blake2b_256
 
-instance (ByteStringOut a, HashFunction hf) => PreWrapping a (LiftRef (DigestRef hf)) Identity where
+instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
+  show (DigestRef x _) = "(digestRef $ " <> show x <> ")"
+instance (ToByteString a, HashFunction hf) => PreWrapping a (LiftRef (DigestRef hf)) Identity where
   wrap x = Identity (LiftRef $ DigestRef x $ (computeDigest @a @hf x))
-
-instance (ByteStringOut a, HashFunction hf) => Wrapping a (LiftRef (DigestRef hf)) Identity where
+instance (ToByteString a, HashFunction hf) => Wrapping a (LiftRef (DigestRef hf)) Identity where
   unwrap (LiftRef (DigestRef x _)) = Identity x
+instance
+  (HashFunction hf) =>
+  LiftByteStringOut (DigestRef hf) where
+  liftByteStringOut = byteStringOut . digestRefDigest
+instance
+  (HashFunction hf) =>
+  LiftShow (DigestRef hf) where
+  liftShow = show
+instance
+  (HashFunction hf) =>
+  LiftEq (DigestRef hf) where
+  liftEq = (==)
+instance
+  (HashFunction hf) =>
+  LiftDato (DigestRef hf) where
 
 lookupDigest :: (HashFunction hf) => Digest hf -> a
 lookupDigest = traceError "Cannot get a value from its digest"
@@ -856,13 +894,24 @@ class LiftShow r where
 instance LiftShow Identity where
   liftShow = show . runIdentity
 
--- | Dato
-class
-  (ByteStringOut d, Show d, Eq d) =>
-  Dato d
-class
-  (LiftByteStringOut r, LiftShow r, LiftEq r) =>
-  LiftDato r
+-- PlutusTx only has this for pairs, not longer tuples
+-- | Eq
+instance
+  (Eq a, Eq b, Eq c) =>
+  Eq (a, b, c) where
+  (a, b, c) == (a', b', c') = a == a' && b == b' && c == c'
+instance
+  (Eq a, Eq b, Eq c, Eq d) =>
+  Eq (a, b, c, d) where
+  (a, b, c, d) == (a', b', c', d') = a == a' && b == b' && c == c' && d == d'
+instance
+  (Eq a, Eq b, Eq c, Eq d, Eq e) =>
+  Eq (a, b, c, d, e) where
+  (a, b, c, d, e) == (a', b', c', d', e') = a == a' && b == b' && c == c' && d == d' && e == e'
+instance
+  (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) =>
+  Eq (a, b, c, d, e, f) where
+  (a, b, c, d, e, f) == (a', b', c', d', e', f') = a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 
 -- | Y-combinator or fixed point combinator for types
 newtype Fix f = In {out :: f (Fix f)}
@@ -885,6 +934,29 @@ instance
   (LiftDato r) =>
   Dato (Fix r)
   where
+
+-- | Dato
+class
+  (ByteStringOut d, Show d, Eq d) =>
+  Dato d
+class
+  (LiftByteStringOut r, LiftShow r, LiftEq r) =>
+  LiftDato r
+instance
+  (Dato a, Dato b) =>
+  Dato (a, b) where
+instance
+  (Dato a, Dato b, Dato c) =>
+  Dato (a, b, c) where
+instance
+  (Dato a, Dato b, Dato c, Dato d) =>
+  Dato (a, b, c, d) where
+instance
+  (Dato a, Dato b, Dato c, Dato d, Dato e) =>
+  Dato (a, b, c, d, e) where
+instance
+  (Dato a, Dato b, Dato c, Dato d, Dato e, Dato f) =>
+  Dato (a, b, c, d, e, f) where
 
 -- | LiftRef
 data LiftRef r a = LiftRef {liftref :: r a}

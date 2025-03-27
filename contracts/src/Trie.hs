@@ -130,6 +130,9 @@ instance
   where
   byteStringOut (TrieTop h t) = byteStringOut (toUInt16 h, t)
 
+instance (ByteStringOut t) => ToByteString (TrieTop t) where
+  toByteString = toByteStringOut
+
 instance
   (Dato t) =>
   Dato (TrieTop t) where
@@ -151,6 +154,12 @@ instance
   byteStringOut (Leaf c) = byteStringOut (Byte 1, c)
   byteStringOut (Branch l r) = byteStringOut (Byte 2, l, r)
   byteStringOut (Skip h k c) = byteStringOut (Byte 3, h, k, c)
+
+instance
+  (TrieHeightKey h k, ByteStringOut c, ByteStringOut t) =>
+  ToByteString (TrieNodeF h k c t)
+  where
+  toByteString = toByteStringOut
 
 newtype TrieNodeFL r h k c t = TrieNodeFL {tfl :: TrieNodeF h k c (LiftRef r t)}
   deriving (Eq, Show)
@@ -175,6 +184,11 @@ instance
   where
 
 type TrieNode r h k c = Fix (TrieNodeFL r h k c)
+instance
+  (TrieHeightKey h k, LiftByteStringOut r, ByteStringOut c) =>
+  ToByteString (TrieNode r h k c) where
+  toByteString = toByteStringOut
+
 
 -- Get a reference from a TrieNodeF
 rf :: (PreWrapping (TrieNode r h k c) (LiftRef r) e) => TrieNodeF h k c (TrieNodeRef r h k c) -> e (TrieNodeRef r h k c)
@@ -545,47 +559,15 @@ applyTrieStep s t = case s of
   RightStep l -> Branch l t
   SkipStep h k -> Skip h k t
 
+{-# INLINEABLE digestTrieStep #-}
 digestTrieStep ::
-  (TrieHeightKey h k, HashFunction hf, ByteStringOut (Digest hf)) =>
+  (TrieHeightKey h k, HashFunction hf) =>
   TrieStep h k (Digest hf) ->
   Digest hf ->
   Digest hf
 digestTrieStep s h = computeDigest $ applyTrieStep s h
 
-applyMerkleProof :: (TrieHeightKey h k, HashFunction hf, ByteStringOut (Digest hf), Monad e) => Digest hf -> TrieProof h k hf -> e (Digest hf)
+applyMerkleProof :: (TrieHeightKey h k, HashFunction hf, Monad e) => Digest hf -> TrieProof h k hf -> e (Digest hf)
 applyMerkleProof leafDigest proof =
   zipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof) >>=
   \case Zip d (TriePath hh _ _ _) -> return . computeDigest $ TrieTop hh d
-
--- MerkleProof for metadata and data in Sky
-type Trie64Proof = TrieProof Byte Bytes8 Blake2b_256
-instance Dato Byte where
-instance TrieHeight Byte where
-instance Dato Bytes8 where
-instance TrieKey Bytes8 where
-instance TrieHeightKey Byte Bytes8 where
--- Chain metadata, Path to Topic, Topic metadata, Path to Message, Message metadata, Message
-data SkyDataProof = SkyDataProof
-  { skyMessageMetaDataHash :: DataHash
-  , skyMessageInTopicProof :: Trie64Proof
-  , skyTopicMetaDataHash :: DataHash
-  , skyTopicInDaProof :: Trie64Proof
-  , skyDaMetaDataHash :: DataHash }
-  deriving (Eq, Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn SkyDataProof where
-  byteStringIn = byteStringIn <&> uncurry5 SkyDataProof
-
-{-# INLINEABLE applySkyDataProof #-}
-applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
-applySkyDataProof SkyDataProof {..} messageDataHash =
-  runIdentity $ do
-     let messageLeaf :: TrieNodeF Byte Bytes8 (DataHash, DataHash) ()
-         messageLeaf = Leaf (skyMessageMetaDataHash, messageDataHash)
-     let messageLeafHash = computeDigest messageLeaf :: DataHash
-     topicDataHash <- applyMerkleProof messageLeafHash skyMessageInTopicProof
-     let topicLeaf = Leaf (skyTopicMetaDataHash, topicDataHash) :: TrieNodeF Byte Bytes8 (DataHash, DataHash) ()
-     let topicLeafHash = computeDigest topicLeaf :: DataHash
-     daDataHash <- applyMerkleProof topicLeafHash skyTopicInDaProof
-     return . computeDigest $ (skyDaMetaDataHash, daDataHash)
