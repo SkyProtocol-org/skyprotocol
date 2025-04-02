@@ -107,10 +107,10 @@ type TrieZipper r h k c = TrieZip h k (TrieNodeRef r h k c) (TrieNodeRef r h k c
 
 type TrieZip h k f b = Zip (TriePath h k) f b
 
-data TrieStep h k t
-  = LeftStep t
-  | RightStep t
-  | SkipStep h k
+data TrieStep h k o
+  = LeftStep o -- ^ take a left step with that other thing on the right
+  | RightStep o -- ^ take a right step with that other thing on the left
+  | SkipStep h k -- ^ take a step over some index bits to skip
   deriving (Eq, Functor, Show)
 
 data
@@ -162,7 +162,7 @@ class
   refocus :: focusKey -> Zip pathF node node -> e (Zip pathF node node)
 
 class
-  (Dato k, HasBitLogic k) =>
+  (Dato k, ToInt k, FromInt k, HasBitLogic k) =>
   TrieKey k where
 
 class
@@ -227,6 +227,10 @@ instance
   LiftByteStringOut (TrieNodeFL r h k c) where
   liftByteStringOut = byteStringOut . tfl
 instance
+  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c) =>
+  LiftToByteString (TrieNodeFL r h k c) where
+  liftToByteString = toByteStringOut . tfl
+instance
   (Show h, Show k, Show c, LiftShow r) =>
   LiftShow (TrieNodeFL r h k c) where
   liftShow = show
@@ -253,6 +257,10 @@ instance
   byteStringOut (TriePath h k m ds) = byteStringOut (h, k, m, ds)
 instance
   (TrieHeightKey h k, Dato d) =>
+  ToByteString (TriePath h k d) where
+  toByteString = toByteStringOut
+instance
+  (TrieHeightKey h k, Dato d) =>
   Dato (TriePath h k d) where
 instance
   (TrieHeightKey h k) =>
@@ -261,13 +269,17 @@ instance
 
 -- ** TrieStep
 instance
-  (ByteStringOut h, ByteStringOut k, ByteStringOut t) =>
+  (TrieHeightKey h k, ByteStringOut t) =>
   ByteStringOut (TrieStep h k t) where
   byteStringOut (LeftStep t) = byteStringOut (Byte 0, t)
   byteStringOut (RightStep t) = byteStringOut (Byte 1, t)
   byteStringOut (SkipStep h k) = byteStringOut (Byte 2, h, k)
 instance
-  (Dato h, Dato k, Dato t) =>
+  (TrieHeightKey h k, ByteStringOut t) =>
+  ToByteString (TrieStep h k t) where
+  toByteString = toByteStringOut
+instance
+  (TrieHeightKey h k, Dato t) =>
   Dato (TrieStep h k t) where
 instance
   (ByteStringIn h, ByteStringIn k, ByteStringIn t) =>
@@ -317,7 +329,7 @@ instance
       SkipStep hd kd -> triePathSkipDown (1 + toInt hd) kd p
 
 instance
-  (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) =>
+  (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
   Zipper e (Trie r h k c) (TrieNodeRef r h k c) (TriePath h k) (TrieStep h k) where
   zipperOf (TrieTop h t) = return $ Zip t (TriePath h (lowBitsMask 0) (lowBitsMask 0) [])
   ofTopZipper = ofTrieZipperFocus
@@ -342,7 +354,7 @@ instance
         SkipStep h k -> rf $ Skip h k x
 
 instance
-  (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) =>
+  (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
   FocusableZipper e (TrieNodeRef r h k c) (TriePath h k) (Integer, k) where
 {- refocus the zipper toward the set of keys from k' `shiftLeft` h' included to (k' + 1) `shiftLeft` h' excluded -}
   refocus (h', k') z@(Zip node path@(TriePath h0 k0 _ _)) =
@@ -462,7 +474,7 @@ instance
                              descend e0
 
 instance
-  (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) =>
+  (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
   FocusableZipper e (TrieNodeRef r h k c) (TriePath h k) k where
   refocus k z = refocus (0, k) z
 
@@ -483,11 +495,11 @@ ofZipper :: (Zipper e top node pathF stepF, Dato top, Dato (pathF node), Dato (s
 ofZipper = zipUp stepUp >=> ofTopZipper
 
 -- | Get a TrieNodeRef from a TrieNodeF
-rf :: (PreWrapping (TrieNode r h k c) (LiftRef r) e) => TrieNodeF h k c (TrieNodeRef r h k c) -> e (TrieNodeRef r h k c)
+rf :: (LiftPreWrapping e r, TrieHeightKey h k, LiftDato r, Dato c) => TrieNodeF h k c (TrieNodeRef r h k c) -> e (TrieNodeRef r h k c)
 rf = wrap . Fix . TrieNodeFL
 
 -- | Get a TrieNodeF from a TrieNodeRef
-fr :: (Wrapping (TrieNode r h k c) (LiftRef r) e) => TrieNodeRef r h k c -> e (TrieNodeF h k c (TrieNodeRef r h k c))
+fr :: (LiftWrapping e r, TrieHeightKey h k, LiftDato r, Dato c) => TrieNodeRef r h k c -> e (TrieNodeF h k c (TrieNodeRef r h k c))
 fr w = do u <- unwrap w; case getFix u of TrieNodeFL x -> return x
 
 triePathSkipDown :: (TrieHeightKey h k) => Integer -> k -> TriePath h k d -> TriePath h k d
@@ -498,7 +510,7 @@ triePathSkipDown sl sk p@(TriePath h k m d) =
         m' = shiftLeftWithBits m sl $ lowBitsMask sl
     in TriePath h' k' m' d
 
-trieNodeSkipUp :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => Integer -> k -> TrieNodeRef r h k c -> e (TrieNodeRef r h k c)
+trieNodeSkipUp :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Integer -> k -> TrieNodeRef r h k c -> e (TrieNodeRef r h k c)
 trieNodeSkipUp l k x =
   if l == 0 then return x else
     fr x >>= \case
@@ -507,11 +519,11 @@ trieNodeSkipUp l k x =
       _ -> rf $ Skip (fromInt $ l - 1) k x
 
 -- Get a Trie out of the focus of a TrieZipper
-ofTrieZipperFocus :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => TrieZipper r h k c -> e (Trie r h k c)
+ofTrieZipperFocus :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e (Trie r h k c)
 ofTrieZipperFocus = trieZipperFocusOnly >=> \case Zip f (TriePath h _ _ _) -> return $ TrieTop h f --)
 
 -- Keep the focus, prune all branches above, zip up to the top
-trieZipperFocusOnly :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => TrieZipper r h k c -> e (TrieZipper r h k c)
+trieZipperFocusOnly :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e (TrieZipper r h k c)
 trieZipperFocusOnly (Zip f p@(TriePath h k _ _)) =
   let done h' f' = return $ Zip f' (TriePath h' (lowBitsMask 0) (lowBitsMask 0) []) in
     fr f >>= \case
@@ -522,24 +534,43 @@ trieZipperFocusOnly (Zip f p@(TriePath h k _ _)) =
 zipMapFocus :: (Monad e) => (node -> e node') -> Zip pathF node otherdata -> e (Zip pathF node' otherdata)
 zipMapFocus f (Zip node path) = f node >>= return . flip Zip path
 
-zipUpdate :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => (Maybe c -> e (Maybe c)) -> k -> TrieZipper r h k c -> e (TrieZipper r h k c)
+zipUpdate :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => (Maybe c -> e (Maybe c)) -> k -> TrieZipper r h k c -> e (TrieZipper r h k c)
 zipUpdate updateLeaf k = refocus (0, k) >=> zipMapFocus (maybeOfLeaf >=> updateLeaf >=> leafOfMaybe)
 
 -- NOTE: zipInsert v k, not zipInsert k v
-zipInsert :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => c -> k -> TrieZipper r h k c -> e (TrieZipper r h k c)
+zipInsert :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => c -> k -> TrieZipper r h k c -> e (TrieZipper r h k c)
 zipInsert = zipUpdate . const . return . Just
 
-zipRemove :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => k -> TrieZipper r h k c -> e (TrieZipper r h k c)
+zipRemove :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> TrieZipper r h k c -> e (TrieZipper r h k c)
 zipRemove = zipUpdate (return . const Nothing)
 
-zipLookup :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, Monad e, LiftDato r, Dato c) => k -> TrieZipper r h k c -> e (Maybe c)
+zipLookup :: (TrieHeightKey h k, LiftWrapping e r, Monad e, LiftDato r, Dato c) => k -> TrieZipper r h k c -> e (Maybe c)
 zipLookup k = refocus (0, k) >=> return . zipFocus >=> maybeOfLeaf
 
-zipInsertList :: (Dato c, LiftDato r, TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => [(k, c)] -> TrieZipper r h k c -> e (TrieZipper r h k c)
+zipInsertList :: (LiftDato r, TrieHeightKey h k, LiftWrapping e r, Dato c) => [(k, c)] -> TrieZipper r h k c -> e (TrieZipper r h k c)
 zipInsertList ((k, v) : l) = zipInsertList l >=> zipInsert v k
 zipInsertList [] = return
 
-appendListOfZipper :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => TrieZipper r h k c -> [(k, c)] -> e [(k, c)]
+zipFocusLastLeaf :: (Monad e, TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e (TrieZipper r h k c)
+zipFocusLastLeaf z = zipUp stepUp z >>= descendRight where
+  descendRight z@(Zip node path) = fr node >>= \case
+    Empty -> return z -- it was empty all along
+    Leaf _ -> return z -- found it
+    Branch left right -> stepDown (RightStep left) path >>= descendRight . Zip right
+    Skip hn kn cn -> stepDown (SkipStep hn kn) path >>= descendRight . Zip cn
+
+zipLastLeaf :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e (Maybe (k, c))
+zipLastLeaf = zipFocusLastLeaf >=> \ (Zip node (TriePath _ k _ _)) -> fr node >>= \case
+  Leaf c -> return $ Just (k, c) -- found it
+  _ -> return Nothing -- not found: should be Empty, since Branch and Skip are invalid.
+
+-- TODO: bounds check on k and return a Maybe instead of erroring out
+zipNextIndex :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e k
+zipNextIndex z = zipLastLeaf z >>= \case
+  Nothing -> return . fromInt $ 0
+  Just (k, _) -> return . fromInt $ 1 + toInt k
+
+appendListOfZipper :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> [(k, c)] -> e [(k, c)]
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
  --trace "aloz" $
   fr t >>= \case
@@ -554,47 +585,50 @@ appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
       sp <- stepDown (SkipStep h k') p
       appendListOfZipper (Zip c sp) a
 
-update :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => (Maybe c -> e (Maybe c)) -> k -> Trie r h k c -> e (Trie r h k c)
+update :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => (Maybe c -> e (Maybe c)) -> k -> Trie r h k c -> e (Trie r h k c)
 update updateLeaf key = zipperOf >=> zipUpdate updateLeaf key >=> ofZipper
 
 -- NOTE: zipInsert v k, not zipInsert k v
 -- The definition suggests we should swap v and k, so insert = update . const . Just
-insert :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => c -> k -> Trie r h k c -> e (Trie r h k c)
+insert :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => c -> k -> Trie r h k c -> e (Trie r h k c)
 insert v k = update (const (return (Just v))) k
 
-remove :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => k -> Trie r h k c -> e (Trie r h k c)
+remove :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> Trie r h k c -> e (Trie r h k c)
 remove = update (return . const Nothing)
 
-lookup :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => k -> Trie r h k c -> e (Maybe c)
+lookup :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> Trie r h k c -> e (Maybe c)
 lookup k = zipperOf >=> zipLookup k
 
-leafOfMaybe :: (PreWrapping (TrieNode r h k c) (LiftRef r) e) => Maybe c -> e (TrieNodeRef r h k c)
+-- TODO: bounds check on k and return a Maybe instead of erroring out
+nextIndex :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Trie r h k c -> e k
+nextIndex = zipperOf >=> zipNextIndex
+
+leafOfMaybe :: (LiftPreWrapping e r, TrieHeightKey h k, LiftDato r, Dato c) => Maybe c -> e (TrieNodeRef r h k c)
 leafOfMaybe Nothing = rf Empty
 leafOfMaybe (Just v) = rf (Leaf v)
 
-maybeOfLeaf :: (Wrapping (TrieNode r h k c) (LiftRef r) e) => TrieNodeRef r h k c -> e (Maybe c)
+maybeOfLeaf :: (LiftWrapping e r, TrieHeightKey h k, LiftDato r, Dato c) => TrieNodeRef r h k c -> e (Maybe c)
 maybeOfLeaf x =
   fr x
     >>= return . \case
       Leaf v -> Just v
       _ -> Nothing -- only the Empty case should be used
 
-singleton :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => k -> c -> e (Trie r h k c)
+singleton :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> c -> e (Trie r h k c)
 singleton k v = empty >>= insert v k
 
-empty :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e) => e (Trie r h k c)
+empty :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => e (Trie r h k c)
 empty = rf Empty >>= return . TrieTop (-1)
 
-ofList :: (LiftDato r, Dato h, Dato k, Dato c, TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e) => [(k, c)] -> e (Trie r h k c)
+ofList :: (LiftDato r, Dato h, Dato k, Dato c, TrieHeightKey h k, LiftWrapping e r) => [(k, c)] -> e (Trie r h k c)
 ofList bindings = empty >>= zipperOf >>= zipInsertList bindings >>= ofZipper
 
-listOf :: (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, LiftDato r, Dato c) => Trie r h k c -> e [(k, c)]
+listOf :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Trie r h k c -> e [(k, c)]
 listOf = zipperOf >=> flip appendListOfZipper []
-
 
 -- TODO: have merkle proofs of Non-Inclusion, by showing the last not before Empty.
 getMerkleProof ::
-  (TrieHeightKey h k, Wrapping (TrieNode r h k c) (LiftRef r) e, DigestibleRef hf r, LiftDato r, Dato c) =>
+  (TrieHeightKey h k, LiftWrapping e r, DigestibleRef hf r, LiftDato r, Dato c) =>
   k ->
   Trie r h k c ->
   e (TrieProof h k hf)

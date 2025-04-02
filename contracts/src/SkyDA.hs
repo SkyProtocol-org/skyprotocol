@@ -175,6 +175,26 @@ tupleOfSkyDataPath SkyDataPath {..} = (pathDaMetaData, pathTopicTriePath, pathTo
 tupleOfMultiSigPubKey :: MultiSigPubKey -> ([PubKey], UInt16)
 tupleOfMultiSigPubKey MultiSigPubKey {..} = (multiSigPubKeyKeys, multiSigPubKeyThreshold)
 
+-- TODO: generate a new Committee from PoS instead of just copying the PoA committee
+-- Maybe it should depend on a seed based on the topicId and more.
+generateCommittee :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) => SkyDa r -> e (LiftRef r Committee)
+generateCommittee (m, _) = unwrap m <&> daCommittee
+
+-- TODO: add authentication, payment, etc., if not in this function, in one that wraps around it.
+insertTopic :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
+  DataHash -> SkyDa r -> e (Bytes8, SkyDa r)
+insertTopic newTopicSchema da@(rDaMetaData, rOldTopicTrie) =
+  do
+    newTopicCommittee <- generateCommittee da
+    oldTopicTrie <- unwrap rOldTopicTrie
+    newTopicId <- nextIndex oldTopicTrie
+    newMessageTrie <- empty
+    rNewMessageTrie <- wrap newMessageTrie
+    rNewTopicMetaData <- wrap $ TopicMetaData newTopicSchema newTopicCommittee
+    let newTopic = (rNewTopicMetaData, rNewMessageTrie)
+    rNewTopicTrie <- insert newTopic newTopicId oldTopicTrie >>= wrap
+    return (newTopicId, (rDaMetaData, rNewTopicTrie))
+
 {-# INLINEABLE applySkyDataProof #-}
 applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
 applySkyDataProof SkyDataPath {..} messageDataHash =
@@ -193,7 +213,7 @@ applySkyDataProof SkyDataProof {..} messageDataHash =
 
 SkyDataZipper :: ()
 
-getSkyDataProof :: Bytes8 -> Bytes8 -> SkyDA -> SkyDataProof
+getSkyDataProof :: Bytes8 -> Bytes8 -> SkyDa r -> SkyDataProof
 getSkyDataProof =
 -}
 

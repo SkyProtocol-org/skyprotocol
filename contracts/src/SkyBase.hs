@@ -37,8 +37,6 @@
 
 -- (trace')
 module SkyBase where
---module SkyBase (PreWrapping, Wrapping, LiftRef (..), LiftBinary, LiftShow, LiftEq, wrap, unwrap, integerLength, fbIntegerLength, fbuIntegerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, fbuLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest, trace', trace1, trace2, trace3, etrace1, etrace2, etrace3) where
--- DigestOnly (..),
 
 import GHC.Generics (Generic)
 
@@ -192,11 +190,11 @@ class HasBitLogic a where
   shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
 
 class
-  (ByteStringOut d, Show d, Eq d) =>
+  (ByteStringOut d, ToByteString d, Show d, Eq d) =>
   Dato d
 
 class
-  (LiftByteStringOut r, LiftShow r, LiftEq r) =>
+  (LiftByteStringOut r, LiftToByteString r, LiftShow r, LiftEq r) =>
   LiftDato r
 
 class LiftEq r where
@@ -206,23 +204,35 @@ class LiftShow r where
   liftShow :: (Show a) => r a -> BuiltinString
 
 class LiftByteStringOut r where
-  liftByteStringOut :: (ByteStringOut a) => r a -> BuiltinByteString -> BuiltinByteString
+  liftByteStringOut :: (Dato a) => r a -> BuiltinByteString -> BuiltinByteString
+
+class LiftToByteString r where
+  liftToByteString :: (Dato a) => r a -> BuiltinByteString
 
 class LiftByteStringIn r where
   liftByteStringIn :: (ByteStringIn a) => ByteStringReader (r a)
 
 class
-  (Monad e) =>
-  PreWrapping a r e
+  (Monad e, Dato a) =>
+  PreWrapping e r a
   where
   wrap :: a -> e (r a)
 
 -- | Wrapping : a value can be wrapped, and wrapped value that can be unwrapped
 class
-  (PreWrapping a r e) =>
-  Wrapping a r e
-  where
+  (PreWrapping e r a) =>
+  Wrapping e r a where
   unwrap :: r a -> e a
+
+class
+  (Monad e) =>
+  LiftPreWrapping e r where
+  liftWrap :: Dato a => a -> e (r a)
+
+class
+  (LiftPreWrapping e r) =>
+  LiftWrapping e r where
+  liftUnwrap :: Dato a => r a -> e a
 
 -- * Instances
 
@@ -756,14 +766,14 @@ instance LiftSerialise Identity where
   liftEncodeList = encodeList . map runIdentity
   liftDecodeList = decodeList <&> map Identity
 -}
-instance PreWrapping a Identity Identity where
+instance Dato a => PreWrapping Identity Identity a where
   wrap = Identity . Identity
-instance Wrapping a Identity Identity where
+instance Dato a => Wrapping Identity Identity a where
   unwrap x = x
-instance PreWrapping a (LiftRef Identity) Identity where
-  wrap = Identity . LiftRef . Identity
-instance Wrapping a (LiftRef Identity) Identity where
-  unwrap = liftref
+instance LiftPreWrapping Identity Identity where
+  liftWrap = wrap
+instance LiftWrapping Identity Identity where
+  liftUnwrap = unwrap
 
 -- ** Fix: Y-combinator or fixed point combinator for types
 {-
@@ -777,11 +787,11 @@ instance
   decodeList = liftDecodeList <&> map In
 -}
 instance
-  (LiftByteStringOut f) =>
+  (LiftDato f) =>
   ByteStringOut (Fix f) where
   byteStringOut (Fix x) = liftByteStringOut x
 instance
-  (LiftByteStringOut f) =>
+  (LiftDato f) =>
   ToByteString (Fix f) where
   toByteString = toByteStringOut
 instance
@@ -824,28 +834,35 @@ instance
 -- ** LiftRef
 instance
   (LiftEq r, Eq a) =>
-  Eq (LiftRef r a)
-  where
+  Eq (LiftRef r a) where
   (==) x y = liftEq (liftref x) (liftref y)
 instance
   (LiftShow r, Show a) =>
-  Show (LiftRef r a)
-  where
+  Show (LiftRef r a) where
   show = liftShow . liftref
 instance
   (LiftDato r, Dato a) =>
-  Dato (LiftRef r a)
-  where
+  Dato (LiftRef r a) where
 instance
-  (LiftByteStringOut r, ByteStringOut a) =>
-  ByteStringOut (LiftRef r a)
-  where
+  (LiftByteStringOut r, Dato a) =>
+  ByteStringOut (LiftRef r a) where
   byteStringOut = liftByteStringOut . liftref
 instance
+  (LiftToByteString r, Dato a) =>
+  ToByteString (LiftRef r a) where
+  toByteString = liftToByteString . liftref
+instance
   (LiftByteStringIn r, ByteStringIn a) =>
-  ByteStringIn (LiftRef r a)
-  where
+  ByteStringIn (LiftRef r a) where
   byteStringIn = liftByteStringIn <&> LiftRef
+instance
+  (LiftPreWrapping e r, Dato a) =>
+  PreWrapping e (LiftRef r) a where
+  wrap a = do ra <- liftWrap a ; return $ LiftRef ra
+instance
+  (LiftWrapping e r, Dato a) =>
+  Wrapping e (LiftRef r) a where
+  unwrap = liftUnwrap . liftref
 
 -- * Helpers
 

@@ -102,6 +102,7 @@ data BridgeRedeemer = UpdateBridge
 instance ByteStringIn BridgeRedeemer where
   byteStringIn = byteStringIn <&> uncurry5 UpdateBridge
 instance FromByteString BridgeRedeemer where
+  fromByteString = fromByteStringIn
 
 
 --PlutusTx.makeLift ''BridgeRedeemer

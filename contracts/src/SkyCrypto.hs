@@ -153,6 +153,10 @@ instance
   (HashFunction hf) =>
   LiftByteStringOut (Digest hf) where
   liftByteStringOut = byteStringOut
+instance
+  (HashFunction hf) =>
+  LiftToByteString (Digest hf) where
+  liftToByteString = toByteString
 
 -- ** Blake2b_256
 instance HashFunction Blake2b_256 where
@@ -173,12 +177,20 @@ instance (HashFunction hf) => ByteStringOut (DigestRef hf x) where
   byteStringIn = byteStringIn <&> lookupDigest -}
 instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
   show (DigestRef x _) = "(digestRef $ " <> show x <> ")"
+instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestRef hf) a where
+  wrap = return . digestRef
+instance (HashFunction hf, Dato a) => Wrapping Identity (DigestRef hf) a where
+  unwrap = return . digestRefValue
 -- instance LiftShow (DigestRef hf) where
 --   liftShow = show . digestRefDigest
 instance
   (HashFunction hf) =>
   LiftByteStringOut (DigestRef hf) where
   liftByteStringOut = byteStringOut . digestRefDigest
+instance
+  (HashFunction hf) =>
+  LiftToByteString (DigestRef hf) where
+  liftToByteString = toByteString . digestRefDigest
 instance
   (HashFunction hf) =>
   LiftShow (DigestRef hf) where
@@ -190,10 +202,14 @@ instance
 instance
   (HashFunction hf) =>
   LiftDato (DigestRef hf) where
-instance (ToByteString a, HashFunction hf) => PreWrapping a (LiftRef (DigestRef hf)) Identity where
-  wrap x = Identity (LiftRef $ DigestRef x $ (computeDigest @a @hf x))
-instance (ToByteString a, HashFunction hf) => Wrapping a (LiftRef (DigestRef hf)) Identity where
-  unwrap (LiftRef (DigestRef x _)) = Identity x
+instance
+  (HashFunction hf) =>
+  LiftPreWrapping Identity (DigestRef hf) where
+  liftWrap = wrap
+instance
+  (HashFunction hf) =>
+  LiftWrapping Identity (DigestRef hf) where
+  liftUnwrap = unwrap
 
 -- ** PubKey
 instance Eq PubKey where -- the one from deriving isn't INLINEABLE by Plutus!
