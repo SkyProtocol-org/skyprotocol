@@ -211,6 +211,7 @@ skyData1 = (digestRef committee0,
             digestRef . runIdentity $ ofList
              [(fromInt 42, topic42)])
 
+
 daSpec :: Spec
 daSpec = do
   return ()

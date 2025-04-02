@@ -130,13 +130,13 @@ instance ByteStringIn ClientRedeemer where
 -- Separating validation logic to make for easy testing
 validateClaimBounty :: POSIXTime -> Interval POSIXTime -> DataHash -> TopicID -> SkyDataProof -> DataHash -> Bool
 validateClaimBounty bountyDeadline txValidRange
-                    messageHash (TopicID topicId) proof@SkyDataProof {..} daTopHash =
+                    messageHash (TopicID topicId) proof@SkyDataPath {..} daTopHash =
   -- Check if the current slot is within the deadline
   bountyDeadline `after` txValidRange &&
   -- The bounty's message hash is in the DA
   daTopHash == applySkyDataProof proof messageHash &&
   -- topic ID matches
-  topicId == triePathKey skyTopicInDaProof
+  topicId == triePathKey pathTopicTriePath
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =

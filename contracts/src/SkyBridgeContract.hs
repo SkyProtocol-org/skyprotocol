@@ -90,7 +90,8 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 ------------------------------------------------------------------------------
 
 data BridgeRedeemer = UpdateBridge
-  { bridgeCommittee :: MultiSigPubKey
+  { bridgeSchema :: DataHash
+  , bridgeCommittee :: MultiSigPubKey
   , bridgeOldRootHash :: DataHash
   , bridgeNewTopHash :: DataHash
   , bridgeSig :: MultiSig -- signature over new top hash
@@ -98,7 +99,7 @@ data BridgeRedeemer = UpdateBridge
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn BridgeRedeemer where
-  byteStringIn = byteStringIn <&> uncurry4 UpdateBridge
+  byteStringIn = byteStringIn <&> uncurry5 UpdateBridge
 instance FromByteString BridgeRedeemer where
 
 
@@ -180,9 +181,9 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     conditions :: [Bool]
     conditions = case redeemer of
         -- Update the bridge state
-        UpdateBridge committee oldRootHash newTopHash sig ->
+        UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
             [ -- Core validation, below
-              bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldNFTTopHash
+              bridgeTypedValidatorCore daSchema daCommittee oldRootHash newTopHash sig oldNFTTopHash
               -- The NFT must be again included in the outputs
             , outputHasNFT
               -- The NFT's data must have been updated
@@ -218,15 +219,18 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
       assetClassValueOf (txOutValue ownOutput) assetClass PlutusTx.== 1
 
 -- Core validation function, for easy testing
-bridgeTypedValidatorCore :: MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
-bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldTopHash =
+bridgeTypedValidatorCore :: DataHash -> MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
+bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
   PlutusTx.and
-    [ multiSigValid committee newTopHash sig
+    [ multiSigValid daCommittee newTopHash sig
       -- ^ The new top hash must be signed by the committee
-    , oldTopHash PlutusTx.== computeDigest (multiSigToDataHash committee, oldRootHash)
+    , oldTopHash == computedOldTopHash
       -- ^ The old top hash must be the hash of the concatenation of committee fingerprint
       --   and old root hash
     ]
+  where
+    computedOldDaMetaData = castDigest $ computeDigest (daSchema, multiSigToDataHash daCommittee) :: DataHash
+    computedOldTopHash = castDigest $ computeDigest (computedOldDaMetaData, daData) :: DataHash
 
 ------------------------------------------------------------------------------
 -- Multisig Verification

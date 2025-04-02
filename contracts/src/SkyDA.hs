@@ -15,6 +15,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PartialTypeSignatures      #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -54,6 +55,7 @@ import Control.Composition ((-.))
 import Control.Monad (Monad, (>=>))
 import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
+import Data.Kind (Type)
 import GHC.Generics (Generic)
 
 ------------------------------------------------------------------------------
@@ -61,33 +63,150 @@ import GHC.Generics (Generic)
 ------------------------------------------------------------------------------
 
 -- List of data operators that must sign and minimum number of them that must sign
-data MultiSigPubKey = MultiSigPubKey [PubKey] UInt16
+data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn MultiSigPubKey where
-  byteStringIn = byteStringIn <&> \ (l, n) -> MultiSigPubKey l n
-instance ByteStringOut MultiSigPubKey where
-  byteStringOut (MultiSigPubKey l n) = byteStringOut (l, n)
-instance ToByteString MultiSigPubKey where
-  toByteString = toByteStringOut
-instance Show MultiSigPubKey where
-  show (MultiSigPubKey l n) = "(MultiSigPubKey " <> show l <> " " <> show n <> ")"
 
 -- A single signature by a single data operator public key
-data SingleSig = SingleSig PubKey Bytes64
-  deriving (Eq)
+data SingleSig = SingleSig { singleSigPubKey :: PubKey, singleSigSignature :: Bytes64 }
+  deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn SingleSig where
-  byteStringIn = byteStringIn <&> uncurry SingleSig
 
 -- Signatures produced by data operators for top hash
 data MultiSig = MultiSig [SingleSig]
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+
+-- * Types
+type SkyDa r = (LiftRef r (DaMetaData r), LiftRef r (DaData r))
+data DaMetaData r = DaMetaData
+  { daSchema :: DataHash
+  , daCommittee :: LiftRef r Committee
+  } deriving (Show, Eq)
+type DaData r = TopicTrie r
+type TopicTrie r = Trie64 r (TopicEntry r)
+type TopicEntry r = (LiftRef r (TopicMetaData r), LiftRef r (MessageTrie r))
+data TopicMetaData r = TopicMetaData
+  { topicSchema :: DataHash
+  , topicCommittee :: LiftRef r Committee
+  } deriving (Show, Eq)
+type MessageTrie r = Trie64 r (MessageEntry r)
+type MessageEntry r = (LiftRef r (MessageMetaData r), LiftRef r (MessageData r))
+data MessageMetaData (r :: Type -> Type) = MessageMetaData
+  { messagePoster :: PubKey
+  , messageTime :: POSIXTime
+  } deriving (Show, Eq)
+type MessageData (r :: Type -> Type) = VariableLengthByteString
+
+-- TODO: In the future, turn MessageData into a Merkle Trie,
+-- so we can publish it piecemeal on the chain and/or use ZK Proofs about it.
+type Committee = MultiSigPubKey
+type Trie64 r c = Trie r Byte Bytes8 c
+type Trie64NodeRef r c = TrieNodeRef r Byte Bytes8 c
+type Trie64Path t = TriePath Byte Bytes8 t
+
+data SkyDataPath (r :: Type -> Type) = SkyDataPath
+  { pathDaMetaData :: LiftRef r (DaMetaData r)
+  , pathTopicTriePath :: Trie64Path (Trie64NodeRef r (TopicEntry r))
+  , pathTopicMetaData :: LiftRef r (MessageMetaData r)
+  , pathMessageTriePath :: Trie64Path (Trie64NodeRef r (MessageEntry r))
+  , pathMessageMetaData :: LiftRef r (MessageMetaData r) }
+
+type SkyDataProof = SkyDataPath Hash
+
+-- * Instances
+
+-- ** MessageMetaData
+instance ToByteString (MessageMetaData r) where
+  toByteString = toByteStringOut
+instance ByteStringOut (MessageMetaData r) where
+  byteStringOut = byteStringOut . tupleOfMessageMetaData
+instance LiftDato r => Dato (MessageMetaData r) where
+instance LiftByteStringIn r => ByteStringIn (MessageMetaData r) where
+  byteStringIn = byteStringIn <&> uncurry MessageMetaData
+
+-- ** TopicMetaData
+instance LiftByteStringOut r => ByteStringOut (TopicMetaData r) where
+  byteStringOut = byteStringOut . tupleOfTopicMetaData
+instance LiftDato r => Dato (TopicMetaData r) where
+instance LiftByteStringIn r => ByteStringIn (TopicMetaData r) where
+  byteStringIn = byteStringIn <&> uncurry TopicMetaData
+
+-- ** DaMetaData
+instance LiftByteStringOut r => ByteStringOut (DaMetaData r) where
+  byteStringOut = byteStringOut . tupleOfDaMetaData
+instance LiftDato r => Dato (DaMetaData r) where
+instance LiftByteStringIn r => ByteStringIn (DaMetaData r) where
+  byteStringIn = byteStringIn <&> uncurry DaMetaData
+
+-- ** SkyDataPath
+instance LiftDato r => ByteStringOut (SkyDataPath r) where
+  byteStringOut = byteStringOut . tupleOfSkyDataPath
+instance LiftByteStringIn r => ByteStringIn (SkyDataPath r) where
+  byteStringIn = byteStringIn <&> uncurry5 SkyDataPath
+
+-- ** Trie64
+instance TrieHeight Byte where
+instance TrieKey Bytes8 where
+instance TrieHeightKey Byte Bytes8 where
+
+-- ** SingleSig
+instance ByteStringIn SingleSig where
+  byteStringIn = byteStringIn <&> uncurry SingleSig
+
+-- ** MultiSig
 instance ByteStringIn MultiSig where
   byteStringIn = byteStringIn <&> MultiSig
 
+-- ** MultiSigPubKey
+instance Eq MultiSigPubKey where
+  (MultiSigPubKey al an) == (MultiSigPubKey bl bn) = (al, an) == (bl, bn)
+instance ByteStringOut MultiSigPubKey where
+  byteStringOut = byteStringOut . tupleOfMultiSigPubKey
+instance ToByteString MultiSigPubKey where
+  toByteString = toByteStringOut
+instance Show MultiSigPubKey where
+  show (MultiSigPubKey l n) = "(MultiSigPubKey " <> show l <> " " <> show n <> ")"
+instance Dato MultiSigPubKey where
+instance ByteStringIn MultiSigPubKey where
+  byteStringIn = byteStringIn <&> uncurry MultiSigPubKey
+
+-- * Helpers
+tupleOfMessageMetaData :: MessageMetaData r -> (PubKey, POSIXTime)
+tupleOfMessageMetaData MessageMetaData {..} = (messagePoster, messageTime)
+tupleOfTopicMetaData :: TopicMetaData r -> (DataHash, LiftRef r Committee)
+tupleOfTopicMetaData TopicMetaData {..} = (topicSchema, topicCommittee)
+tupleOfDaMetaData :: DaMetaData r -> (DataHash, LiftRef r Committee)
+tupleOfDaMetaData DaMetaData {..} = (daSchema, daCommittee)
+tupleOfSkyDataPath :: SkyDataPath r -> (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (MessageMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
+tupleOfSkyDataPath SkyDataPath {..} = (pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData)
+tupleOfMultiSigPubKey :: MultiSigPubKey -> ([PubKey], UInt16)
+tupleOfMultiSigPubKey MultiSigPubKey {..} = (multiSigPubKeyKeys, multiSigPubKeyThreshold)
+
+{-# INLINEABLE applySkyDataProof #-}
+applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
+applySkyDataProof SkyDataPath {..} messageDataHash =
+  runIdentity $ do
+     let messageLeaf = Leaf (liftref pathMessageMetaData, messageDataHash) :: TrieNodeF Byte Bytes8 _ ()
+     let messageLeafHash = castDigest . computeDigest $ messageLeaf
+     topicDataHash <- applyMerkleProof messageLeafHash $ fmap (castDigest . liftref) pathMessageTriePath
+     let topicLeaf = Leaf (liftref pathTopicMetaData, topicDataHash) :: TrieNodeF Byte Bytes8 _ ()
+     let topicLeafHash = castDigest . computeDigest $ topicLeaf
+     daDataHash <- applyMerkleProof topicLeafHash $ fmap (castDigest . liftref) pathTopicTriePath
+     return . castDigest . computeDigest $ (liftref pathDaMetaData, daDataHash)
+
+{-
+applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
+applySkyDataProof SkyDataProof {..} messageDataHash =
+
+SkyDataZipper :: ()
+
+getSkyDataProof :: Bytes8 -> Bytes8 -> SkyDA -> SkyDataProof
+getSkyDataProof =
+-}
+
+-- * Meta Declarations
 {-
 PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
 PlutusTx.makeIsDataSchemaIndexed ''PubKey [('PubKey, 0)]
@@ -100,71 +219,3 @@ PlutusTx.makeLift ''MultiSigPubKey
 PlutusTx.makeLift ''SingleSig
 PlutusTx.makeLift ''MultiSig
 -}
-
--- SkyData
-type SkyData = (Blake2b_256_Ref Committee, Blake2b_256_Ref TopicTrie)
-type TopicTrie = Trie Blake2b_256_Ref Byte Bytes8 TopicEntry
-type TopicEntry = (Blake2b_256_Ref TopicMetaData, Blake2b_256_Ref MessageTrie)
-type MessageTrie = Trie Blake2b_256_Ref Byte Bytes8 MessageEntry
-type MessageEntry = (Blake2b_256_Ref MessageMetaData, Blake2b_256_Ref MessageData)
-
-instance Dato (Blake2b_256_Ref TopicTrie) where
-instance Dato (Blake2b_256_Ref MessageTrie) where
-instance Dato (Blake2b_256_Ref TopicMetaData) where
-
--- TODO: In the future, turn MessageData into a Merkle Trie,
--- so we can publish it piecemeal on the chain and/or use ZK Proofs about it.
-type Committee = MultiSigPubKey
-type TopicMetaData = Committee
-
-data MessageMetaData = MessageMetaData
-  { -- messageId, topicId :: Bytes64
-    messagePoster :: PubKey
-  , timePosted :: POSIXTime
-    -- data about who can publish now?
-  } deriving (Eq, Show)
-instance ByteStringOut MessageMetaData where
-  byteStringOut MessageMetaData {..}  = byteStringOut (messagePoster, timePosted)
-instance ToByteString MessageMetaData where
-  toByteString = toByteStringOut
-instance Dato MessageMetaData where
-instance Dato (Blake2b_256_Ref MessageMetaData) where
-
-type MessageData = VariableLengthByteString
-instance Dato (Blake2b_256_Ref MessageData) where
-
--- MerkleProof for metadata and data in Sky
-type Trie64Proof = TrieProof Byte Bytes8 Blake2b_256
-instance Dato Byte where
-instance TrieHeight Byte where
-instance Dato Bytes8 where
-instance TrieKey Bytes8 where
-instance TrieHeightKey Byte Bytes8 where
-
--- Chain metadata, Path to Topic, Topic metadata, Path to Message, Message metadata, Message
-data SkyDataProof = SkyDataProof
-  { skyMessageMetaDataHash :: DataHash
-  , skyMessageInTopicProof :: Trie64Proof
-  , skyTopicMetaDataHash :: DataHash
-  , skyTopicInDaProof :: Trie64Proof
-  , skyDaMetaDataHash :: DataHash }
-  deriving (Eq, Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn SkyDataProof where
-  byteStringIn = byteStringIn <&> uncurry5 SkyDataProof
-
-{-# INLINEABLE applySkyDataProof #-}
-applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
-applySkyDataProof SkyDataProof {..} messageDataHash =
-  runIdentity $ do
-     let messageLeaf :: TrieNodeF Byte Bytes8 (DataHash, DataHash) ()
-         messageLeaf = Leaf (skyMessageMetaDataHash, messageDataHash)
-     let messageLeafHash = computeDigest messageLeaf :: DataHash
-     topicDataHash <- applyMerkleProof messageLeafHash skyMessageInTopicProof
-     let topicLeaf = Leaf (skyTopicMetaDataHash, topicDataHash) :: TrieNodeF Byte Bytes8 (DataHash, DataHash) ()
-     let topicLeafHash = computeDigest topicLeaf :: DataHash
-     daDataHash <- applyMerkleProof topicLeafHash skyTopicInDaProof
-     return . computeDigest $ (skyDaMetaDataHash, daDataHash)
-
-
