@@ -11,11 +11,12 @@ import Data.Text (pack)
 import Data.Functor.Identity (Identity (..))
 import Text.Hex (Text, ByteString, decodeHex)
 
+import SkyBase
+import SkyCrypto
+import Trie
+import SkyDA
 import SkyBridgeContract
 import BountyContract
-import SkyBase
-import SkyDA
-import Trie
 
 hexStringToBuiltinByteString :: Text -> Maybe BuiltinByteString
 hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
@@ -31,6 +32,12 @@ dh1 = Digest . FixedLengthByteString $ hex "511bc81dde11180838c562c82bb35f3223f4
 
 dh2 :: DataHash -- blake2b_256 for "Taxation is Theft"
 dh2 = Digest . FixedLengthByteString $ hex "f7fc5335c31d34a0c362acf0e751716a029fa4ea152e3c3a27305a4c6d5e02ed"
+
+fb1 :: FixedLengthByteString L2
+fb1 = FixedLengthByteString $ hex "CAFE"
+
+fb2 :: FixedLengthByteString L2
+fb2 = FixedLengthByteString $ hex "BABE"
 
 ------------------------------------------------------------------------------
 -- Single sigs
@@ -61,7 +68,7 @@ ss2 = SingleSig pk2 sig2
 pk3 :: PubKey
 pk3 = PubKey . FixedLengthByteString . hex $ "22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
 
-sig3 :: Bytes64 -- signs dh1 with sk3
+sig3 :: Bytes64 -- signs fb1 with sk3
 sig3 = FixedLengthByteString . hex $ "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
 
 ss3 :: SingleSig
@@ -104,51 +111,51 @@ signatureSpec = do
   describe "Single Sig operations" $ do
 
     it "single sig 1 should be valid" $ do
-      (singleSigValid dh1 ss1) `shouldBe` True
+      (singleSigValid fb1 ss1) `shouldBe` True
 
     it "single sig 2 should be valid" $ do
-      (singleSigValid dh1 ss2) `shouldBe` True
+      (singleSigValid fb1 ss2) `shouldBe` True
 
     it "single sig 3 should be valid" $ do
-      (singleSigValid dh1 ss3) `shouldBe` True
+      (singleSigValid fb1 ss3) `shouldBe` True
 
     it "single sig 1 should not be valid for wrong hash" $ do
-      (singleSigValid dh2 ss1) `shouldBe` False
+      (singleSigValid fb2 ss1) `shouldBe` False
 
     it "single sig 2 should not be valid for wrong hash" $ do
-      (singleSigValid dh2 ss2) `shouldBe` False
+      (singleSigValid fb2 ss2) `shouldBe` False
 
     it "single sig 3 should not be valid for wrong hash" $ do
-      (singleSigValid dh2 ss3) `shouldBe` False
+      (singleSigValid fb2 ss3) `shouldBe` False
 
   describe "Multi Sig operations" $ do
 
     it "multi sig 1 should be valid" $ do
-      (multiSigValid mpk1 dh1 msig1OK) `shouldBe` True
+      (multiSigValid mpk1 fb1 msig1OK) `shouldBe` True
 
     it "multi sig 2 should be valid" $ do
-      (multiSigValid mpk1 dh1 msig2OK) `shouldBe` True
+      (multiSigValid mpk1 fb1 msig2OK) `shouldBe` True
 
     it "multi sig 3 should be valid" $ do
-      (multiSigValid mpk1 dh1 msig3OK) `shouldBe` True
+      (multiSigValid mpk1 fb1 msig3OK) `shouldBe` True
 
     it "multi sig 4 should be invalid" $ do
-      (multiSigValid mpk1 dh1 msig4Err) `shouldBe` False
+      (multiSigValid mpk1 fb1 msig4Err) `shouldBe` False
 
     it "multi sig 5 should be invalid" $ do
-      (multiSigValid mpk1 dh1 msig5Err) `shouldBe` False
+      (multiSigValid mpk1 fb1 msig5Err) `shouldBe` False
 
     it "multi sig 6 should be valid" $ do
-      (multiSigValid mpk2 dh1 msig6OK) `shouldBe` True
+      (multiSigValid mpk2 fb1 msig6OK) `shouldBe` True
 
     it "multi sig 7 should be invalid" $ do
-      (multiSigValid mpk2 dh1 msig7Err) `shouldBe` False
+      (multiSigValid mpk2 fb1 msig7Err) `shouldBe` False
 
     it "multi sig 3 should be invalid for wrong hash" $ do
-      (multiSigValid mpk1 dh2 msig3OK) `shouldBe` False
+      (multiSigValid mpk1 fb2 msig3OK) `shouldBe` False
 
     it "multi sig 6 should be invalid for wrong hash" $ do
-      (multiSigValid mpk2 dh2 msig6OK) `shouldBe` False
+      (multiSigValid mpk2 fb2 msig6OK) `shouldBe` False
 
 ------------------------------------------------------------------------------
 -- Fingerprints
@@ -219,7 +226,6 @@ skyData1 :: SkyDa HashRef
 skyData1 = (LiftRef . digestRef $ daMetaData0,
             LiftRef . digestRef . runIdentity $ ofList
              [(fromInt 42, topic42)])
-
 
 daSpec :: Spec
 daSpec = do

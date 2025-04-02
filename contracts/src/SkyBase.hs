@@ -37,7 +37,7 @@
 
 -- (trace')
 module SkyBase where
---module SkyBase (PreWrapping, Wrapping, LiftRef (..), LiftBinary, LiftShow, LiftEq, DigestibleRef, DigestRef (..), HashRef, HashAlgorithmOf, wrap, unwrap, integerLength, fbIntegerLength, fbuIntegerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, fbuLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest, trace', trace1, trace2, trace3, etrace1, etrace2, etrace3) where
+--module SkyBase (PreWrapping, Wrapping, LiftRef (..), LiftBinary, LiftShow, LiftEq, wrap, unwrap, integerLength, fbIntegerLength, fbuIntegerLength, lowestBitSet, lowestBitClear, fbLowestBitSet, fbLowestBitClear, fbuLowestBitClear, lowBitsMask, extractBitField, lookupDigest, liftEq, liftShow, liftGet, liftPut, getDigest, digestiblePut, computeDigest, trace', trace1, trace2, trace3, etrace1, etrace2, etrace3) where
 -- DigestOnly (..),
 
 import GHC.Generics (Generic)
@@ -66,6 +66,7 @@ import Data.Kind (Type)
 
 -- * Types
 
+data L2 -- staticLength is 2
 data L4 -- staticLength is 4
 data L8 -- staticLength is 8
 data L32 -- staticLength is 32
@@ -127,23 +128,6 @@ data ByteStringCursor = ByteStringCursor
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-newtype Digest hf a = Digest { digestByteString :: FixedLengthByteString hf }
-  deriving (Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
--- Static intent to transform with a hash or encryption function f
-newtype PlainText f a = PlainText a
-  deriving (Show, Eq)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
-data Blake2b_256 -- static knowledge of hash function
-
-data DigestRef hf x = DigestRef {digestRefValue :: x, digestRefDigest :: Digest hf x}
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
 -- | Wrapper for (r a)
 newtype LiftRef r a = LiftRef {liftref :: r a}
   deriving (Functor)
@@ -161,20 +145,6 @@ type Bytes64 = FixedLengthByteString L64
 type UInt32 = FixedLengthInteger L4
 type UInt64 = FixedLengthInteger L8
 type UInt256 = FixedLengthInteger L32
-
--- ** Cardano specific types
-type DataDigest hf = Digest hf BuiltinByteString
-
-type Hash = Digest Blake2b_256
-
-type DataHash = Hash BuiltinByteString
-
-type HashRef = DigestRef Blake2b_256
-
-newtype PubKey = PubKey { getPubKey :: Bytes32 }
-  deriving (Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
 
 -- * Classes
 
@@ -222,17 +192,6 @@ class HasBitLogic a where
   shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
 
 class
-  (StaticLength hf) =>
-  HashFunction hf where
-  hashFunction :: BuiltinByteString -> Digest hf a
-
-class
-  (HashFunction hf) =>
-  DigestibleRef hf r
-  where
-  getDigest :: r a -> Digest hf a
-
-class
   (ByteStringOut d, Show d, Eq d) =>
   Dato d
 
@@ -268,6 +227,8 @@ class
 -- * Instances
 
 -- ** StaticLength
+instance StaticLength L2 where
+  staticLength = 2
 instance StaticLength L4 where
   staticLength = 4
 instance StaticLength L8 where
@@ -636,107 +597,6 @@ instance
   ByteStringOut CurrencySymbol where
   byteStringOut = byteStringOut . unCurrencySymbol
 
--- ** PubKeyHash
-instance
-  ByteStringIn PubKeyHash where
-  byteStringIn = byteStringIn <&> PubKeyHash
-instance
-  ByteStringOut PubKeyHash where
-  byteStringOut = byteStringOut . getPubKeyHash
-
--- ** Digest
-instance
-  (HashFunction hf) =>
-  Eq (Digest hf a) where -- The one from deriving isn't INLINEABLE by Plutus(!)
-  (Digest x) == (Digest y) = x == y
-instance
-  (HashFunction hf) =>
-  ByteStringIn (Digest hf a) where
-  byteStringIn = byteStringIn <&> Digest
-instance
-  (HashFunction hf) =>
-  ByteStringOut (Digest hf a) where
-  byteStringOut (Digest b) = byteStringOut b
-instance
-  (HashFunction hf) =>
-  ToByteString (Digest hf a) where
-  toByteString (Digest (FixedLengthByteString b)) = b
-instance
-  (HashFunction hf) =>
-  Dato (Digest hf a) where
-instance
-  (HashFunction hf) =>
-  LiftByteStringIn (Digest hf) where
-  liftByteStringIn = byteStringIn
-instance
-  (HashFunction hf) =>
-  LiftEq (Digest hf) where
-  liftEq = (==)
-instance
-  (HashFunction hf) =>
-  LiftShow (Digest hf) where
-  liftShow = show
-instance
-  (HashFunction hf) =>
-  LiftDato (Digest hf) where
-instance
-  (HashFunction hf) =>
-  LiftByteStringOut (Digest hf) where
-  liftByteStringOut = byteStringOut
-
--- ** Blake2b_256
-instance HashFunction Blake2b_256 where
-  hashFunction = Digest . FixedLengthByteString . blake2b_256
-instance StaticLength Blake2b_256 where
-  staticLength = 32
-
--- ** DigestRef
-instance HashFunction hf => DigestibleRef hf (DigestRef hf) where
-  getDigest = digestRefDigest
-instance
-  (HashFunction hf) =>
-  Eq (DigestRef hf x) where
-  (DigestRef _ ah) == (DigestRef _ bh) = ah == bh
-instance (HashFunction hf) => ByteStringOut (DigestRef hf x) where
-  byteStringOut = byteStringOut . digestRefDigest
-{-instance (HashFunction hf) => ByteStringIn (DigestRef hf x) where
-  byteStringIn = byteStringIn <&> lookupDigest -}
-instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
-  show (DigestRef x _) = "(digestRef $ " <> show x <> ")"
--- instance LiftShow (DigestRef hf) where
---   liftShow = show . digestRefDigest
-instance
-  (HashFunction hf) =>
-  LiftByteStringOut (DigestRef hf) where
-  liftByteStringOut = byteStringOut . digestRefDigest
-instance
-  (HashFunction hf) =>
-  LiftShow (DigestRef hf) where
-  liftShow = show
-instance
-  (HashFunction hf) =>
-  LiftEq (DigestRef hf) where
-  liftEq = (==)
-instance
-  (HashFunction hf) =>
-  LiftDato (DigestRef hf) where
-instance (ToByteString a, HashFunction hf) => PreWrapping a (LiftRef (DigestRef hf)) Identity where
-  wrap x = Identity (LiftRef $ DigestRef x $ (computeDigest @a @hf x))
-instance (ToByteString a, HashFunction hf) => Wrapping a (LiftRef (DigestRef hf)) Identity where
-  unwrap (LiftRef (DigestRef x _)) = Identity x
-
--- ** PubKey
-instance Eq PubKey where -- the one from deriving isn't INLINEABLE by Plutus!
-  (PubKey x) == (PubKey y) = x == y
-instance ToByteString PubKey where
-  toByteString (PubKey (FixedLengthByteString pk)) = pk
-instance FromByteString PubKey where
-  fromByteString pk = PubKey (FixedLengthByteString pk)
-instance ByteStringOut PubKey where
-  byteStringOut (PubKey pk) = byteStringOut pk
-instance ByteStringIn PubKey where
-  byteStringIn = byteStringIn <&> PubKey
-
 -- PlutusTx only has this for pairs, not longer tuples
 -- ** Tuples
 instance
@@ -1087,17 +947,6 @@ curry5 f a b c d e = f (a, b, c, d, e)
 curry6 :: ((a,b,c,d,e,f)->g)->a->b->c->d->e->f->g
 curry6 g a b c d e f = g (a, b, c, d, e, f)
 
-digest :: (HashFunction hf, ToByteString a) => PlainText hf a -> Digest hf a
-digest (PlainText m :: PlainText hf a) = computeDigest m
-computeDigest :: (ToByteString a, HashFunction hf) => a -> Digest hf a
-computeDigest a = hashFunction (toByteString a)
-digestRef :: (ToByteString a, HashFunction hf) => a -> DigestRef hf a
-digestRef x = DigestRef x (computeDigest x)
-lookupDigest :: (HashFunction hf) => Digest hf a -> a
-lookupDigest = traceError "Cannot get a value from its digest"
-castDigest :: Digest hf a -> Digest hf b
-castDigest (Digest x) = Digest x
-
 trace':: (Show s) => s -> e -> e
 trace' s e = trace (show s) e
 
@@ -1127,9 +976,3 @@ serialiseData :: BuiltinData -> BuiltinByteString
 -}
 
 -- * Meta declarations
-{-
-PlutusTx.makeLift ''FixedLengthByteString
-PlutusTx.makeIsDataSchemaIndexed ''FixedLengthByteString [('FixedLengthByteString, 0)]
-PlutusTx.makeLift ''Digest
-PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
--}

@@ -39,6 +39,7 @@
 module SkyDA where
 
 import SkyBase
+import SkyCrypto
 import Trie
 
 import PlutusTx.Prelude
@@ -63,22 +64,6 @@ import GHC.Generics (Generic)
 ------------------------------------------------------------------------------
 -- Core Data Types
 ------------------------------------------------------------------------------
-
--- List of data operators that must sign and minimum number of them that must sign
-data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
--- A single signature by a single data operator public key
-data SingleSig = SingleSig { singleSigPubKey :: PubKey, singleSigSignature :: Bytes64 }
-  deriving (Show, Eq)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
--- Signatures produced by data operators for top hash
-data MultiSig = MultiSig [SingleSig]
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
 
 -- * Types
 type SkyDa r = (LiftRef r (DaMetaData r), LiftRef r (DaData r))
@@ -213,15 +198,3 @@ getSkyDataProof =
 -}
 
 -- * Meta Declarations
-{-
-PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''PubKey [('PubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSigPubKey [('MultiSigPubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''SingleSig [('SingleSig, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSig [('MultiSig, 0)]
-PlutusTx.makeLift ''DataHash
-PlutusTx.makeLift ''PubKey
-PlutusTx.makeLift ''MultiSigPubKey
-PlutusTx.makeLift ''SingleSig
-PlutusTx.makeLift ''MultiSig
--}

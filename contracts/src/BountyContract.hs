@@ -34,6 +34,7 @@ module BountyContract where
 
 import SkyBase
 import Trie
+import SkyCrypto
 import SkyDA
 import SkyBridgeContract (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 

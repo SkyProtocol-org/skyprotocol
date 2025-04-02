@@ -52,6 +52,7 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, blake2b_256)
 
 import SkyBase
+import SkyCrypto
 import SkyDA
 
 ------------------------------------------------------------------------------
@@ -231,45 +232,6 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
   where
     computedOldDaMetaData = castDigest $ computeDigest (daSchema, multiSigToDataHash daCommittee) :: DataHash
     computedOldTopHash = castDigest $ computeDigest (computedOldDaMetaData, daData) :: DataHash
-
-------------------------------------------------------------------------------
--- Multisig Verification
-------------------------------------------------------------------------------
-
--- Function that checks if a SingleSig is valid
-singleSigValid :: DataHash -> SingleSig -> Bool
-singleSigValid topHash (SingleSig pubKey sig) =
-  verifyEd25519Signature (toByteString pubKey) (toByteString topHash) (toByteString sig)
-
--- Main function to check if the MultiSig satisfies at least N valid unique signatures
-multiSigValid :: MultiSigPubKey -> DataHash -> MultiSig -> Bool
-multiSigValid (MultiSigPubKey pubKeys minSigs) topHash (MultiSig singleSigs) =
-  let -- Extract the public keys from the SingleSig values
-      pubKeysInSignatures = PlutusTx.map (\(SingleSig pubKey _) -> pubKey) singleSigs
-      -- Check for duplicates by comparing the list to its nub version
-      noDuplicates = pubKeysInSignatures PlutusTx.== PlutusTx.nub pubKeysInSignatures
-  in if not noDuplicates
-     then False -- Duplicates found, return False
-     else let -- Filter for valid signatures from required public keys
-              validSignatures = PlutusTx.filter (\ss@(SingleSig pubKey sig) -> pubKey `PlutusTx.elem` pubKeys && singleSigValid topHash ss) singleSigs
-          in PlutusTx.length validSignatures PlutusTx.>= toInt minSigs
-
--- Create fingerprint of a multisig pubkey
-multiSigToDataHash :: MultiSigPubKey -> DataHash
-multiSigToDataHash (MultiSigPubKey pubKeys _) =
-  let
-    -- Step 1: Concatenate the public keys manually
-    concatenated = concatPubKeys pubKeys
-    -- Step 2: Apply hash to the concatenated byte string
-    hashed = blake2b_256 concatenated
-  in Digest (FixedLengthByteString hashed)
-
--- Helper function to concatenate a list of PubKey byte strings
-concatPubKeys :: [PubKey] -> PlutusTx.BuiltinByteString
-concatPubKeys (pk : rest) =
-  let restConcatenated = concatPubKeys rest
-    in appendByteString (toByteString pk) restConcatenated
-concatPubKeys [] = PlutusTx.emptyByteString
 
 ------------------------------------------------------------------------------
 -- Untyped Validator

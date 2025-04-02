@@ -18,6 +18,7 @@ library scripts
     BountyContract
     SkyBase
     Trie
+    SkyCrypto
     SkyDA
 
   build-depends:
