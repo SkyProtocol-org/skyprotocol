@@ -77,10 +77,12 @@ library sky-lib
     Utils
 
   build-depends:
+    , aeson
     , async
     , binary
     , bytestring
     , containers
+    , crypton
     , effectful
     , effectful-core
     , effectful-plugin
@@ -89,9 +91,12 @@ library sky-lib
     , log-effectful
     , merkle-patricia-trie
     , network
+    , servant
+    , servant-server
     , stm
     , text
     , unliftio
+    , wai
     , wide-word
 
   default-extensions:

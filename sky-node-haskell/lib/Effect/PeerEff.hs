@@ -7,7 +7,6 @@ module Effect.PeerEff where
 
 import App.Env (Topics, topics)
 import Control.Concurrent.STM (atomically, readTVar, writeTVar)
-import Data.IntMap.Strict qualified as IntMap
 import Data.Word (Word64)
 import Effectful
 import Effectful.Dispatch.Dynamic
@@ -32,24 +31,25 @@ makeEffect ''PeerEff
 
 runPeerEffIO :: (Has Topics env, IOE :> es, Error String :> es, Reader env :> es) => S.Socket -> Eff (PeerEff : es) a -> Eff es a
 runPeerEffIO _sock = interpret $ \_ -> \case
-  PublishBlock tId bData -> do
-    topics <- (.topics) <$> ask
-    adapt $ atomically $ do
-      tpcs <- readTVar topics
-      -- let tpcs' = IntMap.adjust (\tpc -> tpc {messages = IntMap.insert (IntMap.size tpc.messages) bData tpc.messages}) tId.id tpcs
-      writeTVar topics tpcs'
-    pure $ True
+  PublishBlock tId bData ->
+    undefined
+  -- topics <- (.topics) <$> ask
+  -- adapt $ atomically $ do
+  -- tpcs <- readTVar topics
+  -- let tpcs' = IntMap.adjust (\tpc -> tpc {messages = IntMap.insert (IntMap.size tpc.messages) bData tpc.messages}) tId.id tpcs
+  -- writeTVar topics tpcs'
   GetTopics mtId -> adapt $ undefined
   DescribeTopic tId -> do
-    topics <- (.topics) <$> ask
-    adapt $ do
-      maybeMeta <- atomically $ do
-        tpcs <- readTVar topics
-        -- let mTpc = (.metadata) <$> (IntMap.!?) tpcs tId.id
-        pure mTpc
-      case maybeMeta of
-        Just meta -> pure meta
-        Nothing -> throwString "No such topic" -- TODO replace with proper error handling
+    undefined
+  -- topics <- (.topics) <$> ask
+  -- adapt $ do
+  -- maybeMeta <- atomically $ do
+  -- tpcs <- readTVar topics
+  -- let mTpc = (.metadata) <$> (IntMap.!?) tpcs tId.id
+  -- pure mTpc
+  -- case maybeMeta of
+  --   Just meta -> pure meta
+  --   Nothing -> throwString "No such topic" -- TODO replace with proper error handling
   PollTopic tId -> adapt $ undefined
   GetTopicBlockCertificate tId height -> adapt $ undefined
   ReadTopic tId height -> adapt $ undefined
