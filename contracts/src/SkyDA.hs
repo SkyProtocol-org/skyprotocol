@@ -24,6 +24,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -32,6 +33,7 @@
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
 {-# OPTIONS_GHC -fno-unbox-strict-fields #-}
+{-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module SkyDA where
@@ -127,6 +129,8 @@ instance LiftByteStringIn r => ByteStringIn (MessageMetaData r) where
   byteStringIn = byteStringIn <&> uncurry MessageMetaData
 
 -- ** TopicMetaData
+instance LiftByteStringOut r => ToByteString (TopicMetaData r) where
+  toByteString = toByteStringOut
 instance LiftByteStringOut r => ByteStringOut (TopicMetaData r) where
   byteStringOut = byteStringOut . tupleOfTopicMetaData
 instance LiftDato r => Dato (TopicMetaData r) where
@@ -134,6 +138,8 @@ instance LiftByteStringIn r => ByteStringIn (TopicMetaData r) where
   byteStringIn = byteStringIn <&> uncurry TopicMetaData
 
 -- ** DaMetaData
+instance LiftByteStringOut r => ToByteString (DaMetaData r) where
+  toByteString = toByteStringOut
 instance LiftByteStringOut r => ByteStringOut (DaMetaData r) where
   byteStringOut = byteStringOut . tupleOfDaMetaData
 instance LiftDato r => Dato (DaMetaData r) where

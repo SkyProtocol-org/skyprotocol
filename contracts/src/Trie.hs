@@ -23,6 +23,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -31,6 +32,7 @@
 {-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
 {-# OPTIONS_GHC -fno-unbox-strict-fields #-}
+{-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module Trie {- (TrieNodeRef, TrieNode, TrieTop (..), TrieNodeF (..), TrieNodeFL (..), TrieStep (..), Trie, TrieKey, TriePath (..), TrieZipper, TrieProof, Zip (..), pathStep, stepUp, stepDown, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, ofTrieZipperFocus, trieZipperFocusOnly, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf, rf, fr, getMerkleProof, isMerkleProof) -} where

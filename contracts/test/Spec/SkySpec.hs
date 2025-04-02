@@ -182,13 +182,22 @@ fingerprintSpec = do
 -- Merkle Proof
 ------------------------------------------------------------------------------
 
+daSchema0 :: DataHash
+daSchema0 = computeDigest $ hex "deadbeef"
+
+topicSchema0 :: DataHash
+topicSchema0 = computeDigest $ hex "bad7091c"
+
 committee0 :: Committee
 committee0 = MultiSigPubKey [pk1, pk2] (UInt16 2)
+
+daMetaData0 :: DaMetaData HashRef
+daMetaData0 = DaMetaData daSchema0 (LiftRef (digestRef committee0))
 
 timestamp1 :: POSIXTime
 timestamp1 = 455155200000 -- June 4th 1989
 
-msgMeta1 :: MessageMetaData
+msgMeta1 :: MessageMetaData HashRef
 msgMeta1 = MessageMetaData pk1 timestamp1
 
 msg1 :: VariableLengthByteString
@@ -197,18 +206,18 @@ msg1 = VariableLengthByteString . stringToBuiltinByteString $ "Hello, World!"
 msg2 :: VariableLengthByteString
 msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft"
 
-topicMeta42 :: TopicMetaData
-topicMeta42 = committee0
+topicMeta42 :: TopicMetaData HashRef
+topicMeta42 = TopicMetaData topicSchema0 $ LiftRef (digestRef committee0)
 
-topic42 :: TopicEntry
-topic42 = (digestRef topicMeta42,
-           digestRef . runIdentity $ ofList
-            [(fromInt 1,(digestRef msgMeta1, digestRef msg1))
-            ,(fromInt 2,(digestRef msgMeta1, digestRef msg2))])
+topic42 :: TopicEntry HashRef
+topic42 = (LiftRef . digestRef $ topicMeta42,
+           LiftRef . digestRef . runIdentity $ ofList
+            [(fromInt 1,(LiftRef . digestRef $ msgMeta1, LiftRef . digestRef $ msg1))
+            ,(fromInt 2,(LiftRef . digestRef $ msgMeta1, LiftRef . digestRef $ msg2))])
 
-skyData1 :: SkyData
-skyData1 = (digestRef committee0,
-            digestRef . runIdentity $ ofList
+skyData1 :: SkyDa HashRef
+skyData1 = (LiftRef . digestRef $ daMetaData0,
+            LiftRef . digestRef . runIdentity $ ofList
              [(fromInt 42, topic42)])
 
 
