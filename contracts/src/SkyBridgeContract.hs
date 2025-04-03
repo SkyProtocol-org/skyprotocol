@@ -9,6 +9,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PartialTypeSignatures      #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE Strict                     #-}
@@ -231,8 +232,12 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
       --   and old root hash
     ]
   where
-    computedOldDaMetaData = castDigest $ computeDigest (daSchema, multiSigToDataHash daCommittee) :: DataHash
-    computedOldTopHash = castDigest $ computeDigest (computedOldDaMetaData, daData) :: DataHash
+    daCommitteeFingerprint :: Hash Committee
+    daCommitteeFingerprint = computeDigest daCommittee
+    computedOldDaMetaData :: DataHash
+    computedOldDaMetaData = castDigest (computeDigest (daSchema, daCommitteeFingerprint))
+    computedOldTopHash :: DataHash
+    computedOldTopHash = castDigest (computeDigest (computedOldDaMetaData, daData))
 
 ------------------------------------------------------------------------------
 -- Untyped Validator

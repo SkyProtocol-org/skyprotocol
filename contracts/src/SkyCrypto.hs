@@ -125,6 +125,10 @@ instance
   byteStringIn = byteStringIn <&> Digest
 instance
   (HashFunction hf) =>
+  FromByteString (Digest hf a) where
+  fromByteString = fromByteStringIn
+instance
+  (HashFunction hf) =>
   ByteStringOut (Digest hf a) where
   byteStringOut (Digest b) = byteStringOut b
 instance
@@ -242,10 +246,10 @@ instance
 digest :: (HashFunction hf, ToByteString a) => PlainText hf a -> Digest hf a
 digest (PlainText m :: PlainText hf a) = computeDigest m
 
-computeDigest :: (ToByteString a, HashFunction hf) => a -> Digest hf a
+computeDigest :: (HashFunction hf, ToByteString a) => a -> Digest hf a
 computeDigest a = hashFunction (toByteString a)
 
-digestRef :: (ToByteString a, HashFunction hf) => a -> DigestRef hf a
+digestRef :: (HashFunction hf, ToByteString a) => a -> DigestRef hf a
 digestRef x = DigestRef x (computeDigest x)
 
 lookupDigest :: (HashFunction hf) => Digest hf a -> a
@@ -253,6 +257,10 @@ lookupDigest = traceError "Cannot get a value from its digest"
 
 castDigest :: Digest hf a -> Digest hf b
 castDigest (Digest x) = Digest x
+
+computeHash :: (ToByteString a) => a -> DataHash
+computeHash = computeDigest . toByteString
+
 
 ------------------------------------------------------------------------------
 -- Multisig Verification
@@ -275,23 +283,6 @@ multiSigValid (MultiSigPubKey pubKeys minSigs) message (MultiSig singleSigs) =
      else let -- Filter for valid signatures from required public keys
               validSignatures = filter (\ss@(SingleSig pubKey sig) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
           in length validSignatures >= toInt minSigs
-
--- Create fingerprint of a multisig pubkey
-multiSigToDataHash :: MultiSigPubKey -> DataHash
-multiSigToDataHash (MultiSigPubKey pubKeys _) =
-  let
-    -- Step 1: Concatenate the public keys manually
-    concatenated = concatPubKeys pubKeys
-    -- Step 2: Apply hash to the concatenated byte string
-    hashed = blake2b_256 concatenated
-  in Digest (FixedLengthByteString hashed)
-
--- Helper function to concatenate a list of PubKey byte strings
-concatPubKeys :: [PubKey] -> BuiltinByteString
-concatPubKeys (pk : rest) =
-  let restConcatenated = concatPubKeys rest
-    in appendByteString (toByteString pk) restConcatenated
-concatPubKeys [] = emptyByteString
 
 -- * Meta declarations
 {-

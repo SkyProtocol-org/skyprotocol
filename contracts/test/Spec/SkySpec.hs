@@ -7,9 +7,9 @@ import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
 import PlutusLedgerApi.V1.Time (POSIXTime(..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
-import Data.Text (pack)
+import Data.Text (pack, unpack)
 import Data.Functor.Identity (Identity (..))
-import Text.Hex (Text, ByteString, decodeHex)
+import Text.Hex (Text, ByteString, decodeHex, encodeHex)
 
 import SkyBase
 import SkyCrypto
@@ -21,23 +21,23 @@ import BountyContract
 hexStringToBuiltinByteString :: Text -> Maybe BuiltinByteString
 hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
 
-hex :: [Char] -> BuiltinByteString
-hex s = fromJust (hexStringToBuiltinByteString (pack s))
+ofHex :: FromByteString a => [Char] -> a
+ofHex = fromByteString . fromJust . hexStringToBuiltinByteString . pack
 
-dhex :: [Char] -> DataHash
-dhex s = Digest . FixedLengthByteString $ hex s
+hexOf :: ToByteString a => a -> [Char]
+hexOf = unpack . encodeHex . fromBuiltin . toByteString
 
 dh1 :: DataHash -- blake2b_256 for "Hello, World!"
-dh1 = Digest . FixedLengthByteString $ hex "511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03"
+dh1 = ofHex "511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03"
 
 dh2 :: DataHash -- blake2b_256 for "Taxation is Theft"
-dh2 = Digest . FixedLengthByteString $ hex "f7fc5335c31d34a0c362acf0e751716a029fa4ea152e3c3a27305a4c6d5e02ed"
+dh2 = ofHex "f7fc5335c31d34a0c362acf0e751716a029fa4ea152e3c3a27305a4c6d5e02ed"
 
 fb1 :: FixedLengthByteString L2
-fb1 = FixedLengthByteString $ hex "CAFE"
+fb1 = ofHex "CAFE"
 
 fb2 :: FixedLengthByteString L2
-fb2 = FixedLengthByteString $ hex "BABE"
+fb2 = ofHex "BABE"
 
 ------------------------------------------------------------------------------
 -- Single sigs
@@ -46,30 +46,30 @@ fb2 = FixedLengthByteString $ hex "BABE"
 
 -- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
 pk1 :: PubKey
-pk1 = PubKey . FixedLengthByteString . hex $ "3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"
+pk1 = ofHex "3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"
 
 sig1 :: Bytes64 -- signs dh1 with sk1
-sig1 = FixedLengthByteString . hex $ "184E401E7EA7C7E2F9B4186DEDF953437F81BD2664D1FBDE525264A4D08BFD79D81877376F1E63CE64DF46C5F1FD93CDF3B05B8B6076A6ADC05F36C81F62A500"
+sig1 = ofHex "184E401E7EA7C7E2F9B4186DEDF953437F81BD2664D1FBDE525264A4D08BFD79D81877376F1E63CE64DF46C5F1FD93CDF3B05B8B6076A6ADC05F36C81F62A500"
 
 ss1 :: SingleSig
 ss1 = SingleSig pk1 sig1
 
 -- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
 pk2 :: PubKey
-pk2 = PubKey . FixedLengthByteString . hex $ "42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE"
+pk2 = ofHex "42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE"
 
 sig2 :: Bytes64 -- signs dh1 with sk2
-sig2 = FixedLengthByteString . hex $ "B7837207523B267F5B9AA0117C02773474A5F9F9FC4D6F48AEB2DC1B7A5796E60EE17C1F5C81D43C1973C0536932FB328897B341A7F8B3B86CB66ACEF459B405"
+sig2 = ofHex "B7837207523B267F5B9AA0117C02773474A5F9F9FC4D6F48AEB2DC1B7A5796E60EE17C1F5C81D43C1973C0536932FB328897B341A7F8B3B86CB66ACEF459B405"
 
 ss2 :: SingleSig
 ss2 = SingleSig pk2 sig2
 
 -- sk3: 9F664160D9DDCD27B5B9A0C619FC3978DDE6C51F4FEAF40688BF54281AA0D0CC
 pk3 :: PubKey
-pk3 = PubKey . FixedLengthByteString . hex $ "22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
+pk3 = ofHex "22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
 
 sig3 :: Bytes64 -- signs fb1 with sk3
-sig3 = FixedLengthByteString . hex $ "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
+sig3 = ofHex "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
 
 ss3 :: SingleSig
 ss3 = SingleSig pk3 sig3
@@ -161,39 +161,24 @@ signatureSpec = do
 -- Fingerprints
 ------------------------------------------------------------------------------
 
--- Concatenation of pk1, pk2, pk3:
--- 3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF6542FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73
--- sha256: 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
-
-mfp1 :: DataHash
-mfp1 = Digest . FixedLengthByteString $ hex "5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f"
-
--- Concatenation of pk1, pk2 -- TODO: now with length first!
--- 00023363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF6542FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE
--- sha256: b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767 -- TODO: recompute
-
-mfp2 :: DataHash
-mfp2 = Digest . FixedLengthByteString $ hex "b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767"
-
-
 fingerprintSpec :: Spec
 fingerprintSpec = do
 
     it "multi sig 1 fingerprint should match" $ do
-      toByteString (multiSigToDataHash mpk1) `shouldBe` toByteString mfp1
+      (hexOf . computeHash $ mpk1) `shouldBe` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
 
     it "multi sig 2 fingerprint should match" $ do
-      toByteString (multiSigToDataHash mpk2) `shouldBe` toByteString mfp2
+      (hexOf . computeHash $ mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
 
 ------------------------------------------------------------------------------
 -- Merkle Proof
 ------------------------------------------------------------------------------
 
 daSchema0 :: DataHash
-daSchema0 = computeDigest $ hex "deadbeef"
+daSchema0 = computeHash $ (ofHex "deadbeef" :: Bytes4)
 
 topicSchema0 :: DataHash
-topicSchema0 = computeDigest $ hex "bad7091c"
+topicSchema0 = computeHash $ (ofHex "bad7091c" :: Bytes4)
 
 committee0 :: Committee
 committee0 = MultiSigPubKey [pk1, pk2] (UInt16 2)
@@ -213,29 +198,23 @@ msg1 = VariableLengthByteString . stringToBuiltinByteString $ "Hello, World!"
 msg2 :: VariableLengthByteString
 msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft"
 
-topicMeta42 :: TopicMetaData HashRef
-topicMeta42 = TopicMetaData topicSchema0 $ LiftRef (digestRef committee0)
-
-topic42 :: TopicEntry HashRef
-topic42 = (LiftRef . digestRef $ topicMeta42,
-           LiftRef . digestRef . runIdentity $ ofList
-            [(fromInt 1,(LiftRef . digestRef $ msgMeta1, LiftRef . digestRef $ msg1))
-            ,(fromInt 2,(LiftRef . digestRef $ msgMeta1, LiftRef . digestRef $ msg2))])
-
-skyData1 :: SkyDa HashRef
-skyData1 = (LiftRef . digestRef $ daMetaData0,
-            LiftRef . digestRef . runIdentity $ ofList
-             [(fromInt 42, topic42)])
-
 daSpec :: Spec
 daSpec = do
+  -- Create an empty SkyDA, check its digest
+  let rDaMetaData0 = runIdentity (wrap daMetaData0 :: Identity (LiftRef HashRef (DaMetaData HashRef)))
+  let rDaData0 = runIdentity ((empty >>= wrap) :: Identity (LiftRef HashRef (Trie64 HashRef (MessageEntry HashRef))))
+{-  let da0 = (rDaMetaData0, rDaData0)
+  (hexOf $ computeHash da0) `shouldBe` "12B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
+  -- Check that proofs come in empty
+  let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0
+  maybeProof0 `shouldBe` Nothing -}
   return ()
 {-
   it "should generate a proof, validate it, and compute the root hash correctly" $ do
     let t1 = runIdentity $ olt [(1,"value1"),(2,"value2")]
-    let t1d :: Digest Blake2b_256 = computeDigest t1
+    let t1d :: DataHash = computeHash t1
     let proof1 = runIdentity $ getMerkleProof 1 t1
-    let l1d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value1") :: Identity TR)
+    let l1d :: DataHash = castDigest . getDigest . lifted . runIdentity $ ((rf $ Leaf "value1") :: Identity TR)
     let v1 = runIdentity $ isMerkleProof 1 l1d t1d proof1
     v1 `shouldBe` True
     let t0 = runIdentity $ olt []
@@ -273,9 +252,8 @@ merkleSpec = do
 
   it "proof root hash should be concatenation of hashes" $ do
     -- sha256 of dh1 ++ dh2: CAFEBABE
-    toBytesString rootHash1 `shouldBe` hex "65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971"
--}
-{-
+    hexOf rootHash1 `shouldBe` "65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971"
+
 ------------------------------------------------------------------------------
 -- Topic Top Hash
 ------------------------------------------------------------------------------
@@ -284,7 +262,7 @@ topic1 :: TopicID
 topic1 = TopicID $ hex "00"
 
 topic2 :: TopicID
-topic2 = TopicID $ hex "01"
+topic2 = ofHex "01"
 
 topic1CommitteeFP :: DataHash
 topic1CommitteeFP = mfp2
@@ -298,14 +276,14 @@ topicSpec = do
   it "topic 1 top hash should be correct" $ do
     -- Sha256 of concatenation of topic1 ++ topic1CommitteeFP ++ rootHash1:
     -- 00 ++ b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767 ++ 65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971
-    toByteString topic1TopHash `shouldBe` hex "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f"
+    hexOf topic1TopHash `shouldBe` "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f"
 
 ------------------------------------------------------------------------------
 -- Bounty Contract
 ------------------------------------------------------------------------------
 
 topic2TopHash :: DataHash
-topic2TopHash = Digest . FixedLengthByteString $ hex "0000"
+topic2TopHash = Digest . FixedLengthByteString $ ofHex "0000"
 
 mainCommitteeFP :: DataHash
 mainCommitteeFP = mfp1
@@ -340,24 +318,24 @@ bountySpec = do
 
   it "valid merkle proofs should be accepted 1" $ do
     let proof = MerkleProof
-          { targetKey = hex "02"
+          { targetKey = ofHex "02"
           , keySize = 256
           , keyPath = [0]
-          , siblingHashes = [dhex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"]
+          , siblingHashes = [ofHex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"]
           }
-    let targetHash = dhex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"
-    let rootHash = dhex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
+    let targetHash = ofHex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"
+    let rootHash = ofHex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
     validate rootHash proof targetHash `shouldBe` True
 
   it "valid merkle proofs should be accepted 2" $ do
     let doubleProof = MerkleProof
-          { targetKey = hex "01"
+          { targetKey = ofHex "01"
           , keySize = 256
           , keyPath = [0]
-          , siblingHashes = [dhex "303D2543F7E1AEEF893A9DC0C097A5A1C55522D73855BB597C36C94A7D99F5AF"]
+          , siblingHashes = [ofHex "303D2543F7E1AEEF893A9DC0C097A5A1C55522D73855BB597C36C94A7D99F5AF"]
           }
-    let targetHash = dhex "AADDAD8B4DA8F0A58CBF948CA41553DB039285D3A4C207B46F3C5F95FB28449A"
-    let rootHash = dhex "AAA668EACAC5BD082FACE0281D63849C422F1FB776B6D17365F55A2DA432E188"
+    let targetHash = ofHex "AADDAD8B4DA8F0A58CBF948CA41553DB039285D3A4C207B46F3C5F95FB28449A"
+    let rootHash = ofHex "AAA668EACAC5BD082FACE0281D63849C422F1FB776B6D17365F55A2DA432E188"
     validate rootHash doubleProof targetHash `shouldBe` True
 
   it "invalid merkle proofs should not be accepted" $ do
@@ -365,41 +343,40 @@ bountySpec = do
           { targetKey = hex "01"
           , keySize = 256
           , keyPath = [0]
-          , siblingHashes = [dhex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
+          , siblingHashes = [ofHex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
           }
-    let targetHash = dhex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
-    let rootHash = dhex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
+    let targetHash = ofHex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
+    let rootHash = ofHex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
     validate rootHash invalidProof targetHash `shouldBe` True
 
   it "main root hash 1 should be correct" $ do
     -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
     -- 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f ++ 0000
-    toByteString mainRootHash1 `shouldBe` hex "9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"
+    hexOf mainRootHash1 `shouldBe` "9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"
 
   it "main root hash 2 should be correct" $ do
     -- Sha256 of concatenation of topic2TopHash ++ topic1TopHash
     -- 0000 ++ 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f
-    toByteString mainRootHash2 `shouldBe` hex "9445c184e34e8e672e574e51141b1a88df56f692598811a3c31aab6d6727a10f"
+    hexOf mainRootHash2 `shouldBe` "9445c184e34e8e672e574e51141b1a88df56f692598811a3c31aab6d6727a10f"
 
   it "top hash 1 should be correct" $ do
     -- Sha256 of concatenation of mainCommitteeFP ++ mainRootHash1
     -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
     -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
-    toByteString topHash1 `shouldBe` hex "41f011893595e8cf96f9effee819310d41f9038c7adfb0d3d7b1b5ddfaac6710"
+    hexOf topHash1 `shouldBe` "41f011893595e8cf96f9effee819310d41f9038c7adfb0d3d7b1b5ddfaac6710"
 
   it "top hash 2 should be correct" $ do
     -- Sha256 of concatenation of mainCommitteeFP ++ mainRootHash2
     -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
     -- ++ 9445c184e34e8e672e574e51141b1a88df56f692598811a3c31aab6d6727a10f
-    toByteString topHash2 `shouldBe` hex "3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"
+    hexOf topHash2 `shouldBe` "3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"
 
   it "top hash 3 should be correct" $ do
     -- Sha256 of concatenation of topic1CommitteeFP ++ mainRootHash1
     -- b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767
     -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
-    toByteString topHash3 `shouldBe` hex "9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce"
+    hexOf topHash3 `shouldBe` "9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce"
 
-{-
 TODO: reenable
 it "contract should accept claim for dh1" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` True
@@ -424,7 +401,7 @@ it "contract should accept claim for dh1" $ do
 
   it "contract should not accept claim for wrong top hash" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 dh1 `shouldBe` False
--}
+
 ------------------------------------------------------------------------------
 -- Bridge Contract
 ------------------------------------------------------------------------------
@@ -501,5 +478,5 @@ bridgeSpec = do
 
   it "bridge doesn't accept top hash 2 with wrong old top hash" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig dh1) `shouldBe` False
--}
+ppp-}
 
