@@ -535,7 +535,7 @@ zipMapFocus :: (Monad e) => (node -> e node') -> Zip pathF node otherdata -> e (
 zipMapFocus f (Zip node path) = f node >>= return . flip Zip path
 
 zipUpdate :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => (Maybe c -> e (Maybe c)) -> k -> TrieZipper r h k c -> e (TrieZipper r h k c)
-zipUpdate updateLeaf k = refocus (0, k) >=> zipMapFocus (maybeOfLeaf >=> updateLeaf >=> leafOfMaybe)
+zipUpdate updateLeaf k = refocus k >=> zipMapFocus (maybeOfLeaf >=> updateLeaf >=> leafOfMaybe)
 
 -- NOTE: zipInsert v k, not zipInsert k v
 zipInsert :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => c -> k -> TrieZipper r h k c -> e (TrieZipper r h k c)
@@ -545,7 +545,7 @@ zipRemove :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> T
 zipRemove = zipUpdate (return . const Nothing)
 
 zipLookup :: (TrieHeightKey h k, LiftWrapping e r, Monad e, LiftDato r, Dato c) => k -> TrieZipper r h k c -> e (Maybe c)
-zipLookup k = refocus (0, k) >=> return . zipFocus >=> maybeOfLeaf
+zipLookup k = refocus k >=> return . zipFocus >=> maybeOfLeaf
 
 zipInsertList :: (LiftDato r, TrieHeightKey h k, LiftWrapping e r, Dato c) => [(k, c)] -> TrieZipper r h k c -> e (TrieZipper r h k c)
 zipInsertList ((k, v) : l) = zipInsertList l >=> zipInsert v k
@@ -632,7 +632,7 @@ getMerkleProof ::
   k ->
   Trie r h k c ->
   e (TrieProof h k hf)
-getMerkleProof k t = zipperOf t >>= refocus (0, k) >>= zipPath -. fmap (liftref -. getDigest -. castDigest) -. return
+getMerkleProof k t = zipperOf t >>= refocus k >>= zipPath -. fmap (liftref -. getDigest -. castDigest) -. return
 
 applyTrieStep :: (TrieHeightKey h k) => TrieStep h k t -> t -> TrieNodeF h k () t
 applyTrieStep s t = case s of

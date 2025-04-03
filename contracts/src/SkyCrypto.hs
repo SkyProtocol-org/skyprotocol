@@ -211,6 +211,12 @@ instance
   LiftWrapping Identity (DigestRef hf) where
   liftUnwrap = unwrap
 
+-- ** LiftRef
+instance
+  (HashFunction hf, DigestibleRef hf r) =>
+  DigestibleRef hf (LiftRef r) where
+  getDigest = getDigest . liftref
+
 -- ** PubKey
 instance Eq PubKey where -- the one from deriving isn't INLINEABLE by Plutus!
   (PubKey x) == (PubKey y) = x == y

@@ -89,6 +89,8 @@ type MessageData (r :: Type -> Type) = VariableLengthByteString
 -- TODO: In the future, turn MessageData into a Merkle Trie,
 -- so we can publish it piecemeal on the chain and/or use ZK Proofs about it.
 type Committee = MultiSigPubKey
+type TopicId = Bytes8
+type MessageId = Bytes8
 type Trie64 r c = Trie r Byte Bytes8 c
 type Trie64NodeRef r c = TrieNodeRef r Byte Bytes8 c
 type Trie64Path t = TriePath Byte Bytes8 t
@@ -96,7 +98,7 @@ type Trie64Path t = TriePath Byte Bytes8 t
 data SkyDataPath (r :: Type -> Type) = SkyDataPath
   { pathDaMetaData :: LiftRef r (DaMetaData r)
   , pathTopicTriePath :: Trie64Path (Trie64NodeRef r (TopicEntry r))
-  , pathTopicMetaData :: LiftRef r (MessageMetaData r)
+  , pathTopicMetaData :: LiftRef r (TopicMetaData r)
   , pathMessageTriePath :: Trie64Path (Trie64NodeRef r (MessageEntry r))
   , pathMessageMetaData :: LiftRef r (MessageMetaData r) }
 
@@ -170,7 +172,7 @@ tupleOfTopicMetaData :: TopicMetaData r -> (DataHash, LiftRef r Committee)
 tupleOfTopicMetaData TopicMetaData {..} = (topicSchema, topicCommittee)
 tupleOfDaMetaData :: DaMetaData r -> (DataHash, LiftRef r Committee)
 tupleOfDaMetaData DaMetaData {..} = (daSchema, daCommittee)
-tupleOfSkyDataPath :: SkyDataPath r -> (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (MessageMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
+tupleOfSkyDataPath :: SkyDataPath r -> (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
 tupleOfSkyDataPath SkyDataPath {..} = (pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData)
 tupleOfMultiSigPubKey :: MultiSigPubKey -> ([PubKey], UInt16)
 tupleOfMultiSigPubKey MultiSigPubKey {..} = (multiSigPubKeyKeys, multiSigPubKeyThreshold)
@@ -182,7 +184,7 @@ generateCommittee (m, _) = unwrap m <&> daCommittee
 
 -- TODO: add authentication, payment, etc., if not in this function, in one that wraps around it.
 insertTopic :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
-  DataHash -> SkyDa r -> e (Bytes8, SkyDa r)
+  DataHash -> SkyDa r -> e (TopicId, SkyDa r)
 insertTopic newTopicSchema da@(rDaMetaData, rOldTopicTrie) =
   do
     newTopicCommittee <- generateCommittee da
@@ -195,6 +197,24 @@ insertTopic newTopicSchema da@(rDaMetaData, rOldTopicTrie) =
     rNewTopicTrie <- insert newTopic newTopicId oldTopicTrie >>= wrap
     return (newTopicId, (rDaMetaData, rNewTopicTrie))
 
+insertMessage :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
+  PubKey -> POSIXTime -> VariableLengthByteString -> TopicId -> SkyDa r -> e (Maybe MessageId, SkyDa r)
+insertMessage poster timestamp newMessage topicId da@(rDaMetaData, rOldTopicTrie) =
+  do
+    oldTopicTrie <- unwrap rOldTopicTrie
+    oldMaybeTopicEntry <- lookup topicId oldTopicTrie
+    case oldMaybeTopicEntry of
+      Nothing -> return (Nothing, da)
+      Just (rTopicMetaData, rOldMessageTrie) -> do
+        oldMessageTrie <- unwrap rOldMessageTrie
+        rNewMessageMetaData <- wrap $ MessageMetaData poster timestamp
+        rNewMessageData <- wrap newMessage
+        newMessageId <- nextIndex oldMessageTrie
+        rNewMessageTrie <- insert (rNewMessageMetaData, rNewMessageData) newMessageId oldMessageTrie >>= wrap
+        rNewTopicTrie <- insert (rTopicMetaData, rNewMessageTrie) topicId oldTopicTrie >>= wrap
+        return (Just newMessageId, (rDaMetaData, rNewTopicTrie))
+
+-- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProof #-}
 applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
 applySkyDataProof SkyDataPath {..} messageDataHash =
@@ -207,14 +227,33 @@ applySkyDataProof SkyDataPath {..} messageDataHash =
      daDataHash <- applyMerkleProof topicLeafHash $ fmap (castDigest . liftref) pathTopicTriePath
      return . castDigest . computeDigest $ (liftref pathDaMetaData, daDataHash)
 
-{-
-applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
-applySkyDataProof SkyDataProof {..} messageDataHash =
+getSkyDataPath :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataPath r))
+getSkyDataPath (topicId, messageId) da@(rDaMetaData, rTopicTrie) = do
+  (Zip rTopicEntry topicPath) <- unwrap rTopicTrie >>= zipperOf >>= refocus topicId
+  fr rTopicEntry >>= \case
+    Empty -> return Nothing
+    Leaf (rTopicMetaData, rMessageTrie) -> do
+      zMessageTrie@(Zip rMessageEntry messagePath) <- unwrap rMessageTrie >>= zipperOf >>= refocus messageId
+      fr rMessageEntry >>= \case
+        Empty -> return Nothing
+        Leaf (rMessageMetaData, rMessageData) ->
+          return $ Just (rMessageData,
+                         SkyDataPath rDaMetaData topicPath rTopicMetaData messagePath rMessageMetaData)
 
-SkyDataZipper :: ()
+getSkyDataProof :: (Monad e, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef Blake2b_256 r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataProof))
+getSkyDataProof ids da =
+  getSkyDataPath ids da >>= \case
+    Nothing -> return Nothing
+    Just (rMessageData, path) -> return $ Just (rMessageData, proofOfSkyDataPath path)
 
-getSkyDataProof :: Bytes8 -> Bytes8 -> SkyDa r -> SkyDataProof
-getSkyDataProof =
--}
+proofOfSkyDataPath :: (LiftDato r, DigestibleRef Blake2b_256 r) => SkyDataPath r -> SkyDataProof
+proofOfSkyDataPath SkyDataPath {..} =
+  SkyDataPath
+    (lcg $ pathDaMetaData)
+    (fmap lcg pathTopicTriePath)
+    (lcg pathTopicMetaData)
+    (fmap lcg pathMessageTriePath)
+    (lcg pathMessageMetaData) where
+  lcg = LiftRef . castDigest . getDigest
 
 -- * Meta Declarations
