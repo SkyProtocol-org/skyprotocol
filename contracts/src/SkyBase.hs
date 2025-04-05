@@ -909,11 +909,8 @@ toUInt64 = fromInt
 
 equalizeByteStringLength :: BuiltinByteString -> BuiltinByteString -> (BuiltinByteString, BuiltinByteString)
 equalizeByteStringLength a b =
-  trace' ("bar" :: BuiltinString, Byte 1) $
-  trace' ("foo" :: BuiltinString, bHex b, bHex a) $
   let la = lengthOfByteString a
       lb = lengthOfByteString b in
-    trace' (la, lb) $
     if la < lb then (appendByteString (replicateByte (lb - la) 0) a, b)
     else if la > lb then (a, appendByteString (replicateByte (la - lb) 0) b)
     else (a, b)
