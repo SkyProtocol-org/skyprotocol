@@ -7,9 +7,7 @@ import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
 import PlutusLedgerApi.V1.Time (POSIXTime(..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
-import Data.Text (pack, unpack)
 import Data.Functor.Identity (Identity (..))
-import Text.Hex (Text, ByteString, decodeHex, encodeHex)
 
 import SkyBase
 import SkyCrypto
@@ -17,15 +15,6 @@ import Trie
 import SkyDA
 import SkyBridgeContract
 import BountyContract
-
-hexStringToBuiltinByteString :: Text -> Maybe BuiltinByteString
-hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
-
-ofHex :: FromByteString a => [Char] -> a
-ofHex = fromByteString . fromJust . hexStringToBuiltinByteString . pack
-
-hexOf :: ToByteString a => a -> [Char]
-hexOf = unpack . encodeHex . fromBuiltin . toByteString
 
 dh1 :: DataHash -- blake2b_256 for "Hello, World!"
 dh1 = ofHex "511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03"
@@ -164,11 +153,14 @@ signatureSpec = do
 fingerprintSpec :: Spec
 fingerprintSpec = do
 
+    it "multi sig 1 serialization should match" $ do
+      hexOf mpk1 `shouldBe` "00033363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf6542fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca730002"
+
     it "multi sig 1 fingerprint should match" $ do
-      (hexOf . computeHash $ mpk1) `shouldBe` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
+      hexOf (computeHash mpk1) `shouldBe` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
 
     it "multi sig 2 fingerprint should match" $ do
-      (hexOf . computeHash $ mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
+      hexOf (computeHash mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
 
 ------------------------------------------------------------------------------
 -- Merkle Proof
@@ -178,7 +170,7 @@ daSchema0 :: DataHash
 daSchema0 = computeHash $ (ofHex "deadbeef" :: Bytes4)
 
 topicSchema0 :: DataHash
-topicSchema0 = computeHash $ (ofHex "bad7091c" :: Bytes4)
+topicSchema0 = computeHash $ (ofHex "1ea7f00d" :: Bytes4)
 
 committee0 :: Committee
 committee0 = MultiSigPubKey [pk1, pk2] (UInt16 2)
@@ -200,15 +192,19 @@ msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft
 
 daSpec :: Spec
 daSpec = do
-  -- Create an empty SkyDA, check its digest
-  let rDaMetaData0 = runIdentity (wrap daMetaData0 :: Identity (LiftRef HashRef (DaMetaData HashRef)))
-  let rDaData0 = runIdentity ((empty >>= wrap) :: Identity (LiftRef HashRef (Trie64 HashRef (MessageEntry HashRef))))
-{-  let da0 = (rDaMetaData0, rDaData0)
-  (hexOf $ computeHash da0) `shouldBe` "12B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
-  -- Check that proofs come in empty
+  describe "simple tests for SkyDA" $ do
+    -- Create an empty SkyDA, check its digest
+    let
+      rDaMetaData0 = runIdentity (wrap daMetaData0 :: Identity (LiftRef HashRef (DaMetaData HashRef)))
+      rDaData0 = runIdentity ((empty >>= wrap) :: Identity (LiftRef HashRef (Trie64 HashRef (MessageEntry HashRef))))
+      --da0 = (rDaMetaData0, rDaData0) -- (rDaMetaData0, rDaData0)
+    --it "hash of empty DA" $ do
+      --(hexOf $ computeHash da0) `shouldBe` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+
+{-  -- Check that proofs come in empty
   let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0
   maybeProof0 `shouldBe` Nothing -}
-  return ()
+    return ()
 {-
   it "should generate a proof, validate it, and compute the root hash correctly" $ do
     let t1 = runIdentity $ olt [(1,"value1"),(2,"value2")]

@@ -162,7 +162,7 @@ class
   refocus :: focusKey -> Zip pathF node node -> e (Zip pathF node node)
 
 class
-  (Dato k, ToInt k, FromInt k, HasBitLogic k) =>
+  (Dato k, ToInt k, FromInt k, BitLogic k) =>
   TrieKey k where
 
 class

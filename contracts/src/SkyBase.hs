@@ -35,7 +35,6 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
--- (trace')
 module SkyBase where
 
 import GHC.Generics (Generic)
@@ -44,6 +43,7 @@ import PlutusTx.Prelude -- hiding (Applicative, Functor, fmap, pure, (<*>))
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
+import PlutusTx.Builtins.Internal (BuiltinString (..))
 import PlutusTx.Show
 import PlutusTx.Utils
 import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
@@ -61,6 +61,13 @@ import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
 -- import Data.Maybe (fromJust) -- won't compile to Plutus (!) so we redefine it below.
+
+-- Used for testing and debugging
+import Data.String (String, IsString, fromString)
+import Data.Text (pack, unpack)
+import Prelude (Char)
+import Text.Hex (Text, ByteString, decodeHex, encodeHex)
+
 
 -- * Types
 
@@ -176,7 +183,7 @@ class ByteStringIn a where
 
 {- Failure to include bitLength in either Haskell or Plutus seems incompetent to me. --fare
    (see CIP-123, compare to CLHS integer-length) -}
-class HasBitLogic a where
+class BitLogic a where
   bitLength :: a -> Integer
   lowestBitClear :: a -> Integer -- NB: returns -1 for 0, not maxBitLength, even for non-negative types!
   isBitSet :: Integer -> a -> Bool
@@ -275,11 +282,11 @@ instance
   fromByteString = validate . FixedLengthByteString
 instance
   (StaticLength len) =>
-  HasBitLogic (FixedLengthByteString len) where
+  BitLogic (FixedLengthByteString len) where
   bitLength (FixedLengthByteString b) = bitLength b
   lowestBitClear (FixedLengthByteString b) = lowestBitClear b
   isBitSet n (FixedLengthByteString b) = readBit b n
-  lowBitsMask l = FixedLengthByteString $ shiftByteString (replicateByte 0xFF $ staticLength @len) $ -l
+  lowBitsMask l = FixedLengthByteString $ shiftByteString (replicateByte (staticLength @len) 0xFF) $ -l
   logicalOr (FixedLengthByteString a) (FixedLengthByteString b) =
     FixedLengthByteString $ orByteString False a b
   logicalAnd (FixedLengthByteString a) (FixedLengthByteString b) =
@@ -317,7 +324,7 @@ instance
 instance
   FromByteString VariableLengthInteger where
   fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
-instance HasBitLogic VariableLengthByteString where
+instance BitLogic VariableLengthByteString where
   bitLength (VariableLengthByteString b) = bitLength b
   lowestBitClear (VariableLengthByteString b) = lowestBitClear b
   isBitSet n (VariableLengthByteString b) = isBitSet n b
@@ -347,16 +354,16 @@ instance ToByteString BuiltinByteString where
 instance
   ByteStringIn BuiltinByteString where
   byteStringIn = byteStringIn <&> toByteString @VariableLengthByteString
-instance HasBitLogic BuiltinByteString where
+instance BitLogic BuiltinByteString where
   bitLength b =
     let len = lengthOfByteString b
         loop i = if i >= len then 0 else
           let byte = indexByteString b i in
-            if byte > 0 then bitLength8 byte + len - i else loop $ i + 1 in
+            if byte > 0 then bitLength8 byte + 8 * (len - i - 1) else loop $ i + 1 in
         loop 0
   lowestBitClear b = findFirstSetBit $ complementByteString b
   isBitSet = flip readBit
-  lowBitsMask l = shiftByteString (replicateByte 0xFF $ bitLengthToByteLength l) $ (-l) `quotient` 8
+  lowBitsMask l = shiftByteString (replicateByte (bitLengthToByteLength l) 0xFF) $ (-l) `quotient` 8
   logicalOr a b = let (a', b') = equalizeByteStringLength a b in orByteString False a' b'
   logicalAnd a b = let (a', b') = equalizeByteStringLength a b in andByteString False a' b'
   logicalXor a b = let (a', b') = equalizeByteStringLength a b in xorByteString False a' b'
@@ -376,12 +383,12 @@ instance Partial Byte where
 instance ToInt Byte where
   toInt = fromByte
 instance FromInt Byte where
-  fromInt = toByte
+  fromInt = validate . Byte
 instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
 instance FromByteString Byte where
   fromByteString = toByte . byteStringToInteger BigEndian
-instance HasBitLogic Byte where
+instance BitLogic Byte where
   bitLength (Byte n) = bitLength8 n
   lowestBitClear (Byte b) = findFirstSetBit $ toByteString $ 255-b
   isBitSet n b = readBit (toByteString b) n
@@ -404,12 +411,12 @@ instance Partial UInt16 where
 instance ToInt UInt16 where
   toInt = fromUInt16
 instance FromInt UInt16 where
-  fromInt = toUInt16
+  fromInt = validate . UInt16
 instance ToByteString UInt16 where
   toByteString (UInt16 n) = integerToByteString BigEndian 2 n
 instance FromByteString UInt16 where
   fromByteString = toUInt16 . byteStringToInteger BigEndian
-instance HasBitLogic UInt16 where
+instance BitLogic UInt16 where
   bitLength (UInt16 n) = bitLength16 n
   lowestBitClear (UInt16 b) = findFirstSetBit $ toByteString $ 65535-b
   isBitSet n b = readBit (toByteString b) n
@@ -450,8 +457,8 @@ instance
   toByteString (FixedLengthInteger n) = integerToByteString BigEndian (staticLength @len) n
 instance
   (StaticLength len) =>
-  HasBitLogic (FixedLengthInteger len) where
-  bitLength (FixedLengthInteger n) = bitLength $ integerToByteString LittleEndian (staticLength @len) n
+  BitLogic (FixedLengthInteger len) where
+  bitLength (FixedLengthInteger n) = bitLength $ integerToByteString BigEndian (staticLength @len) n
   lowestBitClear n = lowestBitClear $ toByteString n
   isBitSet n i = isBitSet n (toByteString i)
   lowBitsMask l = FixedLengthInteger . toInt $ (lowBitsMask l :: FixedLengthByteString len)
@@ -506,7 +513,7 @@ instance
 instance
   ByteStringIn Integer where
   byteStringIn = byteStringIn <&> toInt @VariableLengthByteString
-instance HasBitLogic VariableLengthInteger where
+instance BitLogic VariableLengthInteger where
   bitLength (VariableLengthInteger l _) = l
   lowestBitClear n = lowestBitClear $ toByteString n
   isBitSet n i = isBitSet n (toByteString i)
@@ -534,7 +541,7 @@ instance Dato VariableLengthInteger where
 -- ** Integer
 instance ToByteString Integer where
   toByteString n = integerToByteString BigEndian (bitLengthToByteLength $ bitLength n) n
-instance HasBitLogic Integer where
+instance BitLogic Integer where
   bitLength n =
     if n < 0 then
       bitLength (-n - 1) -- two's complement notion of bit length
@@ -542,18 +549,18 @@ instance HasBitLogic Integer where
         bitLength16 n
     else let findLen l m = if n < m then l else findLen (l + l) (m * m)
              len = findLen 4 4294967296 in
-           bitLength $ integerToByteString LittleEndian len n
+           bitLength $ integerToByteString BigEndian len n
   lowestBitClear n = lowestBitSet (-n-1) where
     lowestBitSet n = if n == 0 then -1 else up n 1 2 []
-    up n i m ms = let (q, r) = n `divMod` m in
+    up n i m ms = let (q, r) = n `divMod` m in -- m = 2**i, ms list of previous powers of two
                     if r == 0 then up q (i + i) (m * m) (m : ms)
                     else down ms i r (i - 1)
-    down [] _ _ h = h
+    down [] _ _ h = h -- powers of two, power index, remainder, bits skipped so far
     down (m : ms) i n h =
       let j = i `divide` 2
           (q, r) = n `divMod` m in
-        if r == 0 then down ms j (h + j) q
-        else down ms j h r
+        if r == 0 then down ms j q (h + j)
+        else down ms j r h
   isBitSet i n = let e = exponential 2 i in n `divide` (e + e) >= e
   lowBitsMask l = (exponential 2 l) - 1
   logicalOr a b = toInt $ logicalOr (VariableLengthByteString $ toByteString a)
@@ -608,6 +615,17 @@ instance
   byteStringOut = byteStringOut . unCurrencySymbol
 
 -- PlutusTx only has this for pairs, not longer tuples
+-- ** Unit
+instance ByteStringOut () where
+  byteStringOut () s  = s
+instance ToByteString () where
+  toByteString () = ""
+instance ByteStringIn () where
+  byteStringIn = return ()
+instance FromByteString () where
+  fromByteString = fromByteStringIn
+
+
 -- ** Tuples
 instance
   (Eq a, Eq b, Eq c) =>
@@ -625,8 +643,6 @@ instance
   (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) =>
   Eq (a, b, c, d, e, f) where
   (a, b, c, d, e, f) == (a', b', c', d', e', f') = a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
-instance ByteStringOut () where
-  byteStringOut () s  = s
 instance
   (ByteStringOut a, ByteStringOut b) =>
   ByteStringOut (a, b) where
@@ -687,8 +703,6 @@ instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
   ToByteString (a, b, c, d, e, f) where
   toByteString = toByteStringOut
-instance ByteStringIn () where
-  byteStringIn = return ()
 instance
   (ByteStringIn a, ByteStringIn b) =>
   ByteStringIn (Either a b) where
@@ -869,6 +883,7 @@ instance
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
+fromJust Nothing = traceError "fromJust Nothing"
 
 -- | How is this not in Plutus already?
 multiplyByExponential :: Integer -> Integer -> Integer -> Integer
@@ -884,31 +899,38 @@ exponential :: Integer -> Integer -> Integer
 exponential = multiplyByExponential 1
 
 toByte :: Integer -> Byte
-toByte n = validate (Byte n)
+toByte = fromInt
 toUInt16 :: Integer -> UInt16
-toUInt16 n = validate (UInt16 n)
+toUInt16 = fromInt
+toUInt32 :: Integer -> UInt32
+toUInt32 = fromInt
+toUInt64 :: Integer -> UInt64
+toUInt64 = fromInt
 
 equalizeByteStringLength :: BuiltinByteString -> BuiltinByteString -> (BuiltinByteString, BuiltinByteString)
 equalizeByteStringLength a b =
+  trace' ("bar" :: BuiltinString, Byte 1) $
+  trace' ("foo" :: BuiltinString, bHex b, bHex a) $
   let la = lengthOfByteString a
       lb = lengthOfByteString b in
-    if la < lb then (appendByteString (replicateByte 0 $ lb - la) a,b)
-    else if la > lb then (a, appendByteString (replicateByte 0 $ la - lb) b)
+    trace' (la, lb) $
+    if la < lb then (appendByteString (replicateByte (lb - la) 0) a, b)
+    else if la > lb then (a, appendByteString (replicateByte (la - lb) 0) b)
     else (a, b)
 bitLengthToByteLength :: Integer -> Integer
 bitLengthToByteLength n = (n + 7) `divide` 8
 -- First argument is the length, second is the start (little endian), last is the bits
-extractBitField :: HasBitLogic a => Integer -> Integer -> a -> a
+extractBitField :: BitLogic a => Integer -> Integer -> a -> a
 extractBitField length height bits = (bits `shiftRight` height) `logicalAnd` lowBitsMask length
 
 bitLength16 :: Integer -> Integer -- assumes input in [0,65535]
-bitLength16 n = if n < 256 then bitLength8 n else 8 + bitLength8 (n `divide` 256)
+bitLength16 n = if n < 256 then bitLength8 n else 8 + bitLength8 (n `quotient` 256)
 bitLength8 :: Integer -> Integer -- assumes input in [0,255]
-bitLength8 n = if n < 16 then bitLength4 n else 4 + bitLength4 (n `divide` 16)
+bitLength8 n = if n < 16 then bitLength4 n else 4 + bitLength4 (n `quotient` 16)
 bitLength4 :: Integer -> Integer -- assumes input in [0,15]
-bitLength4 n = if n < 4 then bitLength2 n else 2 + bitLength2 (n `divide` 4)
+bitLength4 n = if n < 4 then bitLength2 n else 2 + bitLength2 (n `quotient` 4)
 bitLength2 :: Integer -> Integer -- assumes input in [0,3]
-bitLength2 n = if n < 3 then n else 2
+bitLength2 n = min n 2
 byteString1 = integerToByteString BigEndian 1 0xFF
 byteString2 = integerToByteString BigEndian 2 0xFFFF
 
@@ -964,6 +986,19 @@ curry5 f a b c d e = f (a, b, c, d, e)
 curry6 :: ((a,b,c,d,e,f)->g)->a->b->c->d->e->f->g
 curry6 g a b c d e f = g (a, b, c, d, e, f)
 
+{-
+serialiseData :: BuiltinData -> BuiltinByteString
+-}
+
+-- * For testing and debugging purposes
+
+ofHex :: (FromByteString a) => String -> a
+ofHex = fromByteString . toBuiltin . fromJust . decodeHex . pack
+hexOf :: (ToByteString a, IsString s) => a -> s
+hexOf = fromString . unpack . encodeHex . fromBuiltin . toByteString
+bHex :: (ToByteString a) => a -> BuiltinString
+bHex = hexOf
+
 trace':: (Show s) => s -> e -> e
 trace' s e = trace (show s) e
 
@@ -986,10 +1021,6 @@ etrace2 s f a b = trace (">> " ++ show s ++ " " ++ show a ++ " " ++ show b) $
 etrace3 :: (Monad e, Show s, Show a, Show b, Show c, Show r) => s -> (a -> b -> c -> e r) -> a -> b -> c -> e r
 etrace3 s f a b c = trace (">> " ++ show s ++ " " ++ show a ++ " " ++ show b ++ " " ++ show c) $
   f a b c >>= \ r -> trace ("<< " ++ show s ++ " " ++ show r) $ return r
--}
-
-{-
-serialiseData :: BuiltinData -> BuiltinByteString
 -}
 
 -- * Meta declarations
