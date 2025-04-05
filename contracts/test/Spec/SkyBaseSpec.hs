@@ -1,9 +1,12 @@
 {-# LANGUAGE BinaryLiterals #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Spec.SkyBaseSpec where
 
@@ -15,10 +18,11 @@ import PlutusTx.Prelude
 import PlutusTx
 import PlutusTx.Builtins
 import PlutusTx.Builtins.Internal (BuiltinString (..))
-import PlutusTx.Show
+import qualified PlutusTx.Show as PS
 import PlutusTx.Utils
 
 import qualified Debug.Trace as DT
+import qualified GHC.Show as GS
 import Data.Functor.Identity (Identity (..))
 import Data.String (String, IsString, fromString)
 import GHC.Base (String)
@@ -26,7 +30,6 @@ import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
 
 -- * Helpers
-
 shouldBeHex :: ToByteString a => a -> String -> Expectation
 a `shouldBeHex` h = hexOf a `shouldBe` h
 
@@ -67,6 +70,9 @@ instance
   Arbitrary VariableLengthByteString where
   arbitrary = arbitrary >>= return . VariableLengthByteString
 
+instance GS.Show Bytes4 where show = GS.show . PS.show
+instance GS.Show UInt64 where show = GS.show . PS.show
+
 spec :: Spec
 spec = do
   describe "SkyBase" $ do
@@ -103,7 +109,7 @@ spec = do
       toUInt16 65535 `shouldBeHex` "ffff"
       --toUInt16 65536 `shouldThrow` anyException
     it "equalizeByteStringLength" $ do
-      let e x y = (hexOf ex, hexOf ey) where (ex, ey) = equalizeByteStringLength (ofHex x) (ofHex y)
+      let e x y = (hexOf ex :: BuiltinString, hexOf ey :: BuiltinString) where (ex, ey) = equalizeByteStringLength (ofHex x) (ofHex y)
       e "abcd" "ef01" `shouldBe` ("abcd", "ef01")
       e "abcd" "" `shouldBe` ("abcd", "0000")
       e "ab" "ef01" `shouldBe` ("00ab", "ef01")
@@ -129,7 +135,12 @@ spec = do
       map (lowestBitClear :: Integer -> Integer) lbcin `shouldBe` lbcon
       map (lowestBitClear . toUInt64 :: Integer -> Integer) lbci `shouldBe` lbco
       map (lowestBitClear . toBytes4 :: Integer -> Integer) lbci `shouldBe` lbco
-
+    it "BitLogic Integer" $ do
+      testBitLogic (\x -> x) (\x -> x) (-1 :: Integer) 16
+    it "BitLogic Bytes4" $ do
+      testBitLogic toBytes4 toInt (toBytes4 0xffffffff) 4
+    it "BitLogic UInt64" $ do
+      testBitLogic toUInt64 toInt (toUInt64 0xffffffffffffffff) 8
 {-
     it "QuickCheck property: lowestBitSet" $
       property $
@@ -172,38 +183,41 @@ spec = do
           extractBitField l s (-1 :: Integer) `shouldBe` (lowBitsMask l)
 -}
 
-{-
-testBitLogic :: (BitLogic a, FromInt a) => a -> Integer -> Expectation
-testBitLogic allBits len =
+testBitLogic :: (BitLogic a, FromInt a, Dato a, GS.Show a) =>
+  (Integer -> a) -> (a -> Integer) -> a -> Integer -> Expectation
+testBitLogic i t allBits len =
+  let nBits = len * 8
+      am1 = i $ -1 + t allBits
+      bM = t $ lowBitsMask nBits
+      maxi = i $ (exponential 256 len) - 1
+      genA = genUInt len
+      m1 = t maxi `quotient` 255
+      rep b = i $ b * m1 -- or we could add a method using replicateByte for ByteString's
+      r17 = rep 17
+      aAnd x y = t $ (i x) `logicalAnd` (i y)
+      aOr x y = t $ (i x) `logicalOr` (i y)
+      aXor x y = t $ (i x) `logicalXor` (i y)
+      aLowestBitClear n = lowestBitClear (i n)
+  in
   do -- it "Checking BitLogic" $ do
-    let nBits = len * 8
-        i = fromInt :: Integer -> a
-        bM = lowBitsMask nBits :: a
-        maxi = i $ (exponential 256 len) - 1
-        genA = genUInt len
-        m1 = maxi `quotient` 255
-        rep b = i $ b * m1 -- or we could add a method using replicateByte for ByteString's
-        r17 = rep 17
-    it "bitLength" $ do
+--    it "bitLength" $ do
       (bitLength $ i 17) `shouldBe` 5
       bitLength r17 `shouldBe` (len * 8) - 3
-    it "lowestBitClear" $ do
-      lowestBitClear i 0 `shouldBe` 0
-      lowestBitClear (i 159) `shouldBe` 5
-      lowestBitClear allBits `shouldBe` -1
+--    it "lowestBitClear" $ do
+      aLowestBitClear 0 `shouldBe` 0
+      aLowestBitClear 159 `shouldBe` 5
       lowestBitClear (maxi `shiftRight` (len * 2)) `shouldBe` len * 6
+      lowestBitClear allBits `shouldBe` -1
 --    it "isBitSet" $ do
-    it "logicalAnd" $ do
-      i 240 `logicalAnd` i 85  `shouldBe` i 80
-      i 42 `logicalAnd` i 1 `shouldBe` i 0
-    it "logicalOr" $ do
-      i 240 `logicalOr` i 85  `shouldBe` i 245
-      i 42 `logicalOr` i 1 `shouldBe` i 43
-    it "logicalXor" $ do
-      i 240 `logicalXor` i 85 `shouldBe` i 165
-      i 42 `logicalXor` i 1 `shouldBe` i 43
+--    it "logicalAnd" $ do
+      240 `aAnd` 85 `shouldBe` 80
+      42 `aAnd` 1 `shouldBe` 0
+--    it "logicalOr" $ do
+      240 `aOr` 85 `shouldBe` 245
+      42 `aOr` 1 `shouldBe` 43
+--    it "logicalXor" $ do
+      240 `aXor` 85 `shouldBe` 165
+      42 `aXor` 1 `shouldBe` 43
 --    it "lowBitsMask" $ do
 --    it "shiftRight" $ do
 --    it "shiftLeft" $ do
--}
-

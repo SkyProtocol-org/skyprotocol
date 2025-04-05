@@ -117,7 +117,7 @@ newtype
 data VariableLengthInteger = VariableLengthInteger
   { vliBitLength :: Integer
   , vliInteger :: Integer }
-  deriving Show
+  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -539,6 +539,10 @@ instance ByteStringOut VariableLengthInteger where
 instance Dato VariableLengthInteger where
 
 -- ** Integer
+instance ToInt Integer where
+  toInt n = n
+instance FromInt Integer where
+  fromInt n = n
 instance ToByteString Integer where
   toByteString n = integerToByteString BigEndian (bitLengthToByteLength $ bitLength n) n
 instance BitLogic Integer where

@@ -204,7 +204,7 @@ instance
   ToByteString (TrieNodeF h k c t) where
   toByteString = toByteStringOut
 instance
-  (TrieHeightKey h k, ByteStringOut c, ByteStringOut t) =>
+  (TrieHeightKey h k, Dato c, Dato t) =>
   Dato (TrieNodeF h k c t) where
 instance
   (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, ByteStringIn t) =>
