@@ -28,6 +28,9 @@ import PlutusLedgerApi.V2.Contexts (ownCurrencySymbol, txSignedBy)
 import PlutusTx
 import PlutusTx.Prelude qualified as PlutusTx
 
+import SkyBase
+import SkyCrypto
+
 type SkyMintingParams = PubKeyHash
 type SkyMintingRedeemer = ()
 

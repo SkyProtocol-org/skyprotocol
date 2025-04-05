@@ -18,6 +18,7 @@
 
 module Main where
 
+import SkyCrypto
 import SkyBridgeContract
 import BountyContract
 import Data.ByteString.Short qualified as Short
@@ -38,7 +39,7 @@ hexStringToBuiltinByteString s = toBuiltin <$> decodeHex s
 
 clientParams :: CurrencySymbol -> TopicID -> DataHash -> PubKeyHash -> ClientParams
 clientParams csym topicID messageHash claimantPKH =
-  ClientParams
+  DecodedClientParams
     { bountyNFTCurrencySymbol = csym
     , bountyTopicID = topicID
     , bountyMessageHash = messageHash

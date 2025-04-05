@@ -2,11 +2,14 @@
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PartialTypeSignatures      #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE Strict                     #-}
@@ -40,6 +43,7 @@ import PlutusLedgerApi.V2 (CurrencySymbol, Value (..), Datum (..),
                            txOutDatum, TxInInfo, TxInfo,
                            from, to, txInInfoResolved)
 import PlutusLedgerApi.V2.Contexts (getContinuingOutputs, findDatum)
+import PlutusTx.Prelude
 import PlutusTx
 import PlutusTx.AsData qualified as PlutusTx
 import PlutusTx.Blueprint
@@ -48,65 +52,9 @@ import PlutusTx.Show qualified as PlutusTx
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, blake2b_256)
 
-------------------------------------------------------------------------------
--- Core Data Types
-------------------------------------------------------------------------------
-
--- A hash
-data DataHash = DataHash PlutusTx.BuiltinByteString
-  deriving (Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
-instance Eq DataHash where
-    (DataHash dh1) == (DataHash dh2) = equalsByteString dh1 dh2
-instance PlutusTx.Eq DataHash where
-    (DataHash dh1) == (DataHash dh2) = equalsByteString dh1 dh2
-
--- Hashes the concatenation of a pair of hashes
-pairHash :: DataHash -> DataHash -> DataHash
-pairHash (DataHash a) (DataHash b) = DataHash (blake2b_256 (a `appendByteString` b))
-
--- A public key
-data PubKey = PubKey PlutusTx.BuiltinByteString
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
-instance Eq PubKey where
-    (PubKey pk1) == (PubKey pk2) = equalsByteString pk1 pk2
-instance PlutusTx.Eq PubKey where
-    (PubKey pk1) == (PubKey pk2) = equalsByteString pk1 pk2
-
--- List of data operators that must sign and minimum number of them that must sign
-data MultiSigPubKey = MultiSigPubKey [PubKey] Integer
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
--- A single signature by a single data operator public key
-data SingleSig = SingleSig PubKey PlutusTx.BuiltinByteString
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
-instance Eq SingleSig where
-  (SingleSig pubKey1 sig1) == (SingleSig pubKey2 sig2) = pubKey1 == pubKey2 && sig1 == sig2
-instance PlutusTx.Eq SingleSig where
-  (SingleSig pubKey1 sig1) == (SingleSig pubKey2 sig2) = pubKey1 == pubKey2 && sig1 == sig2
-
--- Signatures produced by data operators for top hash
-data MultiSig = MultiSig [SingleSig]
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
-PlutusTx.makeIsDataSchemaIndexed ''DataHash [('DataHash, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''PubKey [('PubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSigPubKey [('MultiSigPubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''SingleSig [('SingleSig, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSig [('MultiSig, 0)]
-PlutusTx.makeLift ''DataHash
-PlutusTx.makeLift ''PubKey
-PlutusTx.makeLift ''MultiSigPubKey
-PlutusTx.makeLift ''SingleSig
-PlutusTx.makeLift ''MultiSig
+import SkyBase
+import SkyCrypto
+import SkyDA
 
 ------------------------------------------------------------------------------
 -- Datum Stored in Bridge NFT
@@ -115,16 +63,15 @@ PlutusTx.makeLift ''MultiSig
 data BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: DataHash
   }
+  deriving (Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+instance ByteStringIn BridgeNFTDatum where
+  byteStringIn = byteStringIn <&> BridgeNFTDatum
 
-instance Eq BridgeNFTDatum where
-  (BridgeNFTDatum th1) == (BridgeNFTDatum th2) = th1 == th2
-instance PlutusTx.Eq BridgeNFTDatum where
-  (BridgeNFTDatum th1) == (BridgeNFTDatum th2) = th1 == th2
 
-PlutusTx.makeLift ''BridgeNFTDatum
-PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
+--PlutusTx.makeLift ''BridgeNFTDatum
+--PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for the bridge contract
@@ -145,16 +92,22 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 ------------------------------------------------------------------------------
 
 data BridgeRedeemer = UpdateBridge
-  { bridgeCommittee :: MultiSigPubKey
+  { bridgeSchema :: DataHash
+  , bridgeCommittee :: MultiSigPubKey
   , bridgeOldRootHash :: DataHash
   , bridgeNewTopHash :: DataHash
   , bridgeSig :: MultiSig -- signature over new top hash
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+instance ByteStringIn BridgeRedeemer where
+  byteStringIn = byteStringIn <&> uncurry5 UpdateBridge
+instance FromByteString BridgeRedeemer where
+  fromByteString = fromByteStringIn
 
-PlutusTx.makeLift ''BridgeRedeemer
-PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
+
+--PlutusTx.makeLift ''BridgeRedeemer
+--PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
 ------------------------------------------------------------------------------
 -- NFT Utilities
@@ -178,7 +131,8 @@ getDatumFromTxOut txOut ctx = case txOutDatum txOut of
 
 -- Deserialize a serialized bridge NFT datum
 getBridgeNFTDatum :: Datum -> Maybe BridgeNFTDatum
-getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
+--getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
+getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d >>= maybeFromByteStringIn
 
 -- Given a script context, find the bridge NFT UTXO
 getBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
@@ -230,9 +184,9 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     conditions :: [Bool]
     conditions = case redeemer of
         -- Update the bridge state
-        UpdateBridge committee oldRootHash newTopHash sig ->
+        UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
             [ -- Core validation, below
-              bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldNFTTopHash
+              bridgeTypedValidatorCore daSchema daCommittee oldRootHash newTopHash sig oldNFTTopHash
               -- The NFT must be again included in the outputs
             , outputHasNFT
               -- The NFT's data must have been updated
@@ -268,54 +222,22 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
       assetClassValueOf (txOutValue ownOutput) assetClass PlutusTx.== 1
 
 -- Core validation function, for easy testing
-bridgeTypedValidatorCore :: MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
-bridgeTypedValidatorCore committee oldRootHash newTopHash sig oldTopHash =
+bridgeTypedValidatorCore :: DataHash -> MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
+bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
   PlutusTx.and
-    [ multiSigValid committee newTopHash sig
+    [ multiSigValid daCommittee newTopHash sig
       -- ^ The new top hash must be signed by the committee
-    , oldTopHash PlutusTx.== pairHash (multiSigToDataHash committee) oldRootHash
+    , oldTopHash == computedOldTopHash
       -- ^ The old top hash must be the hash of the concatenation of committee fingerprint
       --   and old root hash
     ]
-
-------------------------------------------------------------------------------
--- Multisig Verification
-------------------------------------------------------------------------------
-
--- Function that checks if a SingleSig is valid
-singleSigValid :: DataHash -> SingleSig -> Bool
-singleSigValid (DataHash topHash) (SingleSig (PubKey pubKey) sig) =
-  verifyEd25519Signature pubKey topHash sig
-
--- Main function to check if the MultiSig satisfies at least N valid unique signatures
-multiSigValid :: MultiSigPubKey -> DataHash -> MultiSig -> Bool
-multiSigValid (MultiSigPubKey pubKeys minSigs) topHash (MultiSig singleSigs) =
-  let -- Extract the public keys from the SingleSig values
-      pubKeysInSignatures = PlutusTx.map (\(SingleSig pubKey _) -> pubKey) singleSigs
-      -- Check for duplicates by comparing the list to its nub version
-      noDuplicates = pubKeysInSignatures PlutusTx.== PlutusTx.nub pubKeysInSignatures
-  in if not noDuplicates
-     then False -- Duplicates found, return False
-     else let -- Filter for valid signatures from required public keys
-              validSignatures = PlutusTx.filter (\ss@(SingleSig pubKey sig) -> pubKey `PlutusTx.elem` pubKeys && singleSigValid topHash ss) singleSigs
-          in PlutusTx.length validSignatures PlutusTx.>= minSigs
-
--- Create fingerprint of a multisig pubkey
-multiSigToDataHash :: MultiSigPubKey -> DataHash
-multiSigToDataHash (MultiSigPubKey pubKeys _) =
-  let
-    -- Step 1: Concatenate the public keys manually
-    concatenated = concatPubKeys pubKeys
-    -- Step 2: Apply hash to the concatenated byte string
-    hashed = blake2b_256 concatenated
-  in DataHash hashed
-
--- Helper function to concatenate a list of PubKey byte strings
-concatPubKeys :: [PubKey] -> PlutusTx.BuiltinByteString
-concatPubKeys (PubKey pk : rest) =
-  let restConcatenated = concatPubKeys rest
-    in appendByteString pk restConcatenated
-concatPubKeys [] = PlutusTx.emptyByteString
+  where
+    daCommitteeFingerprint :: Hash Committee
+    daCommitteeFingerprint = computeDigest daCommittee
+    computedOldDaMetaData :: DataHash
+    computedOldDaMetaData = castDigest (computeDigest (daSchema, daCommitteeFingerprint))
+    computedOldTopHash :: DataHash
+    computedOldTopHash = castDigest (computeDigest (computedOldDaMetaData, daData))
 
 ------------------------------------------------------------------------------
 -- Untyped Validator
@@ -328,7 +250,7 @@ bridgeUntypedValidator params datum redeemer ctx =
         ( bridgeTypedValidator
             params
             () -- ignore the untyped datum, it's unused
-            (PlutusTx.unsafeFromBuiltinData redeemer)
+            (fromByteStringIn . fromJust $ PlutusTx.fromBuiltinData redeemer)
             (PlutusTx.unsafeFromBuiltinData ctx)
         )
 
