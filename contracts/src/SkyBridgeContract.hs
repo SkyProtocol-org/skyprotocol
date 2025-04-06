@@ -63,7 +63,6 @@ import SkyDA
 data BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: DataHash
   }
-  deriving (Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn BridgeNFTDatum where
@@ -119,7 +118,7 @@ findInputByCurrencySymbol targetSymbol inputs =
     let assetClass = AssetClass (targetSymbol, TokenName "SkyBridge")
         findSymbol :: TxInInfo -> Bool
         findSymbol txInInfo =
-          assetClassValueOf (txOutValue (txInInfoResolved txInInfo)) assetClass PlutusTx.== 1
+          assetClassValueOf (txOutValue (txInInfoResolved txInInfo)) assetClass == 1
     in PlutusTx.find (findSymbol) inputs
 
 -- Function to get a Datum from a TxOut, handling both inline data and hashed data
@@ -213,13 +212,13 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     -- The output NFT UTXO's datum must match the new values for the root hashes
     nftUpdated :: DataHash -> Bool
     nftUpdated newTopHash =
-      newNFTTopHash PlutusTx.== newTopHash
+      newNFTTopHash == newTopHash
 
     -- There must be exactly one output UTXO with our NFT's unique currency symbol
     outputHasNFT :: Bool
     outputHasNFT =
       let assetClass = (AssetClass ((bridgeNFTCurrencySymbol params), TokenName "SkyBridge")) in
-      assetClassValueOf (txOutValue ownOutput) assetClass PlutusTx.== 1
+      assetClassValueOf (txOutValue ownOutput) assetClass == 1
 
 -- Core validation function, for easy testing
 bridgeTypedValidatorCore :: DataHash -> MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool

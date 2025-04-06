@@ -69,24 +69,20 @@ import GHC.Generics (Generic)
 type SkyDa r = (LiftRef r (DaMetaData r), LiftRef r (DaData r))
 data DaMetaData r = DaMetaData
   { daSchema :: DataHash
-  , daCommittee :: LiftRef r Committee
-  } deriving (Show, Eq)
+  , daCommittee :: LiftRef r Committee }
 type DaData r = TopicTrie r
 type TopicTrie r = Trie64 r (TopicEntry r)
 type TopicEntry r = (LiftRef r (TopicMetaData r), LiftRef r (MessageTrie r))
 data TopicMetaData r = TopicMetaData
   { topicSchema :: DataHash
-  , topicCommittee :: LiftRef r Committee
-  } deriving (Show, Eq)
+  , topicCommittee :: LiftRef r Committee }
 type MessageTrie r = Trie64 r (MessageEntry r)
 type MessageEntry r = (LiftRef r (MessageMetaData r), LiftRef r (MessageData r))
 data MessageMetaData (r :: Type -> Type) = MessageMetaData
   { messagePoster :: PubKey
-  , messageTime :: POSIXTime
-  } deriving (Show, Eq)
+  , messageTime :: POSIXTime }
 type MessageData (r :: Type -> Type) = VariableLengthByteString
 
--- TODO: In the future, turn MessageData into a Merkle Trie,
 -- so we can publish it piecemeal on the chain and/or use ZK Proofs about it.
 type Committee = MultiSigPubKey
 type TopicId = Bytes8
@@ -107,6 +103,10 @@ type SkyDataProof = SkyDataPath Hash
 -- * Instances
 
 -- ** MessageMetaData
+instance LiftEq r => Eq (MessageMetaData r) where
+  MessageMetaData p t == MessageMetaData p' t' = p == p' && t == t'
+instance LiftShow r => Show (MessageMetaData r) where
+  showsPrec prec (MessageMetaData p t) = showApp prec "MessageMetaData" [showArg p, showArg t]
 instance ToByteString (MessageMetaData r) where
   toByteString = toByteStringOut
 instance ByteStringOut (MessageMetaData r) where
@@ -116,6 +116,10 @@ instance LiftByteStringIn r => ByteStringIn (MessageMetaData r) where
   byteStringIn = byteStringIn <&> uncurry MessageMetaData
 
 -- ** TopicMetaData
+instance LiftEq r => Eq (TopicMetaData r) where
+  TopicMetaData s c == TopicMetaData s' c' = s == s' && c == c'
+instance LiftShow r => Show (TopicMetaData r) where
+  showsPrec prec (TopicMetaData s c) = showApp prec "TopicMetaData" [showArg s, showArg c]
 instance LiftByteStringOut r => ToByteString (TopicMetaData r) where
   toByteString = toByteStringOut
 instance LiftByteStringOut r => ByteStringOut (TopicMetaData r) where
@@ -125,6 +129,10 @@ instance LiftByteStringIn r => ByteStringIn (TopicMetaData r) where
   byteStringIn = byteStringIn <&> uncurry TopicMetaData
 
 -- ** DaMetaData
+instance LiftEq r => Eq (DaMetaData r) where
+  DaMetaData s c == DaMetaData s' c' = s == s' && c == c'
+instance LiftShow r => Show (DaMetaData r) where
+  showsPrec prec (DaMetaData s c) = showApp prec "DaMetaData" [showArg s, showArg c]
 instance LiftByteStringOut r => ToByteString (DaMetaData r) where
   toByteString = toByteStringOut
 instance LiftByteStringOut r => ByteStringOut (DaMetaData r) where
@@ -134,6 +142,12 @@ instance LiftByteStringIn r => ByteStringIn (DaMetaData r) where
   byteStringIn = byteStringIn <&> uncurry DaMetaData
 
 -- ** SkyDataPath
+instance (LiftEq r) => Eq (SkyDataPath r) where
+  SkyDataPath dmd ttp tmd mtp mmd == SkyDataPath dmd' ttp' tmd' mtp' mmd' =
+    dmd == dmd' && ttp == ttp' && tmd == tmd' && mtp == mtp' && mmd == mmd'
+instance (LiftShow r) => Show (SkyDataPath r) where
+  showsPrec prec (SkyDataPath dmd ttp tmd mtp mmd) =
+    showApp prec "SkyDataPath" [showArg dmd, showArg ttp, showArg tmd, showArg mtp, showArg mmd]
 instance LiftDato r => ByteStringOut (SkyDataPath r) where
   byteStringOut = byteStringOut . tupleOfSkyDataPath
 instance LiftByteStringIn r => ByteStringIn (SkyDataPath r) where
@@ -154,13 +168,13 @@ instance ByteStringIn MultiSig where
 
 -- ** MultiSigPubKey
 instance Eq MultiSigPubKey where
-  (MultiSigPubKey al an) == (MultiSigPubKey bl bn) = (al, an) == (bl, bn)
+  MultiSigPubKey al an == MultiSigPubKey bl bn = al == bl && an == bn
 instance ByteStringOut MultiSigPubKey where
   byteStringOut = byteStringOut . tupleOfMultiSigPubKey
 instance ToByteString MultiSigPubKey where
   toByteString = toByteStringOut
 instance Show MultiSigPubKey where
-  show (MultiSigPubKey l n) = "(MultiSigPubKey " <> show l <> " " <> show n <> ")"
+  showsPrec prec (MultiSigPubKey l n) = showApp prec "MultiSigPubKey" [showArg l, showArg n]
 instance Dato MultiSigPubKey where
 instance ByteStringIn MultiSigPubKey where
   byteStringIn = byteStringIn <&> uncurry MultiSigPubKey

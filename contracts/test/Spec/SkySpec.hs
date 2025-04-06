@@ -1,13 +1,17 @@
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 --module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
 module Spec.SkySpec where
 
-import Test.Hspec
+import PlutusTx.Prelude -- hiding (Applicative, Functor, fmap, pure, (<*>))
+import PlutusTx
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
 import PlutusLedgerApi.V1.Time (POSIXTime(..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
 import Data.Functor.Identity (Identity (..))
+import Test.Hspec
 
 import SkyBase
 import SkyCrypto
@@ -15,6 +19,7 @@ import Trie
 import SkyDA
 import SkyBridgeContract
 import BountyContract
+import Spec.SkyBaseSpec
 
 dh1 :: DataHash -- blake2b_256 for "Hello, World!"
 dh1 = ofHex "511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03"
@@ -197,9 +202,26 @@ daSpec = do
     let
       rDaMetaData0 = runIdentity (wrap daMetaData0 :: Identity (LiftRef HashRef (DaMetaData HashRef)))
       rDaData0 = runIdentity ((empty >>= wrap) :: Identity (LiftRef HashRef (Trie64 HashRef (MessageEntry HashRef))))
-      --da0 = (rDaMetaData0, rDaData0) -- (rDaMetaData0, rDaData0)
-    --it "hash of empty DA" $ do
-      --(hexOf $ computeHash da0) `shouldBe` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+      da0 = (rDaMetaData0, rDaData0) -- (rDaMetaData0, rDaData0)
+    it "hash of empty Trie" $ do
+      let e00 = Empty :: TrieNodeF Byte Bytes8 Integer ()
+      let e0 = Empty :: TrieNodeF Byte Bytes8 Integer (TrieNodeRef Identity Byte Bytes8 Integer)
+      let e1 = Fix (TrieNodeFL Empty) :: TrieNode Identity Byte Bytes8 Integer
+      let e2 = LiftRef (Identity e1) :: TrieNodeRef Identity Byte Bytes8 Integer
+      let e3 = TrieTop (-1) e2 :: Trie64 Identity Integer
+      let trie0 = runIdentity (empty :: Identity (Trie64 Identity Integer))
+      Byte 1 == Byte 2 `shouldBe` False
+--    e00 == e00 `shouldBe` True
+      e0 `shouldBeHex` "00"
+      e1 `shouldBeHex` "00"
+      e2 `shouldBeHex` "00"
+      e0 == e0 `shouldBe` True
+--    trie0 == e3 `shouldBe` True
+--    trie0 `shouldBeHex` "00"
+--    computeHash rDaData0 `shouldBeHex` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+      True `shouldBe` True
+--    it "hash of empty DA" $ do
+--      computeHash da0 `shouldBeHex` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
 
 {-  -- Check that proofs come in empty
   let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0
@@ -474,5 +496,5 @@ bridgeSpec = do
 
   it "bridge doesn't accept top hash 2 with wrong old top hash" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig dh1) `shouldBe` False
-ppp-}
+-}
 

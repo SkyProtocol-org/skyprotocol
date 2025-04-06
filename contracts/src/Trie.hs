@@ -35,7 +35,7 @@
 {-# OPTIONS_GHC -fobject-code #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
-module Trie {- (TrieNodeRef, TrieNode, TrieTop (..), TrieNodeF (..), TrieNodeFL (..), TrieStep (..), Trie, TrieKey, TriePath (..), TrieZipper, TrieProof, Zip (..), pathStep, stepUp, stepDown, refocus, get, update, insert, remove, singleton, lookup, empty, ofZipper, zipperOf, ofTrieZipperFocus, trieZipperFocusOnly, zipInsert, zipRemove, zipInsertList, appendListOfZipper, ofList, listOf, rf, fr, getMerkleProof, isMerkleProof) -} where
+module Trie where
 
 import SkyBase
 import SkyCrypto
@@ -56,11 +56,11 @@ import GHC.Generics (Generic)
 
 -- * Types
 
--- | Trie is the user-visible type of tries
--- | r is a Type->Type wrapper, typically HashRef
--- | h is the Type of height-minus-1, typically Byte
--- | k is the Type of keys, e.g. Bytes8 or UInt256
--- | c is the Type of content, e.g. some MessageEntry
+-- | 'Trie' is the user-visible type of tries
+-- 'r' is a 'Type->Type' wrapper, typically 'HashRef'
+-- 'h' is the 'Type' of height-minus-1, typically 'Byte'
+-- 'k' is the 'Type' of keys, e.g. 'Bytes8' or 'UInt256'
+-- 'c' is the 'Type' of content, e.g. some 'MessageEntry'
 type Trie r h k c = TrieTop (TrieNodeRef r h k c)
 
 -- | TrieTop can be seen as a simplified TrieZip where k=0, m=0
@@ -71,7 +71,6 @@ data TrieTop t = TrieTop
     _trieTopNode :: t
     {- top node in the Trie -}
   }
-  deriving (Eq, Functor, Show)
 
 -- | TrieNodeRef is the t used recursively in a Trie
 -- Its content is a series of wrappings for type-directed code-generation purposes
@@ -80,14 +79,12 @@ type TrieNodeRef r h k c = LiftRef r (TrieNode r h k c)
 type TrieNode r h k c = Fix (TrieNodeFL r h k c)
 
 newtype TrieNodeFL r h k c t = TrieNodeFL {tfl :: TrieNodeF h k c (LiftRef r t)}
-  deriving (Eq, Show)
 
 data TrieNodeF h k c t =
     Empty
   | Leaf c
   | Branch {branchLeft :: t, branchRight :: t}
   | Skip {skipHeightMinus1 :: h, skipBits :: k, skipChild :: t}
-  deriving (Eq, Functor, Show)
 
 -- ** Zippers
 
@@ -101,7 +98,6 @@ data Zip pathF focus background = Zip
     -- ^ path from the focus node back to the top,
     --   with abstractions of other branches
   }
-  deriving (Eq, Functor, Show)
 
 type TrieZipper r h k c = TrieZip h k (TrieNodeRef r h k c) (TrieNodeRef r h k c)
 
@@ -111,7 +107,6 @@ data TrieStep h k o
   = LeftStep o -- ^ take a left step with that other thing on the right
   | RightStep o -- ^ take a right step with that other thing on the left
   | SkipStep h k -- ^ take a step over some index bits to skip
-  deriving (Eq, Functor, Show)
 
 data
   (TrieHeightKey h k) =>
@@ -130,7 +125,6 @@ data
        (no data for skip nodes), such that the first item corresponds
        to the first (low-order) bits of k1. -}
   }
-  deriving (Eq, Show) -- Functor
 
 type TrieProof h k hf = TriePath h k (DataDigest hf)
 
@@ -178,9 +172,13 @@ class
 -- ** TrieTop
 -- for blockchain serialization purposes, we assume height will fit in a UInt16
 instance
+  (Eq t) =>
+  Eq (TrieTop t) where
+  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
+instance
   (ByteStringOut t) =>
   ByteStringOut (TrieTop t) where
-  byteStringOut (TrieTop h t) = byteStringOut (toUInt16 h, t)
+  byteStringOut (TrieTop h t) = byteStringOut (toUInt16 $ h+1, t)
 instance (ByteStringOut t) => ToByteString (TrieTop t) where
   toByteString = toByteStringOut
 instance
@@ -189,9 +187,29 @@ instance
 instance
   (ByteStringIn t) =>
   ByteStringIn (TrieTop t) where
-  byteStringIn = byteStringIn <&> uncurry TrieTop
+  byteStringIn = byteStringIn <&> \ (hp1 :: UInt16, t) -> TrieTop (toInt hp1 - 1) t
+instance
+  (ByteStringIn t) =>
+  FromByteString (TrieTop t) where
+  fromByteString = fromByteStringIn
+instance
+  Functor TrieTop where
+  fmap f (TrieTop h t) = TrieTop h (f t)
+instance (Show t) => Show (TrieTop t) where
+  showsPrec prec (TrieTop h t) = showApp prec "TrieTop" [showArg h, showArg t]
 
 -- ** TrieNodeF
+instance (TrieHeightKey h k, Eq c, Eq t) => Eq (TrieNodeF h k c t) where
+  Empty == Empty = True
+  Leaf c == Leaf c' = c == c'
+  Branch l r == Branch l' r' = l == l' && r == r'
+  Skip h k c == Skip h' k' c' = h == h' && k == k' && c == c'
+  _ == _ = False
+instance (TrieHeightKey h k, Show c, Show t) => Show (TrieNodeF h k c t) where
+  show Empty = "Empty"
+  show (Leaf c) = "Leaf " <> show c
+  show (Branch lt rt) = "Branch " <> show lt <> " " <> show rt
+  show (Skip h k ct) = "Skip " <> show h <> " " <> show k <> " " <> show ct
 instance
   (TrieHeightKey h k, ByteStringOut c, ByteStringOut t) =>
   ByteStringOut (TrieNodeF h k c t) where
@@ -220,6 +238,12 @@ instance
     else if tag == 3 then
       byteStringIn <&> uncurry3 Skip
     else byteStringReaderFail
+instance
+  Functor (TrieNodeF h k c) where
+  fmap f Empty = Empty
+  fmap f (Leaf c) = Leaf c
+  fmap f (Branch l r) = Branch (f l) (f r)
+  fmap f (Skip h k t) = Skip h k (f t)
 
 -- ** TrieNodeFL
 instance
@@ -231,9 +255,9 @@ instance
   LiftToByteString (TrieNodeFL r h k c) where
   liftToByteString = toByteStringOut . tfl
 instance
-  (Show h, Show k, Show c, LiftShow r) =>
+  (TrieHeightKey h k, Show c, LiftShow r) =>
   LiftShow (TrieNodeFL r h k c) where
-  liftShow = show
+  liftShowsPrec = showsPrec
 instance
   (Eq h, Eq k, Eq c, LiftEq r) =>
   LiftEq (TrieNodeFL r h k c) where
@@ -245,8 +269,60 @@ instance
   (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r) =>
   LiftByteStringIn (TrieNodeFL r h k c) where
   liftByteStringIn = byteStringIn <&> TrieNodeFL
+instance
+  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
+  ByteStringOut (TrieNodeFL r h k c t) where
+  byteStringOut = liftByteStringOut
+instance
+  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
+  ToByteString (TrieNodeFL r h k c t) where
+  toByteString = liftToByteString
+instance
+  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
+  Show (TrieNodeFL r h k c t) where
+  showsPrec prec (TrieNodeFL x) = showApp prec "TrieNodeFL" [showArg x]
+instance
+  (Eq h, Eq k, Eq c, LiftEq r, Eq t) =>
+  Eq (TrieNodeFL r h k c t) where
+  (==) = liftEq
+instance
+  (TrieHeightKey h k, Dato c, LiftDato r, Dato t) =>
+  Dato (TrieNodeFL r h k c t) where
+instance
+  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r, ByteStringIn t) =>
+  ByteStringIn (TrieNodeFL r h k c t) where
+  byteStringIn = liftByteStringIn
+{- This would require refining Bifunctor into DatoBifunctor that requires Dato its two arguments:
+instance
+  (LiftWrapping Identity r, TrieHeightKey h k) =>
+  DatoBifunctor (TrieNodeFL r h k) where
+  bimap f g (TrieNodeFL t) =
+    TrieNodeFL (let gg = LiftRef . runIdentity . liftWrap . g . runIdentity . liftUnwrap . liftref in
+                  case t of
+                    Empty -> Empty
+                    Leaf c -> Leaf (f c)
+                    Branch l r -> Branch (gg l) (gg r)
+                    Skip h k t -> Skip h k (gg t))
+-}
+
+-- ** Zip
+instance (Eq focus, Eq (pathF background)) => Eq (Zip pathF focus background) where
+  Zip f1 p1 == Zip f2 p2 = f1 == f2 && p1 == p2
+instance (Show focus, Show (pathF background)) => Show (Zip pathF focus background) where
+  showsPrec prec (Zip focus path) = showApp prec "Zip" [showArg focus, showArg path]
+instance (Functor pathF) => Functor (Zip pathF focus) where
+  fmap f (Zip focus path) = Zip focus (fmap f path)
 
 -- ** TriePath
+instance
+  (TrieHeightKey h k, Eq d) =>
+  Eq (TriePath h k d) where
+  TriePath h k m d == TriePath h' k' m' d' = h == h' && k == k' && m == m' && d == d'
+instance
+  (TrieHeightKey h k, Show d) =>
+  Show (TriePath h k d) where
+  showsPrec prec (TriePath h k m d) =
+    showApp prec "TriePath" [showArg h, showArg k, showArg m, showArg d]
 instance
   (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn d) =>
   ByteStringIn (TriePath h k d) where
@@ -268,6 +344,19 @@ instance
   fmap f (TriePath h k m ds) = TriePath h k m (fmap f ds)
 
 -- ** TrieStep
+instance
+  (TrieHeightKey h k, Eq t) =>
+  Eq (TrieStep h k t) where
+  LeftStep o == LeftStep o' = o == o'
+  RightStep o == RightStep o' = o == o'
+  SkipStep h k == SkipStep h' k' = h == h && k == k'
+  _ == _ = False
+instance
+  (TrieHeightKey h k, Show t) =>
+  Show (TrieStep h k t) where
+  showsPrec prec (LeftStep o) = showApp prec "LeftStep" [showArg o]
+  showsPrec prec (RightStep o) = showApp prec "RightStep" [showArg o]
+  showsPrec prec (SkipStep h k) = showApp prec "SkipStep" [showArg h, showArg k]
 instance
   (TrieHeightKey h k, ByteStringOut t) =>
   ByteStringOut (TrieStep h k t) where
@@ -472,7 +561,6 @@ instance
                            triePathSkipDown sameLength sameBits p &
                              stepDown (branchStep oldBranch) >>=
                              descend e0
-
 instance
   (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
   FocusableZipper e (TrieNodeRef r h k c) (TriePath h k) k where
@@ -651,4 +739,4 @@ digestTrieStep s h = computeDigest . toByteString $ applyTrieStep s h
 applyMerkleProof :: (TrieHeightKey h k, HashFunction hf, Monad e) => DataDigest hf -> TrieProof h k hf -> e (DataDigest hf)
 applyMerkleProof leafDigest proof =
   zipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof) >>=
-  \case Zip d (TriePath hh _ _ _) -> return . computeDigest . toByteString $ TrieTop hh d
+  \ (Zip d (TriePath hh _ _ _)) -> return . computeDigest . toByteString $ TrieTop hh d

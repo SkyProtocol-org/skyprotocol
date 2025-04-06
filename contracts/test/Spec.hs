@@ -7,7 +7,8 @@ import Spec.SkySpec
 
 main :: IO ()
 main = hspec $ do
-  describe "SkyBase Tests" Spec.SkyBaseSpec.spec
+  describe "SkyBase Base Tests" Spec.SkyBaseSpec.baseSpec
+  describe "SkyBase Crypto Tests" Spec.SkyBaseSpec.cryptoSpec
   describe "Signature Tests" Spec.SkySpec.signatureSpec
   describe "Fingerprint Tests" Spec.SkySpec.fingerprintSpec
   describe "Simple SkyDA Tests" Spec.SkySpec.daSpec

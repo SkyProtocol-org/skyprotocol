@@ -81,7 +81,6 @@ data L64 -- staticLength is 64
 newtype
   (StaticLength len) =>
   FixedLengthByteString len = FixedLengthByteString BuiltinByteString
-  deriving (Show)
   deriving anyclass (HasBlueprintDefinition)
 
 -- NB: To fit on-chain on Cardano (or affordably on any L1,
@@ -89,19 +88,16 @@ newtype
 -- a VariableLengthByteString has to be of length <= 65535 (in practice smaller, more like 8192)
 -- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
 newtype VariableLengthByteString = VariableLengthByteString BuiltinByteString
-  deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- | Byte
 newtype Byte = Byte { fromByte :: Integer }
-  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- | UInt16
 newtype UInt16 = UInt16 { fromUInt16 :: Integer }
-  deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -109,7 +105,6 @@ newtype UInt16 = UInt16 { fromUInt16 :: Integer }
 newtype
   (StaticLength len) =>
   FixedLengthInteger len = FixedLengthInteger Integer
-  deriving (Show, Eq)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Make it a newtype VariableLengthInteger = VariableLengthInteger { getVli :: (Integer, Integer) } ???
@@ -117,7 +112,6 @@ newtype
 data VariableLengthInteger = VariableLengthInteger
   { vliBitLength :: Integer
   , vliInteger :: Integer }
-  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -129,17 +123,19 @@ data ByteStringCursor = ByteStringCursor
   { cursorByteString :: BuiltinByteString -- the bytes
   , cursorStart :: Integer -- start index included
   , cursorEnd :: Integer } -- end index not included
-  deriving (Show, Eq)
+--  deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- | Wrapper for (r a)
 newtype LiftRef r a = LiftRef {liftref :: r a}
-  deriving (Functor)
 
 -- | Fixed-Point
 data Fix f = Fix { getFix :: f (Fix f) }
 -- not newtype because Plutus doesn't support recursive newtype
+-- Do we want a two-parameter Fix2 f a = Fix2 { getFix2 :: f a (Fix f a) } for functoriality?
+-- Or can we "directly" work with some variant of Fix (LiftRef (f a)) ?
+-- or some Fix (LiftRef2 f a) where LiftRef2 accomodates for a bifunctor?
 
 -- ** Fixed size data structures
 type Bytes4 = FixedLengthByteString L4
@@ -208,7 +204,7 @@ class LiftEq r where
   liftEq :: (Eq a) => r a -> r a -> Bool
 
 class LiftShow r where
-  liftShow :: (Show a) => r a -> BuiltinString
+  liftShowsPrec :: (Show a) => Integer -> r a -> ShowS
 
 class LiftByteStringOut r where
   liftByteStringOut :: (Dato a) => r a -> BuiltinByteString -> BuiltinByteString
@@ -258,8 +254,13 @@ instance StaticLength L64 where
 -- ** FixedLengthByteString
 instance
   (StaticLength len) =>
-  Eq (FixedLengthByteString len) where -- the one from deriving isn't INLINEABLE by Plutus(!)
+  Eq (FixedLengthByteString len) where
   (FixedLengthByteString a) == (FixedLengthByteString b) = a == b
+instance
+  (StaticLength len) =>
+  Show (FixedLengthByteString len) where
+  showsPrec prec (FixedLengthByteString b) =
+    showApp prec "FixedLengthByteString" [showArg b]
 instance
   (StaticLength len) =>
   Partial (FixedLengthByteString len) where
@@ -307,6 +308,13 @@ instance
   Dato (FixedLengthByteString len) where
 
 -- ** VariableLengthByteString
+instance
+  Eq VariableLengthByteString where
+  (VariableLengthByteString a) == (VariableLengthByteString b) = a == b
+instance
+  Show VariableLengthByteString where
+  showsPrec prec (VariableLengthByteString b) =
+    showApp prec "VariableLengthByteString" [showArg b]
 instance Partial VariableLengthByteString where
   isElement (VariableLengthByteString b) = lengthOfByteString b <= 65535
 instance
@@ -321,9 +329,6 @@ instance
 instance
   FromByteString VariableLengthByteString where
   fromByteString = VariableLengthByteString
-instance
-  FromByteString VariableLengthInteger where
-  fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
 instance BitLogic VariableLengthByteString where
   bitLength (VariableLengthByteString b) = bitLength b
   lowestBitClear (VariableLengthByteString b) = lowestBitClear b
@@ -349,8 +354,12 @@ instance Dato VariableLengthByteString where
 instance
   ToInt BuiltinByteString where
   toInt b = byteStringToInteger BigEndian b
-instance ToByteString BuiltinByteString where
+instance
+  ToByteString BuiltinByteString where
   toByteString x = x
+instance
+  FromByteString BuiltinByteString where
+  fromByteString x = x
 instance
   ByteStringIn BuiltinByteString where
   byteStringIn = byteStringIn <&> toByteString @VariableLengthByteString
@@ -376,8 +385,10 @@ instance ByteStringOut BuiltinByteString where
 instance Dato BuiltinByteString where
 
 -- ** Byte
-instance Eq Byte where -- deriving (PlutusTx.Eq) leads to un-INLINEABLE ==
+instance Eq Byte where
   (Byte a) == (Byte b) = a == b
+instance Show Byte where
+  showsPrec prec (Byte n) = showApp prec "Byte" [showArg n]
 instance Partial Byte where
   isElement (Byte b) = 0 <= b && b <= 255
 instance ToInt Byte where
@@ -406,6 +417,10 @@ instance ByteStringIn Byte where
 instance Dato Byte where
 
 -- ** UInt16
+instance Eq UInt16 where
+  (UInt16 a) == (UInt16 b) = a == b
+instance Show UInt16 where
+  showsPrec prec (UInt16 n) = showApp prec "UInt16" [showArg n]
 instance Partial UInt16 where
   isElement (UInt16 b) = 0 <= b && b <= 65535
 instance ToInt UInt16 where
@@ -436,6 +451,15 @@ instance ByteStringIn UInt16 where
 instance Dato UInt16 where
 
 -- ** FixedLengthInteger
+instance
+  (StaticLength len) =>
+  Eq (FixedLengthInteger len) where
+  (FixedLengthInteger a) == (FixedLengthInteger b) = a == b
+instance
+  (StaticLength len) =>
+  Show (FixedLengthInteger len) where
+  showsPrec prec (FixedLengthInteger n) =
+    showApp prec "FixedLengthInteger" [showString "@L" . showArg (staticLength @len), showArg n]
 instance
   (StaticLength len) =>
   Partial (FixedLengthInteger len) where
@@ -498,6 +522,9 @@ instance
  - we do not reject non-canonical input (leading zeros) -}
 instance Eq VariableLengthInteger where
   x == y = vliInteger x == vliInteger y
+instance Show VariableLengthInteger where
+  showsPrec prec (VariableLengthInteger _ i) =
+    showApp prec "toVariableLengthInteger" [showArg i]
 instance
   ToInt VariableLengthInteger where
   toInt = vliInteger
@@ -508,8 +535,8 @@ instance
   ToByteString VariableLengthInteger where
   toByteString (VariableLengthInteger l n) = integerToByteString BigEndian (bitLengthToByteLength l) n
 instance
-  FromByteString BuiltinByteString where
-  fromByteString x = x
+  FromByteString VariableLengthInteger where
+  fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
 instance
   ByteStringIn Integer where
   byteStringIn = byteStringIn <&> toInt @VariableLengthByteString
@@ -602,7 +629,7 @@ instance Monad ByteStringReader where
 -- ** POSIXTime
 instance
   Show POSIXTime where
-  show (POSIXTime x) = "(POSIXTime " <> show x <> ")"
+  showsPrec prec (POSIXTime x) = showApp prec "POSIXTime" [showArg x]
 instance
   ByteStringIn POSIXTime where
   byteStringIn = byteStringIn <&> POSIXTime
@@ -628,6 +655,7 @@ instance ByteStringIn () where
   byteStringIn = return ()
 instance FromByteString () where
   fromByteString = fromByteStringIn
+instance Dato () where
 
 
 -- ** Tuples
@@ -773,10 +801,27 @@ instance
 -- ** Identity
 instance Eq a => Eq (Identity a) where
   x == y = (runIdentity x) == (runIdentity y)
+instance Show a => Show (Identity a) where
+  showsPrec prec (Identity x) = showApp prec "Identity" [showArg x]
 instance LiftEq Identity where
   liftEq = (==)
 instance LiftShow Identity where
-  liftShow = show . runIdentity
+  liftShowsPrec = showsPrec
+instance Dato a => PreWrapping Identity Identity a where
+  wrap = Identity . Identity
+instance Dato a => Wrapping Identity Identity a where
+  unwrap x = x
+instance LiftByteStringOut Identity where
+  liftByteStringOut = byteStringOut . runIdentity
+instance LiftToByteString Identity where
+  liftToByteString = toByteString . runIdentity
+instance LiftByteStringIn Identity where
+  liftByteStringIn = byteStringIn <&> Identity
+instance LiftDato Identity where
+instance LiftPreWrapping Identity Identity where
+  liftWrap = wrap
+instance LiftWrapping Identity Identity where
+  liftUnwrap = unwrap
 {-
 instance LiftSerialise Identity where
   liftEncode = encode . runIdentity
@@ -784,26 +829,12 @@ instance LiftSerialise Identity where
   liftEncodeList = encodeList . map runIdentity
   liftDecodeList = decodeList <&> map Identity
 -}
-instance Dato a => PreWrapping Identity Identity a where
-  wrap = Identity . Identity
-instance Dato a => Wrapping Identity Identity a where
-  unwrap x = x
-instance LiftPreWrapping Identity Identity where
-  liftWrap = wrap
-instance LiftWrapping Identity Identity where
-  liftUnwrap = unwrap
 
 -- ** Fix: Y-combinator or fixed point combinator for types
-{-
 instance
-  (LiftSerialise f) =>
-  Serialise (Fix f)
-  where
-  encode = liftEncode . out
-  decode = liftDecode <&> In
-  encodeList = liftEncodeList . map out
-  decodeList = liftDecodeList <&> map In
--}
+  (LiftShow f) =>
+  Show (Fix f) where
+  showsPrec prec (Fix x) = showApp prec "Fix" [liftShowsPrec 11 x]
 instance
   (LiftDato f) =>
   ByteStringOut (Fix f) where
@@ -817,10 +848,6 @@ instance
   Eq (Fix f) where
   (==) x y = liftEq (getFix x) (getFix y)
 instance
-  (LiftShow f) =>
-  Show (Fix f) where
-  show = liftShow . getFix
-instance
   (LiftDato r) =>
   Dato (Fix r) where
 instance
@@ -831,6 +858,18 @@ instance
   (LiftByteStringIn f) =>
   FromByteString (Fix f) where
   fromByteString = fromByteStringIn
+
+
+{-
+instance
+  (LiftSerialise f) =>
+  Serialise (Fix f)
+  where
+  encode = liftEncode . out
+  decode = liftDecode <&> In
+  encodeList = liftEncodeList . map out
+  decodeList = liftDecodeList <&> map In
+-}
 
 -- ** Dato
 instance
@@ -849,18 +888,29 @@ instance
   (Dato a, Dato b, Dato c, Dato d, Dato e, Dato f) =>
   Dato (a, b, c, d, e, f) where
 
+-- ** ByteStringCursor
+instance Eq ByteStringCursor where
+  (ByteStringCursor b s e) == (ByteStringCursor b' s' e') = (b, s, e) == (b', s', e')
+instance Show ByteStringCursor where
+  showsPrec prec (ByteStringCursor b s e) =
+    showApp prec "ByteStringCursor" [showArg b, showArg s, showArg e]
+
 -- ** LiftRef
 instance
   (LiftEq r, Eq a) =>
   Eq (LiftRef r a) where
-  (==) x y = liftEq (liftref x) (liftref y)
+  LiftRef x == LiftRef y = x `liftEq` y
 instance
   (LiftShow r, Show a) =>
   Show (LiftRef r a) where
-  show = liftShow . liftref
+  showsPrec prec (LiftRef ra) = showApp prec "LiftRef" [liftShowsPrec 11 ra]
 instance
   (LiftDato r, Dato a) =>
   Dato (LiftRef r a) where
+instance
+  Functor r =>
+  Functor (LiftRef r) where
+  fmap f (LiftRef x) = LiftRef (fmap f x)
 instance
   (LiftByteStringOut r, Dato a) =>
   ByteStringOut (LiftRef r a) where
@@ -873,6 +923,10 @@ instance
   (LiftByteStringIn r, ByteStringIn a) =>
   ByteStringIn (LiftRef r a) where
   byteStringIn = liftByteStringIn <&> LiftRef
+instance
+  (LiftByteStringIn r, ByteStringIn a) =>
+  FromByteString (LiftRef r a) where
+  fromByteString = fromByteStringIn
 instance
   (LiftPreWrapping e r, Dato a) =>
   PreWrapping e (LiftRef r) a where
@@ -910,6 +964,8 @@ toUInt32 :: Integer -> UInt32
 toUInt32 = fromInt
 toUInt64 :: Integer -> UInt64
 toUInt64 = fromInt
+toVariableLengthInteger :: Integer -> UInt64
+toVariableLengthInteger = fromInt
 
 equalizeByteStringLength :: BuiltinByteString -> BuiltinByteString -> (BuiltinByteString, BuiltinByteString)
 equalizeByteStringLength a b =
@@ -991,7 +1047,19 @@ curry6 g a b c d e f = g (a, b, c, d, e, f)
 serialiseData :: BuiltinData -> BuiltinByteString
 -}
 
--- * For testing and debugging purposes
+-- ** For Show
+showApp :: Integer -> BuiltinString -> [ShowS] -> ShowS
+showApp prec funName showArgList =
+  showParen (prec > 10) $ showString funName . showSpaced showArgList
+
+showArg :: (Show a) => a -> ShowS
+showArg arg = showsPrec 11 arg
+
+showSpaced :: [ShowS] -> ShowS
+showSpaced [] = id
+showSpaced (sa : sas) = showString " " . sa . showSpaced sas
+
+-- ** For testing and debugging purposes
 
 ofHex :: (FromByteString a) => String -> a
 ofHex = fromByteString . toBuiltin . fromJust . decodeHex . pack

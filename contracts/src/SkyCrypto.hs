@@ -54,19 +54,18 @@ import SkyBase
 
 -- * Types
 
--- List of pubkeys that must sign and minimum number of them that must sign
-data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
 -- A single signature by a single data operator public key
 data SingleSig = SingleSig { singleSigPubKey :: PubKey, singleSigSignature :: Bytes64 }
-  deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Signatures produced by data operators for top hash
 data MultiSig = MultiSig [SingleSig]
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+-- List of pubkeys that must sign and minimum number of them that must sign
+data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -79,24 +78,21 @@ type DataHash = Hash BuiltinByteString
 type HashRef = DigestRef Blake2b_256
 
 newtype PubKey = PubKey { getPubKey :: Bytes32 }
-  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 newtype Digest hf a = Digest { digestByteString :: FixedLengthByteString hf }
-  deriving (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Static intent to transform with a hash or encryption function f
 newtype PlainText f a = PlainText a
-  deriving (Show, Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 data Blake2b_256 -- static knowledge of hash function
 
-data DigestRef hf x = DigestRef {digestRefValue :: x, digestRefDigest :: Digest hf x}
+data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue :: x}
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -114,10 +110,20 @@ class
 
 -- * Instances
 
+-- ** SingleSig
+instance Show SingleSig where
+  showsPrec prec (SingleSig p s) = showApp prec "SingleSig" [showArg p, showArg s]
+instance Eq SingleSig where
+  SingleSig p s == SingleSig p' s' = p == p' && s == s'
+
 -- ** Digest
 instance
   (HashFunction hf) =>
-  Eq (Digest hf a) where -- The one from deriving isn't INLINEABLE by Plutus(!)
+  Show (Digest hf a) where
+  show (Digest x) = "Digest " <> show x
+instance
+  (HashFunction hf) =>
+  Eq (Digest hf a) where
   (Digest x) == (Digest y) = x == y
 instance
   (HashFunction hf) =>
@@ -149,7 +155,7 @@ instance
 instance
   (HashFunction hf) =>
   LiftShow (Digest hf) where
-  liftShow = show
+  liftShowsPrec = showsPrec
 instance
   (HashFunction hf) =>
   LiftDato (Digest hf) where
@@ -174,19 +180,21 @@ instance HashFunction hf => DigestibleRef hf (DigestRef hf) where
 instance
   (HashFunction hf) =>
   Eq (DigestRef hf x) where
-  (DigestRef _ ah) == (DigestRef _ bh) = ah == bh
+  DigestRef ah _ == DigestRef bh _ = ah == bh
 instance (HashFunction hf) => ByteStringOut (DigestRef hf x) where
   byteStringOut = byteStringOut . digestRefDigest
 {-instance (HashFunction hf) => ByteStringIn (DigestRef hf x) where
   byteStringIn = byteStringIn <&> lookupDigest -}
 instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
-  show (DigestRef x _) = "(digestRef $ " <> show x <> ")"
+  showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
 instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestRef hf) a where
   wrap = return . digestRef
 instance (HashFunction hf, Dato a) => Wrapping Identity (DigestRef hf) a where
   unwrap = return . digestRefValue
--- instance LiftShow (DigestRef hf) where
---   liftShow = show . digestRefDigest
+instance
+  (HashFunction hf) =>
+  LiftShow (DigestRef hf) where
+  liftShowsPrec = showsPrec
 instance
   (HashFunction hf) =>
   LiftByteStringOut (DigestRef hf) where
@@ -195,10 +203,6 @@ instance
   (HashFunction hf) =>
   LiftToByteString (DigestRef hf) where
   liftToByteString = toByteString . digestRefDigest
-instance
-  (HashFunction hf) =>
-  LiftShow (DigestRef hf) where
-  liftShow = show
 instance
   (HashFunction hf) =>
   LiftEq (DigestRef hf) where
@@ -222,12 +226,14 @@ instance
   getDigest = getDigest . liftref
 
 -- ** PubKey
-instance Eq PubKey where -- the one from deriving isn't INLINEABLE by Plutus!
+instance Eq PubKey where
   (PubKey x) == (PubKey y) = x == y
+instance Show PubKey where
+  show (PubKey x) = "PubKey " <> show x
 instance ToByteString PubKey where
-  toByteString (PubKey (FixedLengthByteString pk)) = pk
+  toByteString = toByteString . getPubKey
 instance FromByteString PubKey where
-  fromByteString pk = PubKey (FixedLengthByteString pk)
+  fromByteString = PubKey . fromByteString
 instance ByteStringOut PubKey where
   byteStringOut (PubKey pk) = byteStringOut pk
 instance ByteStringIn PubKey where
@@ -240,6 +246,17 @@ instance
 instance
   ByteStringOut PubKeyHash where
   byteStringOut = byteStringOut . getPubKeyHash
+instance ToByteString PubKeyHash where
+  toByteString = getPubKeyHash
+instance FromByteString PubKeyHash where
+  fromByteString = PubKeyHash
+
+-- ** PlainText
+instance Show a => Show (PlainText f a) where
+  showsPrec prec (PlainText a) = showApp prec "PlainText" [showArg a]
+instance Eq a => Eq (PlainText f a) where
+  PlainText a == PlainText b = a == b
+-- TODO: Dato preservation + inputs
 
 -- * Helpers
 
@@ -250,7 +267,7 @@ computeDigest :: (HashFunction hf, ToByteString a) => a -> Digest hf a
 computeDigest a = hashFunction (toByteString a)
 
 digestRef :: (HashFunction hf, ToByteString a) => a -> DigestRef hf a
-digestRef x = DigestRef x (computeDigest x)
+digestRef x = DigestRef (computeDigest x) x
 
 lookupDigest :: (HashFunction hf) => Digest hf a -> a
 lookupDigest = traceError "Cannot get a value from its digest"

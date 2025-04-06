@@ -30,8 +30,16 @@ import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
 
 -- * Helpers
-shouldBeHex :: ToByteString a => a -> String -> Expectation
-a `shouldBeHex` h = hexOf a `shouldBe` h
+shouldBeHex :: (ToByteString a) => a -> String -> Expectation
+a `shouldBeHex` h =
+  hexOf a `shouldBe` h
+
+shouldBeHex2 :: (Eq a, ToByteString a, FromByteString a) => a -> String -> Expectation
+a `shouldBeHex2` h = do
+  a `shouldBeHex` h
+  let b = ofHex h
+  a == b `shouldBe` True
+  hexOf b `shouldBe` h
 
 toBytes4 :: Integer -> Bytes4
 toBytes4 = fromInt
@@ -73,20 +81,24 @@ instance
 instance GS.Show Bytes4 where show = GS.show . PS.show
 instance GS.Show UInt64 where show = GS.show . PS.show
 
-spec :: Spec
-spec = do
+-- * Tests
+baseSpec :: Spec
+baseSpec = do
   describe "SkyBase" $ do
     it "builtins" $ do
-      trace' (fromString "bar" :: BuiltinString) $
-        replicateByte 3 4 `shouldBeHex` "040404"
-      appendByteString (replicateByte 3 4) (replicateByte 2 3) `shouldBeHex` "0404040303"
-      integerToByteString BigEndian 6 0x1234567890 `shouldBeHex` "001234567890"
+      replicateByte 3 4 `shouldBeHex2` "040404"
+      appendByteString (replicateByte 3 4) (replicateByte 2 3) `shouldBeHex2` "0404040303"
+      integerToByteString BigEndian 6 0x1234567890 `shouldBeHex2` "001234567890"
       let fsb = findFirstSetBit . toByteString . toUInt32
       fsb 0x8004 `shouldBe` 2
       fsb 0x00ff `shouldBe` 0
       fsb 0xff00 `shouldBe` 8
       fsb 0x00f0 `shouldBe` 4
-      Byte 42 `shouldBeHex` "2a"
+    it "serialization" $ do
+      PS.show (Byte 42) `shouldBe` "Byte 42"
+      PS.show (UInt16 0xf00d) `shouldBe` "UInt16 61453"
+      PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
+      Byte 42 `shouldBeHex2` "2a"
       (ofHex "abcd" :: BuiltinByteString) `shouldBeHex` "abcd"
     it "multiplyByExponential" $ do
       multiplyByExponential 3 2 10 `shouldBe` 3072
@@ -95,18 +107,18 @@ spec = do
       exponential 7 4 `shouldBe` 2401
       exponential 4 7 `shouldBe` 16384
     it "toByte" $ do
-      toByte 0 `shouldBeHex` "00"
-      toByte 42 `shouldBeHex` "2a"
-      toByte 255 `shouldBeHex` "ff"
+      toByte 0 `shouldBeHex2` "00"
+      toByte 42 `shouldBeHex2` "2a"
+      toByte 255 `shouldBeHex2` "ff"
       --toByte 259 `shouldThrow` anyException
       --toByte -10 `shouldThrow` anyException
     it "toUInt16" $ do
-      toUInt16 0 `shouldBeHex` "0000"
-      toUInt16 42 `shouldBeHex` "002a"
-      toUInt16 256 `shouldBeHex` "0100"
-      toUInt16 259 `shouldBeHex` "0103"
+      toUInt16 0 `shouldBeHex2` "0000"
+      toUInt16 42 `shouldBeHex2` "002a"
+      toUInt16 256 `shouldBeHex2` "0100"
+      toUInt16 259 `shouldBeHex2` "0103"
       --toUInt16 -10 `shouldThrow` anyException
-      toUInt16 65535 `shouldBeHex` "ffff"
+      toUInt16 65535 `shouldBeHex2` "ffff"
       --toUInt16 65536 `shouldThrow` anyException
     it "equalizeByteStringLength" $ do
       let e x y = (hexOf ex :: BuiltinString, hexOf ey :: BuiltinString) where (ex, ey) = equalizeByteStringLength (ofHex x) (ofHex y)
@@ -221,3 +233,13 @@ testBitLogic i t allBits len =
 --    it "lowBitsMask" $ do
 --    it "shiftRight" $ do
 --    it "shiftLeft" $ do
+
+cryptoSpec = do
+  describe "SkyCrypto" $ do
+    it "simple tries" $ do
+      let t1 = TrieTop 4 (2989 :: Integer)
+      t1 `shouldBeHex2` "000500020bad"
+      PS.show t1 `shouldBe` "TrieTop 4 2989"
+    it "simple hashes" $ do
+      computeHash (ofHex "" :: BuiltinByteString) `shouldBeHex2` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+      computeHash (ofHex "abcd" :: UInt16) `shouldBeHex2` "9606e52f00c679e548b5155af5026f5af4130d7a15c990a791fff8d652c464f5"
