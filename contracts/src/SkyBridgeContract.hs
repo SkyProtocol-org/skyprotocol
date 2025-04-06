@@ -18,6 +18,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -64,12 +65,9 @@ import SkyDA
 newtype BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: DataHash
   }
-  deriving Eq via DataHash
+  deriving (Eq, FromByteString, ToByteString) via DataHash
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn BridgeNFTDatum where
-  byteStringIn = byteStringIn <&> BridgeNFTDatum
-
 
 --PlutusTx.makeLift ''BridgeNFTDatum
 --PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
@@ -101,10 +99,8 @@ data BridgeRedeemer = UpdateBridge
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn BridgeRedeemer where
-  byteStringIn = byteStringIn <&> uncurry5 UpdateBridge
 instance FromByteString BridgeRedeemer where
-  fromByteString = fromByteStringIn
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 UpdateBridge
 
 
 --PlutusTx.makeLift ''BridgeRedeemer

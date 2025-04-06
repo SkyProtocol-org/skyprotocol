@@ -19,7 +19,7 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
-
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -71,18 +71,6 @@ import Data.Functor.Identity (Identity (..))
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
 
--- 64-bit ByteString
-data TopicID = TopicID { getTopicID :: Bytes8 }
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-instance ByteStringIn TopicID where
-  byteStringIn = byteStringIn <&> TopicID
-instance ByteStringOut TopicID where
-  byteStringOut = byteStringOut . getTopicID
-
-{-PlutusTx.makeLift ''TopicID
-PlutusTx.makeIsDataSchemaIndexed ''TopicID [('TopicID, 0)]-}
-
 type ClientParams = BuiltinByteString
 
 data DecodedClientParams = DecodedClientParams
@@ -92,7 +80,7 @@ data DecodedClientParams = DecodedClientParams
     -- ^ Credential of claimant (bounty prize can only be sent to this credential)
   , bountyOffererPubKeyHash :: PubKeyHash
     -- ^ Credential of offerer (to whom to send back the bounty if not claimed before timeout)
-  , bountyTopicID :: TopicID
+  , bountyTopicId :: TopicId
     -- ^ ID of topic in which data must be published
   , bountyMessageHash :: DataHash
     -- ^ Hash of data that must be proven to be present in DA
@@ -100,11 +88,11 @@ data DecodedClientParams = DecodedClientParams
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-getDecodedClientParams :: DecodedClientParams -> (CurrencySymbol, PubKeyHash, PubKeyHash, TopicID, DataHash, POSIXTime)
+getDecodedClientParams :: DecodedClientParams -> (CurrencySymbol, PubKeyHash, PubKeyHash, TopicId, DataHash, POSIXTime)
 getDecodedClientParams (DecodedClientParams a b c d e f) = (a, b, c, d, e, f)
-instance ByteStringIn DecodedClientParams where
-  byteStringIn = byteStringIn <&> uncurry6 DecodedClientParams
-instance ByteStringOut DecodedClientParams where
+instance FromByteString DecodedClientParams where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry6 DecodedClientParams
+instance ToByteString DecodedClientParams where
   byteStringOut = byteStringOut . getDecodedClientParams
 
 --PlutusTx.makeLift ''ClientParams
@@ -115,8 +103,8 @@ instance ByteStringOut DecodedClientParams where
 ------------------------------------------------------------------------------
 
 data ClientRedeemer = ClaimBounty SkyDataProof | Timeout
-instance ByteStringIn ClientRedeemer where
-  byteStringIn = byteStringIn <&> \case
+instance FromByteString ClientRedeemer where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> \case
     Left proof -> ClaimBounty proof
     Right () -> Timeout
 
@@ -129,9 +117,9 @@ instance ByteStringIn ClientRedeemer where
 ------------------------------------------------------------------------------
 
 -- Separating validation logic to make for easy testing
-validateClaimBounty :: POSIXTime -> Interval POSIXTime -> DataHash -> TopicID -> SkyDataProof -> DataHash -> Bool
+validateClaimBounty :: POSIXTime -> Interval POSIXTime -> DataHash -> TopicId -> SkyDataProof -> DataHash -> Bool
 validateClaimBounty bountyDeadline txValidRange
-                    messageHash (TopicID topicId) proof@SkyDataPath {..} daTopHash =
+                    messageHash topicId proof@SkyDataPath {..} daTopHash =
   -- Check if the current slot is within the deadline
   bountyDeadline `after` txValidRange &&
   -- The bounty's message hash is in the DA
@@ -154,7 +142,7 @@ clientTypedValidator DecodedClientParams {..} () redeemer ctx =
   case redeemer of
     ClaimBounty proof ->
       validateClaimBounty bountyDeadline txValidRange
-                          bountyMessageHash bountyTopicID proof daTopHash &&
+                          bountyMessageHash bountyTopicId proof daTopHash &&
       allPaidToCredential bountyClaimantPubKeyHash
     Timeout ->
       validateTimeout bountyDeadline txValidRange &&

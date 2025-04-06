@@ -15,6 +15,7 @@
 {-# LANGUAGE NoImplicitPrelude          #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE Strict                     #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -89,7 +90,7 @@ newtype
 -- a VariableLengthByteString has to be of length <= 65535 (in practice smaller, more like 8192)
 -- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
 newtype VariableLengthByteString = VariableLengthByteString BuiltinByteString
-  deriving (Eq, ToInt, FromInt, ToByteString, FromByteString, ByteStringOut, ByteStringIn, BitLogic) via BuiltinByteString
+  deriving (Eq, ToInt, FromInt, ToByteString, FromByteString, BitLogic) via BuiltinByteString
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -169,17 +170,25 @@ class ToInt a where
 class FromInt a where
   fromInt :: Integer -> a
 
+-- | At least one of toByteString or appendByteStringTerminal must be defined.
+-- Additionally, if the output isn't fixed-length or otherwise self-delimited, then
+-- appendStringOutNonTerminal must be defined.
+-- TODO: replace with something that uses Cardano's standard CBOR encoding.
+-- But keep the bytestring variant for the sake of other chains?
+data IsTerminal = NonTerminal | Terminal
 class ToByteString a where
+  -- | convert to String
   toByteString :: a -> BuiltinByteString
-
+  toByteString = toByteStringOut
+  -- | append to a String in Terminal or NonTerminal position
+  -- default method assumes self-delimitation (e.g. fixed length, length prefix, or terminator)
+  byteStringOut :: a -> IsTerminal -> BuiltinByteString -> BuiltinByteString
+  byteStringOut a _ = appendByteString $ toByteString a
+-- | fromByteString can be left defaulted, but byteStringIn must be defined
 class FromByteString a where
   fromByteString :: BuiltinByteString -> a
-
-class ByteStringOut a where
-  byteStringOut :: a -> BuiltinByteString -> BuiltinByteString
-
-class ByteStringIn a where
-  byteStringIn :: ByteStringReader a
+  fromByteString = fromByteStringIn
+  byteStringIn :: IsTerminal -> ByteStringReader a
 
 {- Failure to include bitLength in either Haskell or Plutus seems incompetent to me. --fare
    (see CIP-123, compare to CLHS integer-length) -}
@@ -197,11 +206,11 @@ class BitLogic a where
   shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
 
 class
-  (ByteStringOut d, ToByteString d, Show d, Eq d) =>
+  (ToByteString d, ToByteString d, Show d, Eq d) =>
   Dato d
 
 class
-  (LiftByteStringOut r, LiftToByteString r, LiftShow r, LiftEq r) =>
+  (LiftToByteString r, LiftToByteString r, LiftShow r, LiftEq r) =>
   LiftDato r
 
 class LiftEq r where
@@ -210,14 +219,16 @@ class LiftEq r where
 class LiftShow r where
   liftShowsPrec :: (Show a) => Integer -> r a -> ShowS
 
-class LiftByteStringOut r where
-  liftByteStringOut :: (Dato a) => r a -> BuiltinByteString -> BuiltinByteString
-
 class LiftToByteString r where
   liftToByteString :: (Dato a) => r a -> BuiltinByteString
+  liftToByteString a = liftByteStringOut a Terminal emptyByteString
+  liftByteStringOut :: (Dato a) => r a -> IsTerminal -> BuiltinByteString -> BuiltinByteString
+  liftByteStringOut a _ = appendByteString $ liftToByteString a
 
-class LiftByteStringIn r where
-  liftByteStringIn :: (ByteStringIn a) => ByteStringReader (r a)
+class LiftFromByteString r where
+  liftFromByteString :: (FromByteString a) => BuiltinByteString -> r a
+  liftFromByteString = fromByteStringIn_ liftByteStringIn
+  liftByteStringIn :: (FromByteString a) => IsTerminal -> ByteStringReader (r a)
 
 class
   (Monad e, Dato a) =>
@@ -281,10 +292,12 @@ instance
   (StaticLength len) =>
   ToByteString (FixedLengthByteString len) where
   toByteString (FixedLengthByteString b) = b
+  byteStringOut (FixedLengthByteString b) _ = appendByteString b
 instance
   (StaticLength len) =>
   FromByteString (FixedLengthByteString len) where
   fromByteString = validate . FixedLengthByteString
+  byteStringIn _ = byteStringInFixedLength (staticLength @len) <&> FixedLengthByteString
 instance
   (StaticLength len) =>
   BitLogic (FixedLengthByteString len) where
@@ -302,13 +315,6 @@ instance
     FixedLengthByteString $ xorByteString False a b
   shiftRight (FixedLengthByteString b) i = FixedLengthByteString $ shiftByteString b $ -i
   shiftLeft (FixedLengthByteString b) i = FixedLengthByteString $ shiftByteString (toByteString b) i
-instance ByteStringOut (FixedLengthByteString len) where
-  byteStringOut (FixedLengthByteString b) = appendByteString b
-instance
-  (StaticLength len) =>
-  ByteStringIn (FixedLengthByteString len) where
-  byteStringIn =
-    byteStringInByteString (staticLength @len) <&> FixedLengthByteString
 instance
   (StaticLength len) =>
   Dato (FixedLengthByteString len) where
@@ -325,19 +331,22 @@ instance Dato VariableLengthByteString where
 -- ** BuiltinByteString
 instance
   ToInt BuiltinByteString where
-  toInt b = byteStringToInteger BigEndian b
+  toInt = fromByteString
 instance
   FromInt BuiltinByteString where
   fromInt = toByteString
 instance
   ToByteString BuiltinByteString where
   toByteString = id
+  byteStringOut b Terminal s = appendByteString b s
+  byteStringOut b NonTerminal s =
+    let len = toUInt16 $ lengthOfByteString b in
+      appendByteString (toByteString len) $ appendByteString b s
 instance
   FromByteString BuiltinByteString where
   fromByteString = id
-instance
-  ByteStringIn BuiltinByteString where
-  byteStringIn = byteStringIn >>= \ (UInt16 len) -> byteStringInByteString len
+  byteStringIn Terminal = byteStringInToEnd
+  byteStringIn NonTerminal = byteStringIn NonTerminal >>= \ (UInt16 len) -> byteStringInFixedLength len
 instance BitLogic BuiltinByteString where
   bitLength b =
     let len = lengthOfByteString b
@@ -353,10 +362,6 @@ instance BitLogic BuiltinByteString where
   logicalXor a b = let (a', b') = equalizeByteStringLength a b in xorByteString False a' b'
   shiftRight b i = shiftByteString b $ -i
   shiftLeft b i = shiftByteString (toByteString b) i
-instance ByteStringOut BuiltinByteString where
-  byteStringOut b s =
-    let len = toUInt16 $ lengthOfByteString b in
-    appendByteString (toByteString len) $ appendByteString b s
 instance Dato BuiltinByteString where
 
 -- ** Byte
@@ -368,8 +373,10 @@ instance FromInt Byte where
   fromInt = validate . Byte
 instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
+  byteStringOut (Byte n) _ = consByteString n
 instance FromByteString Byte where
   fromByteString = toByte . byteStringToInteger BigEndian
+  byteStringIn _ = ByteStringReader nextByteStringCursor
 instance BitLogic Byte where
   bitLength (Byte n) = bitLength8 n
   lowestBitClear (Byte b) = findFirstSetBit $ toByteString $ 255-b
@@ -381,10 +388,6 @@ instance BitLogic Byte where
   shiftRight b i = Byte $ indexByteString (shiftByteString (toByteString b) $ -i) 0
   shiftLeft b i = Byte $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (Byte a) l (Byte b) = Byte $ (a `shiftLeft` l) + b
-instance ByteStringOut Byte where
-  byteStringOut (Byte b) = consByteString b
-instance ByteStringIn Byte where
-  byteStringIn = ByteStringReader nextByteStringCursor
 instance Dato Byte where
 
 -- ** UInt16
@@ -398,6 +401,7 @@ instance ToByteString UInt16 where
   toByteString (UInt16 n) = integerToByteString BigEndian 2 n
 instance FromByteString UInt16 where
   fromByteString = toUInt16 . byteStringToInteger BigEndian
+  byteStringIn _ = byteStringInFixedLength 2 <&> fromByteString
 instance BitLogic UInt16 where
   bitLength (UInt16 n) = bitLength16 n
   lowestBitClear (UInt16 b) = findFirstSetBit $ toByteString $ 65535-b
@@ -409,12 +413,6 @@ instance BitLogic UInt16 where
   shiftRight b i = UInt16 $ indexByteString (shiftByteString (toByteString b) $ -i) 0
   shiftLeft b i = UInt16 $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (UInt16 a) l (UInt16 b) = UInt16 $ (a `shiftLeft` l) + b
-instance ByteStringOut UInt16 where
-  byteStringOut = appendByteString . toByteString
-instance ByteStringIn UInt16 where
-  byteStringIn = byteStringIn >>= \ (Byte hi) ->
-             byteStringIn <&> \ (Byte lo) ->
-             UInt16 (hi * 256 + lo)
 instance Dato UInt16 where
 
 -- ** FixedLengthInteger
@@ -448,6 +446,14 @@ instance
   toByteString (FixedLengthInteger n) = integerToByteString BigEndian (staticLength @len) n
 instance
   (StaticLength len) =>
+  FromByteString (FixedLengthInteger len) where
+  fromByteString bs =
+    if lengthOfByteString bs /= staticLength @len then traceError "Wrong size ByteString" else
+      FixedLengthInteger $ byteStringToInteger BigEndian bs
+  byteStringIn _ = byteStringInFixedLength (staticLength @len) <&>
+    FixedLengthInteger . byteStringToInteger BigEndian
+instance
+  (StaticLength len) =>
   BitLogic (FixedLengthInteger len) where
   bitLength (FixedLengthInteger n) = bitLength $ integerToByteString BigEndian (staticLength @len) n
   lowestBitClear n = lowestBitClear $ toByteString n
@@ -462,22 +468,6 @@ instance
   shiftRight (FixedLengthInteger b) i = FixedLengthInteger $ shiftRight b i
   shiftLeft (FixedLengthInteger b) i = FixedLengthInteger . toInt $ shiftByteString (toByteString b) i
   shiftLeftWithBits (FixedLengthInteger a) l (FixedLengthInteger b) = FixedLengthInteger $ (a `shiftLeft` l) + b
-instance
-  (StaticLength len) =>
-  ByteStringOut (FixedLengthInteger len) where
-  byteStringOut (FixedLengthInteger i) =
-    appendByteString (integerToByteString BigEndian (staticLength @len) i)
-instance
-  (StaticLength len) =>
-  ByteStringIn (FixedLengthInteger len) where
-  byteStringIn = byteStringInByteString (staticLength @len) <&>
-    FixedLengthInteger . byteStringToInteger BigEndian
-instance
-  (StaticLength len) =>
-  FromByteString (FixedLengthInteger len) where
-  fromByteString bs =
-    if lengthOfByteString bs > staticLength @len then traceError "ByteString too long" else
-      FixedLengthInteger $ byteStringToInteger BigEndian bs
 instance
   (StaticLength len) =>
   Dato (FixedLengthInteger len) where
@@ -501,12 +491,11 @@ instance
 instance
   ToByteString VariableLengthInteger where
   toByteString (VariableLengthInteger l n) = integerToByteString BigEndian (bitLengthToByteLength l) n
+  byteStringOut = byteStringOut . toByteString
 instance
   FromByteString VariableLengthInteger where
   fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
-instance
-  ByteStringIn Integer where
-  byteStringIn = byteStringIn <&> toInt @VariableLengthByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> fromByteString
 instance BitLogic VariableLengthInteger where
   bitLength (VariableLengthInteger l _) = l
   lowestBitClear n = lowestBitClear $ toByteString n
@@ -528,17 +517,20 @@ instance BitLogic VariableLengthInteger where
   shiftLeft (VariableLengthInteger l b) i = VariableLengthInteger (l + i) $ shiftLeft b i
   shiftLeftWithBits (VariableLengthInteger la a) l vb@(VariableLengthInteger _ b) =
     if la == 0 then vb else VariableLengthInteger (la + l) $ (a `shiftLeft` l) + b
-instance ByteStringOut VariableLengthInteger where
-  byteStringOut = byteStringOut . toByteString
 instance Dato VariableLengthInteger where
 
 -- ** Integer
 instance ToInt Integer where
-  toInt n = n
+  toInt = id
 instance FromInt Integer where
-  fromInt n = n
+  fromInt = id
 instance ToByteString Integer where
   toByteString n = integerToByteString BigEndian (bitLengthToByteLength $ bitLength n) n
+  byteStringOut = byteStringOut . toByteString
+instance
+  FromByteString Integer where
+  fromByteString = byteStringToInteger BigEndian
+  byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @VariableLengthByteString
 instance BitLogic Integer where
   bitLength n =
     if n < 0 then
@@ -570,106 +562,70 @@ instance BitLogic Integer where
   shiftRight b i = b `divide` exponential 2 i
   shiftLeft b i = b * exponential 2 i
   shiftLeftWithBits a l b = (a `shiftLeft` l) + b
-instance ByteStringOut Integer where
-  byteStringOut = byteStringOut . toByteString
 instance Dato Integer where
-
--- ** ByteStringReader
-instance GB.Functor ByteStringReader where
-  fmap f (ByteStringReader r) = ByteStringReader $ \ s ->
-    r s <&> \ (a, s') -> (f a, s')
-instance Functor ByteStringReader where
-  fmap = GB.fmap
-instance Applicative ByteStringReader where
-  pure = GB.pure
-  (<*>) = (GB.<*>)
-instance GB.Applicative ByteStringReader where
-  pure a = ByteStringReader $ \ s -> Just (a, s)
-  ByteStringReader x <*> ByteStringReader y = ByteStringReader $ \s ->
-    x s >>= \ (f, s') ->
-    y s' <&> \ (v, s'') -> (f v, s'')
-instance Monad ByteStringReader where
-  m >>= f =
-    ByteStringReader (\s -> getByteStringReader m s >>=
-      \ (a, s') -> getByteStringReader (f a) s')
 
 -- ** POSIXTime
 instance
   Show POSIXTime where
   showsPrec prec (POSIXTime x) = showApp prec "POSIXTime" [showArg x]
 instance
-  ByteStringIn POSIXTime where
-  byteStringIn = byteStringIn <&> POSIXTime
-instance
-  ByteStringOut POSIXTime where
+  ToByteString POSIXTime where
+  toByteString = toByteString . getPOSIXTime
   byteStringOut = byteStringOut . getPOSIXTime
+instance
+  FromByteString POSIXTime where
+  fromByteString = POSIXTime . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> POSIXTime
 
 -- ** CurrencySymbol
 instance
-  ByteStringIn CurrencySymbol where
-  byteStringIn = byteStringIn <&> CurrencySymbol
-instance
-  ByteStringOut CurrencySymbol where
+  ToByteString CurrencySymbol where
+  toByteString = fromByteString . unCurrencySymbol
   byteStringOut = byteStringOut . unCurrencySymbol
+instance
+  FromByteString CurrencySymbol where
+  fromByteString = CurrencySymbol . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> CurrencySymbol
 
 -- PlutusTx only has this for pairs, not longer tuples
 -- ** Unit
-instance ByteStringOut () where
-  byteStringOut () s  = s
 instance ToByteString () where
-  toByteString () = ""
-instance ByteStringIn () where
-  byteStringIn = return ()
+  toByteString () = emptyByteString
+  byteStringOut () _ s  = s
 instance FromByteString () where
-  fromByteString = fromByteStringIn
+  byteStringIn _ = return ()
 instance Dato () where
-
 
 -- ** Sums and Tuples
 
 -- *** Either
 instance
-  (ByteStringOut a, ByteStringOut b) =>
-  ByteStringOut (Either a b) where
-  byteStringOut (Left a) = byteStringOut (Byte 0) . byteStringOut a
-  byteStringOut (Right b) = byteStringOut (Byte 1) . byteStringOut b
-instance
-  (ByteStringOut a, ByteStringOut b) =>
+  (ToByteString a, ToByteString b) =>
   ToByteString (Either a b) where
-  toByteString = toByteStringOut
+  byteStringOut (Left a) isTerminal = byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
+  byteStringOut (Right b) isTerminal = byteStringOut (Byte 1) NonTerminal . byteStringOut b isTerminal
 instance
-  (ByteStringIn a, ByteStringIn b) =>
-  ByteStringIn (Either a b) where
-  byteStringIn = byteStringIn >>= \ b ->
-    if b == Byte 0 then byteStringIn <&> Left
-    else if b == Byte 1 then byteStringIn <&> Right
-    else byteStringReaderFail
-instance
-  (ByteStringIn a, ByteStringIn b) =>
+  (FromByteString a, FromByteString b) =>
   FromByteString (Either a b) where
-  fromByteString = fromByteStringIn
+  byteStringIn isTerminal = byteStringIn NonTerminal >>= \ b ->
+    if b == Byte 0 then byteStringIn isTerminal <&> Left
+    else if b == Byte 1 then byteStringIn isTerminal <&> Right
+    else byteStringReaderFail
 
 -- *** (,) or builtin Pairs
 instance
-  (ByteStringOut a, ByteStringOut b) =>
-  ByteStringOut (a, b) where
-  byteStringOut (a, b) s =
-    byteStringOut a $
-    byteStringOut b s
-instance
-  (ByteStringOut a, ByteStringOut b) =>
+  (ToByteString a, ToByteString b) =>
   ToByteString (a, b) where
-  toByteString = toByteStringOut
+  byteStringOut (a, b) isTerminal s =
+    byteStringOut a NonTerminal $
+    byteStringOut b isTerminal s
 instance
-  (ByteStringIn a, ByteStringIn b) =>
-  ByteStringIn (a, b) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 return (a, b)
-instance
-  (ByteStringIn a, ByteStringIn b) =>
+  (FromByteString a, FromByteString b) =>
   FromByteString (a, b) where
-  fromByteString = fromByteStringIn
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \ a ->
+    byteStringIn isTerminal >>= \ b ->
+    return (a, b)
 
 -- *** (,,) or builtin Triplets
 instance
@@ -677,46 +633,20 @@ instance
   Eq (a, b, c) where
   (a, b, c) == (a', b', c') = a == a' && b == b' && c == c'
 instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c) =>
-  ByteStringOut (a, b, c) where
-  byteStringOut (a, b, c) s =
-    byteStringOut a $
-    byteStringOut b $
-    byteStringOut c s
-instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c) =>
+  (ToByteString a, ToByteString b, ToByteString c) =>
   ToByteString (a, b, c) where
-  toByteString = toByteStringOut
+  byteStringOut (a, b, c) isTerminal s =
+    byteStringOut a NonTerminal $
+    byteStringOut b NonTerminal $
+    byteStringOut c isTerminal s
 instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c) =>
+  (FromByteString a, FromByteString b, FromByteString c) =>
   FromByteString (a, b, c) where
-  fromByteString = fromByteStringIn
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c) =>
-  ByteStringIn (a, b, c) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 return (a, b, c)
-
--- *** Quadruplets, except compatible with data{A,B,C,D} instead of (A,B,C,D)
-data Quadruplet a b c d = Quadruplet { t4_1 :: a, t4_2 :: b, t4_3 :: c, t4_4 :: d }
-instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
-  ByteStringOut (a, b, c, d) where
-  byteStringOut (a, b, c, d) s =
-    byteStringOut a $
-    byteStringOut b $
-    byteStringOut c $
-    byteStringOut d s
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d) =>
-  FromByteString (a, b, c, d) where
-  fromByteString = fromByteStringIn
-instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
-  ToByteString (a, b, c, d) where
-  toByteString = toByteStringOut
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \ a ->
+    byteStringIn NonTerminal >>= \ b ->
+    byteStringIn isTerminal >>= \ c ->
+    return (a, b, c)
 
 -- *** (,,,) or builtin Quadruplets
 instance
@@ -724,116 +654,118 @@ instance
   Eq (a, b, c, d) where
   (a, b, c, d) == (a', b', c', d') = a == a' && b == b' && c == c' && d == d'
 instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d) =>
-  ByteStringIn (a, b, c, d) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 byteStringIn >>= \ d ->
-                 return (a, b, c, d)
+  (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
+  ToByteString (a, b, c, d) where
+  byteStringOut (a, b, c, d) isTerminal s =
+    byteStringOut a NonTerminal $
+    byteStringOut b NonTerminal $
+    byteStringOut c NonTerminal $
+    byteStringOut d isTerminal s
+instance
+  (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
+  FromByteString (a, b, c, d) where
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \ a ->
+    byteStringIn NonTerminal >>= \ b ->
+    byteStringIn NonTerminal >>= \ c ->
+    byteStringIn isTerminal >>= \ d ->
+    return (a, b, c, d)
 
 -- *** (,,,,) or builtin Quintuplets
 instance
   (Eq a, Eq b, Eq c, Eq d, Eq e) =>
   Eq (a, b, c, d, e) where
-  (a, b, c, d, e) == (a', b', c', d', e') = a == a' && b == b' && c == c' && d == d' && e == e'
+  (a, b, c, d, e) == (a', b', c', d', e') =
+    a == a' && b == b' && c == c' && d == d' && e == e'
 instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
-  ByteStringOut (a, b, c, d, e) where
-  byteStringOut (a, b, c, d, e) s =
-    byteStringOut a $
-    byteStringOut b $
-    byteStringOut c $
-    byteStringOut d $
-    byteStringOut e s
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e) =>
-  ByteStringIn (a, b, c, d, e) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 byteStringIn >>= \ d ->
-                 byteStringIn >>= \ e ->
-                 return (a, b, c, d, e)
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e) =>
-  FromByteString (a, b, c, d, e) where
-  fromByteString = fromByteStringIn
-instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
+  (ToByteString a, ToByteString b, ToByteString c, ToByteString d, ToByteString e) =>
   ToByteString (a, b, c, d, e) where
-  toByteString = toByteStringOut
+  byteStringOut (a, b, c, d, e) isTerminal s =
+    byteStringOut a NonTerminal $
+    byteStringOut b NonTerminal $
+    byteStringOut c NonTerminal $
+    byteStringOut d NonTerminal $
+    byteStringOut e isTerminal s
+instance
+  (FromByteString a, FromByteString b, FromByteString c, FromByteString d, FromByteString e) =>
+  FromByteString (a, b, c, d, e) where
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \ a ->
+    byteStringIn NonTerminal >>= \ b ->
+    byteStringIn NonTerminal >>= \ c ->
+    byteStringIn NonTerminal >>= \ d ->
+    byteStringIn isTerminal >>= \ e ->
+    return (a, b, c, d, e)
 
 -- *** (,,,,,) or builtin Sextuplets
 instance
   (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) =>
   Eq (a, b, c, d, e, f) where
-  (a, b, c, d, e, f) == (a', b', c', d', e', f') = a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
+  (a, b, c, d, e, f) == (a', b', c', d', e', f') =
+    a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
-  ByteStringOut (a, b, c, d, e, f) where
-  byteStringOut (a, b, c, d, e, f) s =
-    byteStringOut a $
-    byteStringOut b $
-    byteStringOut c $
-    byteStringOut d $
-    byteStringOut e $
-    byteStringOut f s
-instance
-  (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
+  (ToByteString a, ToByteString b, ToByteString c, ToByteString d, ToByteString e, ToByteString f) =>
   ToByteString (a, b, c, d, e, f) where
-  toByteString = toByteStringOut
+  byteStringOut (a, b, c, d, e, f) isTerminal s =
+    byteStringOut a NonTerminal $
+    byteStringOut b NonTerminal $
+    byteStringOut c NonTerminal $
+    byteStringOut d NonTerminal $
+    byteStringOut e NonTerminal $
+    byteStringOut f isTerminal s
 instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e, ByteStringIn f) =>
-  ByteStringIn (a, b, c, d, e, f) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 byteStringIn >>= \ d ->
-                 byteStringIn >>= \ e ->
-                 byteStringIn >>= \ f ->
-                 return (a, b, c, d, e, f)
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e, ByteStringIn f) =>
+  (FromByteString a, FromByteString b, FromByteString c, FromByteString d, FromByteString e, FromByteString f) =>
   FromByteString (a, b, c, d, e, f) where
-  fromByteString = fromByteStringIn
+  byteStringIn isTerminal  =
+    byteStringIn NonTerminal >>= \ a ->
+    byteStringIn NonTerminal >>= \ b ->
+    byteStringIn NonTerminal >>= \ c ->
+    byteStringIn NonTerminal >>= \ d ->
+    byteStringIn NonTerminal >>= \ e ->
+    byteStringIn isTerminal >>= \ f ->
+    return (a, b, c, d, e, f)
 
 -- ** Lists
 instance
-  (ByteStringOut a) =>
-  ByteStringOut [a] where -- length limit 65535
-  byteStringOut l s =
-    byteStringOut (toUInt16 $ length l) $ foldr byteStringOut s l
-instance (ByteStringOut a) => ToByteString [a] where
-  toByteString = toByteStringOut
+  (ToByteString a) =>
+  ToByteString [a] where -- length limit 65535.
+  byteStringOut l isTerminal s =
+    byteStringOut (toUInt16 $ length l) NonTerminal $ loop s l where
+      loop s [] = s
+      loop s [a] = byteStringOut a isTerminal s
+      loop s (a : l') = byteStringOut a NonTerminal (loop s l')
 instance
-  (ByteStringIn a) =>
-  ByteStringIn [a] where -- length limit 65535
-  byteStringIn = byteStringIn >>= \ (UInt16 len) -> loop len where
+  (FromByteString a) =>
+  FromByteString [a] where -- length limit 65535
+  byteStringIn isTerminal = byteStringIn NonTerminal >>= \ (UInt16 len) -> loop len where
     loop n = if n == 0 then return [] else
-      byteStringIn >>= \ a -> loop (n - 1) <&> (a :)
-instance (ByteStringIn a) => FromByteString [a] where
-  fromByteString = fromByteStringIn
+      byteStringIn (if n == 1 then isTerminal else NonTerminal) >>= \ a -> loop (n - 1) <&> (a :)
 
 -- ** Identity
 instance Eq a => Eq (Identity a) where
-  x == y = (runIdentity x) == (runIdentity y)
+  x == y = runIdentity x == runIdentity y
 instance Show a => Show (Identity a) where
   showsPrec prec (Identity x) = showApp prec "Identity" [showArg x]
-instance LiftEq Identity where
-  liftEq = (==)
-instance LiftShow Identity where
-  liftShowsPrec = showsPrec
+instance ToByteString a => ToByteString (Identity a) where
+  toByteString = toByteString . runIdentity
+  byteStringOut = byteStringOut . runIdentity
+instance FromByteString a => FromByteString (Identity a) where
+  fromByteString = Identity . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> Identity
 instance Dato a => PreWrapping Identity Identity a where
   wrap = Identity . Identity
 instance Dato a => Wrapping Identity Identity a where
   unwrap x = x
-instance LiftByteStringOut Identity where
-  liftByteStringOut = byteStringOut . runIdentity
+instance LiftEq Identity where
+  liftEq = (==)
+instance LiftShow Identity where
+  liftShowsPrec = showsPrec
 instance LiftToByteString Identity where
-  liftToByteString = toByteString . runIdentity
-instance LiftByteStringIn Identity where
-  liftByteStringIn = byteStringIn <&> Identity
+  liftByteStringOut = byteStringOut
+  liftToByteString = toByteString
+instance LiftFromByteString Identity where
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
 instance LiftDato Identity where
 instance LiftPreWrapping Identity Identity where
   liftWrap = wrap
@@ -849,33 +781,26 @@ instance LiftSerialise Identity where
 
 -- ** Fix: Y-combinator or fixed point combinator for types
 instance
+  (LiftEq f) =>
+  Eq (Fix f) where
+  (==) x y = liftEq (getFix x) (getFix y)
+instance
   (LiftShow f) =>
   Show (Fix f) where
   showsPrec prec (Fix x) = showApp prec "Fix" [liftShowsPrec 11 x]
 instance
   (LiftDato f) =>
-  ByteStringOut (Fix f) where
-  byteStringOut (Fix x) = liftByteStringOut x
-instance
-  (LiftDato f) =>
   ToByteString (Fix f) where
-  toByteString = toByteStringOut
-instance
-  (LiftEq f) =>
-  Eq (Fix f) where
-  (==) x y = liftEq (getFix x) (getFix y)
+  toByteString = liftToByteString . getFix
+  byteStringOut = liftByteStringOut . getFix
 instance
   (LiftDato r) =>
   Dato (Fix r) where
 instance
-  (LiftByteStringIn f) =>
-  ByteStringIn (Fix f) where
-  byteStringIn = liftByteStringIn <&> Fix
-instance
-  (LiftByteStringIn f) =>
+  (LiftFromByteString f) =>
   FromByteString (Fix f) where
-  fromByteString = fromByteStringIn
-
+  fromByteString = Fix . liftFromByteString
+  byteStringIn isTerminal = liftByteStringIn isTerminal <&> Fix
 
 {-
 instance
@@ -912,6 +837,25 @@ instance Show ByteStringCursor where
   showsPrec prec (ByteStringCursor b s e) =
     showApp prec "ByteStringCursor" [showArg b, showArg s, showArg e]
 
+-- ** ByteStringReader
+instance GB.Functor ByteStringReader where
+  fmap f (ByteStringReader r) = ByteStringReader $ \ s ->
+    r s <&> \ (a, s') -> (f a, s')
+instance Functor ByteStringReader where
+  fmap = GB.fmap
+instance Applicative ByteStringReader where
+  pure = GB.pure
+  (<*>) = (GB.<*>)
+instance GB.Applicative ByteStringReader where
+  pure a = ByteStringReader $ \ s -> Just (a, s)
+  ByteStringReader x <*> ByteStringReader y = ByteStringReader $ \s ->
+    x s >>= \ (f, s') ->
+    y s' <&> \ (v, s'') -> (f v, s'')
+instance Monad ByteStringReader where
+  m >>= f =
+    ByteStringReader (\s -> getByteStringReader m s >>=
+      \ (a, s') -> getByteStringReader (f a) s')
+
 -- ** LiftRef
 instance
   (LiftEq r, Eq a) =>
@@ -929,21 +873,14 @@ instance
   Functor (LiftRef r) where
   fmap f (LiftRef x) = LiftRef (fmap f x)
 instance
-  (LiftByteStringOut r, Dato a) =>
-  ByteStringOut (LiftRef r a) where
-  byteStringOut = liftByteStringOut . liftref
-instance
   (LiftToByteString r, Dato a) =>
   ToByteString (LiftRef r a) where
   toByteString = liftToByteString . liftref
+  byteStringOut = liftByteStringOut . liftref
 instance
-  (LiftByteStringIn r, ByteStringIn a) =>
-  ByteStringIn (LiftRef r a) where
-  byteStringIn = liftByteStringIn <&> LiftRef
-instance
-  (LiftByteStringIn r, ByteStringIn a) =>
+  (LiftFromByteString r, FromByteString a) =>
   FromByteString (LiftRef r a) where
-  fromByteString = fromByteStringIn
+  byteStringIn isTerminal = liftByteStringIn isTerminal <&> LiftRef
 instance
   (LiftPreWrapping e r, Dato a) =>
   PreWrapping e (LiftRef r) a where
@@ -1013,25 +950,37 @@ writeByteString :: ByteStringOut a => a -> ByteStringWriter ()
 writeByteString a = get >>= \ suffix -> put (byteStringOut a . suffix)
 byteStringWriterResult :: ByteStringWriter a -> BuiltinByteString
 byteStringWriterResult m = execState m emptyByteString-}
-toByteStringOut :: ByteStringOut a => a -> BuiltinByteString
-toByteStringOut a = byteStringOut a emptyByteString
+toByteStringOut :: ToByteString a => a -> BuiltinByteString
+toByteStringOut a = byteStringOut a Terminal emptyByteString
 
-byteStringInByteString :: Integer -> ByteStringReader BuiltinByteString
-byteStringInByteString n =
-  ByteStringReader $ \ bsc ->
-    let next = cursorStart bsc + n in
-      if next <= cursorEnd bsc then
-        Just (sliceByteString (cursorStart bsc) n (cursorByteString bsc),
-              ByteStringCursor (cursorByteString bsc) next (cursorEnd bsc))
+byteStringInFixedLength :: Integer -> ByteStringReader BuiltinByteString
+byteStringInFixedLength n =
+  ByteStringReader $ \ ByteStringCursor {..} ->
+    let next = cursorStart + n in
+      if next <= cursorEnd then
+        Just (sliceByteString cursorStart n cursorByteString,
+              ByteStringCursor cursorByteString next cursorEnd)
       else Nothing
+byteStringInToEnd :: ByteStringReader BuiltinByteString
+byteStringInToEnd =
+  ByteStringReader $ \ ByteStringCursor {..} ->
+    let len = cursorEnd - cursorStart in
+    Just (sliceByteString cursorStart len cursorByteString,
+          ByteStringCursor cursorByteString cursorEnd cursorEnd)
 byteStringReaderFail :: ByteStringReader a
 byteStringReaderFail = ByteStringReader $ \ s -> Nothing
-maybeFromByteStringIn :: ByteStringIn a => BuiltinByteString -> Maybe a
-maybeFromByteStringIn bs = byteStringCursor bs &
-  getByteStringReader byteStringIn >>= \ (a, bs') ->
+maybeFromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> BuiltinByteString -> Maybe a
+maybeFromByteStringIn_ byteStringIn bs =
+  byteStringCursor bs &
+  getByteStringReader (byteStringIn Terminal) >>= \ (a, bs') ->
   if emptyByteStringCursor bs' then Just a else Nothing
-fromByteStringIn :: ByteStringIn a => BuiltinByteString -> a
-fromByteStringIn = fromJust . maybeFromByteStringIn
+fromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> BuiltinByteString -> a
+fromByteStringIn_ byteStringIn = fromJust . maybeFromByteStringIn_ byteStringIn
+{-# INLINEABLE fromByteStringIn #-}
+fromByteStringIn :: FromByteString a => BuiltinByteString -> a
+fromByteStringIn = fromByteStringIn_ byteStringIn
+maybeFromByteStringIn :: FromByteString a => BuiltinByteString -> Maybe a
+maybeFromByteStringIn = maybeFromByteStringIn_ byteStringIn
 
 byteStringCursor :: BuiltinByteString -> ByteStringCursor
 byteStringCursor bs = ByteStringCursor bs 0 (lengthOfByteString bs)
@@ -1042,6 +991,8 @@ nextByteStringCursor bsc =
   if emptyByteStringCursor bsc then Nothing else
     Just (Byte $ indexByteString (cursorByteString bsc) (cursorStart bsc),
           ByteStringCursor (cursorByteString bsc) (cursorStart bsc + 1) (cursorEnd bsc))
+cursorLength :: ByteStringCursor -> Integer
+cursorLength bsc = cursorEnd bsc - cursorStart bsc
 
 uncurry3 :: (a->b->c->d)->(a,b,c)->d
 uncurry3 f (a,b,c) = f a b c

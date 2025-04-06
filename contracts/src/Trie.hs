@@ -83,7 +83,7 @@ type TrieNodeRef r h k c = LiftRef r (TrieNode r h k c)
 type TrieNode r h k c = Fix (TrieNodeFL r h k c)
 
 newtype TrieNodeFL r h k c t = TrieNodeFL {tfl :: TrieNodeF h k c (LiftRef r t)}
-  deriving (Eq, ByteStringIn, FromByteString, ByteStringOut, ToByteString)
+  deriving (Eq, FromByteString, ToByteString)
     via TrieNodeF h k c (LiftRef r t)
 
 data TrieNodeF h k c t =
@@ -182,22 +182,16 @@ class
 --  Eq (TrieTop t) where
 --  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
 instance
-  (ByteStringOut t) =>
-  ByteStringOut (TrieTop t) where
+  (ToByteString t) =>
+  ToByteString (TrieTop t) where
   byteStringOut (TrieTop h t) = byteStringOut (toUInt16 $ h+1, t)
-instance (ByteStringOut t) => ToByteString (TrieTop t) where
-  toByteString = toByteStringOut
+instance
+  (FromByteString t) =>
+  FromByteString (TrieTop t) where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> \ (hp1 :: UInt16, t) -> TrieTop (toInt hp1 - 1) t
 instance
   (Dato t) =>
   Dato (TrieTop t) where
-instance
-  (ByteStringIn t) =>
-  ByteStringIn (TrieTop t) where
-  byteStringIn = byteStringIn <&> \ (hp1 :: UInt16, t) -> TrieTop (toInt hp1 - 1) t
-instance
-  (ByteStringIn t) =>
-  FromByteString (TrieTop t) where
-  fromByteString = fromByteStringIn
 instance
   Functor TrieTop where
   fmap f (TrieTop h t) = TrieTop h (f t)
@@ -217,37 +211,29 @@ instance (TrieHeightKey h k, Show c, Show t) => Show (TrieNodeF h k c t) where
   show (Branch lt rt) = "Branch " <> show lt <> " " <> show rt
   show (Skip h k ct) = "Skip " <> show h <> " " <> show k <> " " <> show ct
 instance
-  (TrieHeightKey h k, ByteStringOut c, ByteStringOut t) =>
-  ByteStringOut (TrieNodeF h k c t) where
+  (TrieHeightKey h k, ToByteString c, ToByteString t) =>
+  ToByteString (TrieNodeF h k c t) where
   byteStringOut Empty = byteStringOut (Byte 0)
   byteStringOut (Leaf c) = byteStringOut (Byte 1, c)
   byteStringOut (Branch l r) = byteStringOut (Byte 2, l, r)
   byteStringOut (Skip h k c) = byteStringOut (Byte 3, h, k, c)
 instance
-  (TrieHeightKey h k, ByteStringOut c, ByteStringOut t) =>
-  ToByteString (TrieNodeF h k c t) where
-  toByteString = toByteStringOut
-instance
   (TrieHeightKey h k, Dato c, Dato t) =>
   Dato (TrieNodeF h k c t) where
 instance
-  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, ByteStringIn t) =>
-  ByteStringIn (TrieNodeF h k c t) where
-  byteStringIn = do
-    (Byte tag) <- byteStringIn
+  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, FromByteString t) =>
+  FromByteString (TrieNodeF h k c t) where
+  byteStringIn isTerminal = do
+    (Byte tag) <- byteStringIn NonTerminal
     if tag == 0 then
       return Empty
     else if tag == 1 then
-      byteStringIn <&> Leaf
+      byteStringIn isTerminal <&> Leaf
     else if tag == 2 then
-      byteStringIn <&> uncurry Branch
+      byteStringIn isTerminal <&> uncurry Branch
     else if tag == 3 then
-      byteStringIn <&> uncurry3 Skip
+      byteStringIn isTerminal <&> uncurry3 Skip
     else byteStringReaderFail
-instance
-  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, ByteStringIn t) =>
-  FromByteString (TrieNodeF h k c t) where
-  fromByteString = fromByteStringIn
 instance
   Functor (TrieNodeF h k c) where
   fmap f Empty = Empty
@@ -265,43 +251,33 @@ instance
   Show (TrieNodeFL r h k c t) where
   showsPrec prec (TrieNodeFL x) = showApp prec "TrieNodeFL" [showArg x]
 instance
-  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c) =>
-  LiftByteStringOut (TrieNodeFL r h k c) where
-  liftByteStringOut = byteStringOut
-instance
-  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c) =>
-  LiftToByteString (TrieNodeFL r h k c) where
-  liftToByteString = toByteStringOut
-instance
-  (TrieHeightKey h k, Show c, LiftShow r) =>
-  LiftShow (TrieNodeFL r h k c) where
-  liftShowsPrec = showsPrec
+  (TrieHeightKey h k, Dato c, LiftDato r, Dato t) =>
+  Dato (TrieNodeFL r h k c t) where
 instance
   (TrieHeightKey h k, Eq c, LiftEq r) =>
   LiftEq (TrieNodeFL r h k c) where
   liftEq = (==)
 instance
+  (TrieHeightKey h k, Show c, LiftShow r) =>
+  LiftShow (TrieNodeFL r h k c) where
+  liftShowsPrec = showsPrec
+instance
+  (LiftToByteString r, TrieHeightKey h k, ToByteString c) =>
+  LiftToByteString (TrieNodeFL r h k c) where
+  liftToByteString = toByteString
+  liftByteStringOut = byteStringOut
+instance
+  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, LiftFromByteString r) =>
+  LiftFromByteString (TrieNodeFL r h k c) where
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
+instance
   (TrieHeightKey h k, Dato c, LiftDato r) =>
   LiftDato (TrieNodeFL r h k c) where
-instance
-  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r) =>
-  LiftByteStringIn (TrieNodeFL r h k c) where
-  liftByteStringIn = byteStringIn
 --instance
---  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
---  ByteStringOut (TrieNodeFL r h k c t) where
---  byteStringOut = liftByteStringOut
---instance
---  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
---  ToByteString (TrieNodeFL r h k c t) where
---  toByteString = liftToByteString
-instance
-  (TrieHeightKey h k, Dato c, LiftDato r, Dato t) =>
-  Dato (TrieNodeFL r h k c t) where
---instance
---  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r, ByteStringIn t) =>
---  ByteStringIn (TrieNodeFL r h k c t) where
---  byteStringIn = liftByteStringIn
+--  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, LiftFromByteString r, FromByteString t) =>
+--  FromByteString (TrieNodeFL r h k c t) where
+--  byteStringIn = liftFromByteString
 {- This would require refining Bifunctor into DatoBifunctor that requires Dato its two arguments:
 instance
   (LiftWrapping Identity r, TrieHeightKey h k) =>
@@ -334,17 +310,13 @@ instance
   showsPrec prec (TriePath h k m d) =
     showApp prec "TriePath" [showArg h, showArg k, showArg m, showArg d]
 instance
-  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn d) =>
-  ByteStringIn (TriePath h k d) where
-  byteStringIn = byteStringIn <&> uncurry4 TriePath
+  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString d) =>
+  FromByteString (TriePath h k d) where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry4 TriePath
 instance
-  (TrieHeightKey h k, Dato d) =>
-  ByteStringOut (TriePath h k d) where
-  byteStringOut (TriePath h k m ds) = byteStringOut (h, k, m, ds)
-instance
-  (TrieHeightKey h k, Dato d) =>
+  (TrieHeightKey h k, ToByteString d) =>
   ToByteString (TriePath h k d) where
-  toByteString = toByteStringOut
+  byteStringOut (TriePath h k m ds) = byteStringOut (h, k, m, ds)
 instance
   (TrieHeightKey h k, Dato d) =>
   Dato (TriePath h k d) where
@@ -368,30 +340,26 @@ instance
   showsPrec prec (RightStep o) = showApp prec "RightStep" [showArg o]
   showsPrec prec (SkipStep h k) = showApp prec "SkipStep" [showArg h, showArg k]
 instance
-  (TrieHeightKey h k, ByteStringOut t) =>
-  ByteStringOut (TrieStep h k t) where
+  (TrieHeightKey h k, ToByteString t) =>
+  ToByteString (TrieStep h k t) where
   byteStringOut (LeftStep t) = byteStringOut (Byte 0, t)
   byteStringOut (RightStep t) = byteStringOut (Byte 1, t)
   byteStringOut (SkipStep h k) = byteStringOut (Byte 2, h, k)
 instance
-  (TrieHeightKey h k, ByteStringOut t) =>
-  ToByteString (TrieStep h k t) where
-  toByteString = toByteStringOut
+  (FromByteString h, FromByteString k, FromByteString t) =>
+  FromByteString (TrieStep h k t) where
+  byteStringIn isTerminal = do
+    (Byte tag) <- byteStringIn NonTerminal
+    if tag == 0 then
+      byteStringIn isTerminal <&> LeftStep
+    else if tag == 1 then
+      byteStringIn isTerminal <&> RightStep
+    else if tag == 2 then
+      byteStringIn isTerminal <&> uncurry SkipStep
+    else byteStringReaderFail
 instance
   (TrieHeightKey h k, Dato t) =>
   Dato (TrieStep h k t) where
-instance
-  (ByteStringIn h, ByteStringIn k, ByteStringIn t) =>
-  ByteStringIn (TrieStep h k t) where
-  byteStringIn = do
-    (Byte tag) <- byteStringIn
-    if tag == 0 then
-      byteStringIn <&> LeftStep
-    else if tag == 1 then
-      byteStringIn <&> RightStep
-    else if tag == 2 then
-      byteStringIn <&> uncurry SkipStep
-    else byteStringReaderFail
 
 -- ** Zippers
 instance

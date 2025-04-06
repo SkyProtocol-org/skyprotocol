@@ -216,7 +216,7 @@ cryptoSpec = do
   describe "SkyCrypto" $ do
     it "simple tries" $ do
       let t1 = TrieTop 4 (2989 :: Integer)
-      t1 `shouldBeHex2` "000500020bad"
+      t1 `shouldBeHex2` "00050bad"
       PS.show t1 `shouldBe` "TrieTop 4 2989"
     it "simple hashes" $ do
       computeHash (ofHex "" :: BuiltinByteString) `shouldBeHex2` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"

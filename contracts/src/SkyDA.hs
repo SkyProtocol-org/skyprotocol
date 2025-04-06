@@ -108,38 +108,32 @@ instance LiftEq r => Eq (MessageMetaData r) where
 instance LiftShow r => Show (MessageMetaData r) where
   showsPrec prec (MessageMetaData p t) = showApp prec "MessageMetaData" [showArg p, showArg t]
 instance ToByteString (MessageMetaData r) where
-  toByteString = toByteStringOut
-instance ByteStringOut (MessageMetaData r) where
   byteStringOut = byteStringOut . tupleOfMessageMetaData
+instance LiftFromByteString r => FromByteString (MessageMetaData r) where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry MessageMetaData
 instance LiftDato r => Dato (MessageMetaData r) where
-instance LiftByteStringIn r => ByteStringIn (MessageMetaData r) where
-  byteStringIn = byteStringIn <&> uncurry MessageMetaData
 
 -- ** TopicMetaData
 instance LiftEq r => Eq (TopicMetaData r) where
   TopicMetaData s c == TopicMetaData s' c' = s == s' && c == c'
 instance LiftShow r => Show (TopicMetaData r) where
   showsPrec prec (TopicMetaData s c) = showApp prec "TopicMetaData" [showArg s, showArg c]
-instance LiftByteStringOut r => ToByteString (TopicMetaData r) where
-  toByteString = toByteStringOut
-instance LiftByteStringOut r => ByteStringOut (TopicMetaData r) where
+instance LiftToByteString r => ToByteString (TopicMetaData r) where
   byteStringOut = byteStringOut . tupleOfTopicMetaData
+instance LiftFromByteString r => FromByteString (TopicMetaData r) where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry TopicMetaData
 instance LiftDato r => Dato (TopicMetaData r) where
-instance LiftByteStringIn r => ByteStringIn (TopicMetaData r) where
-  byteStringIn = byteStringIn <&> uncurry TopicMetaData
 
 -- ** DaMetaData
 instance LiftEq r => Eq (DaMetaData r) where
   DaMetaData s c == DaMetaData s' c' = s == s' && c == c'
 instance LiftShow r => Show (DaMetaData r) where
   showsPrec prec (DaMetaData s c) = showApp prec "DaMetaData" [showArg s, showArg c]
-instance LiftByteStringOut r => ToByteString (DaMetaData r) where
-  toByteString = toByteStringOut
-instance LiftByteStringOut r => ByteStringOut (DaMetaData r) where
+instance LiftToByteString r => ToByteString (DaMetaData r) where
   byteStringOut = byteStringOut . tupleOfDaMetaData
 instance LiftDato r => Dato (DaMetaData r) where
-instance LiftByteStringIn r => ByteStringIn (DaMetaData r) where
-  byteStringIn = byteStringIn <&> uncurry DaMetaData
+instance LiftFromByteString r => FromByteString (DaMetaData r) where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry DaMetaData
 
 -- ** SkyDataPath
 instance (LiftEq r) => Eq (SkyDataPath r) where
@@ -148,10 +142,11 @@ instance (LiftEq r) => Eq (SkyDataPath r) where
 instance (LiftShow r) => Show (SkyDataPath r) where
   showsPrec prec (SkyDataPath dmd ttp tmd mtp mmd) =
     showApp prec "SkyDataPath" [showArg dmd, showArg ttp, showArg tmd, showArg mtp, showArg mmd]
-instance LiftDato r => ByteStringOut (SkyDataPath r) where
+instance LiftDato r => ToByteString (SkyDataPath r) where
   byteStringOut = byteStringOut . tupleOfSkyDataPath
-instance LiftByteStringIn r => ByteStringIn (SkyDataPath r) where
-  byteStringIn = byteStringIn <&> uncurry5 SkyDataPath
+instance LiftFromByteString r => FromByteString (SkyDataPath r) where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 SkyDataPath
+instance LiftDato r => Dato (SkyDataPath r) where
 
 -- ** Trie64
 instance TrieHeight Byte where

@@ -57,20 +57,20 @@ import SkyBase
 
 -- A pair (pubKey, signature) of signature by a single authority
 newtype SingleSig = SingleSig { getSingleSig :: (PubKey, Bytes64) }
-  deriving (Eq, ToByteString, FromByteString, ByteStringIn, ByteStringOut) via (Bytes64, PubKey)
+  deriving (Eq, ToByteString, FromByteString) via (Bytes64, PubKey)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Signatures produced by data operators for top hash
 newtype MultiSig = MultiSig [SingleSig]
-  deriving (Eq, ToByteString, FromByteString, ByteStringIn, ByteStringOut) via [SingleSig]
+  deriving (Eq, ToByteString, FromByteString) via [SingleSig]
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- List of pubkeys that must sign and minimum number of them that must sign
 newtype MultiSigPubKey = MultiSigPubKey { getMultiSigPubKey :: ([PubKey], UInt16) }
 --data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
-  deriving (Eq, ToByteString, FromByteString, ByteStringIn, ByteStringOut) via ([PubKey], UInt16)
+  deriving (Eq, ToByteString, FromByteString) via ([PubKey], UInt16)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -135,27 +135,17 @@ instance
   (Digest x) == (Digest y) = x == y
 instance
   (HashFunction hf) =>
-  ByteStringIn (Digest hf a) where
-  byteStringIn = byteStringIn <&> Digest
+  ToByteString (Digest hf a) where
+  toByteString (Digest (FixedLengthByteString b)) = b
+  byteStringOut (Digest b) = byteStringOut b
 instance
   (HashFunction hf) =>
   FromByteString (Digest hf a) where
   fromByteString = fromByteStringIn
-instance
-  (HashFunction hf) =>
-  ByteStringOut (Digest hf a) where
-  byteStringOut (Digest b) = byteStringOut b
-instance
-  (HashFunction hf) =>
-  ToByteString (Digest hf a) where
-  toByteString (Digest (FixedLengthByteString b)) = b
+  byteStringIn isTerminal = byteStringIn isTerminal <&> Digest
 instance
   (HashFunction hf) =>
   Dato (Digest hf a) where
-instance
-  (HashFunction hf) =>
-  LiftByteStringIn (Digest hf) where
-  liftByteStringIn = byteStringIn
 instance
   (HashFunction hf) =>
   LiftEq (Digest hf) where
@@ -166,15 +156,17 @@ instance
   liftShowsPrec = showsPrec
 instance
   (HashFunction hf) =>
-  LiftDato (Digest hf) where
-instance
-  (HashFunction hf) =>
-  LiftByteStringOut (Digest hf) where
+  LiftToByteString (Digest hf) where
+  liftToByteString = toByteString
   liftByteStringOut = byteStringOut
 instance
   (HashFunction hf) =>
-  LiftToByteString (Digest hf) where
-  liftToByteString = toByteString
+  LiftFromByteString (Digest hf) where
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
+instance
+  (HashFunction hf) =>
+  LiftDato (Digest hf) where
 
 -- ** Blake2b_256
 instance HashFunction Blake2b_256 where
@@ -189,10 +181,12 @@ instance
   (HashFunction hf) =>
   Eq (DigestRef hf x) where
   DigestRef ah _ == DigestRef bh _ = ah == bh
-instance (HashFunction hf) => ByteStringOut (DigestRef hf x) where
+instance (HashFunction hf) => ToByteString (DigestRef hf x) where
+  toByteString = toByteString . digestRefDigest
   byteStringOut = byteStringOut . digestRefDigest
-{-instance (HashFunction hf) => ByteStringIn (DigestRef hf x) where
-  byteStringIn = byteStringIn <&> lookupDigest -}
+--instance (HashFunction hf) => FromByteString (DigestRef hf x) where
+--  fromByteString = lookupDigest . fromByteString
+--  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigest
 instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
   showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
 instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestRef hf) a where
@@ -205,12 +199,9 @@ instance
   liftShowsPrec = showsPrec
 instance
   (HashFunction hf) =>
-  LiftByteStringOut (DigestRef hf) where
-  liftByteStringOut = byteStringOut . digestRefDigest
-instance
-  (HashFunction hf) =>
   LiftToByteString (DigestRef hf) where
   liftToByteString = toByteString . digestRefDigest
+  liftByteStringOut = byteStringOut . digestRefDigest
 instance
   (HashFunction hf) =>
   LiftEq (DigestRef hf) where
@@ -240,24 +231,20 @@ instance Show PubKey where
   show (PubKey x) = "PubKey " <> show x
 instance ToByteString PubKey where
   toByteString = toByteString . getPubKey
+  byteStringOut (PubKey pk) = byteStringOut pk
 instance FromByteString PubKey where
   fromByteString = PubKey . fromByteString
-instance ByteStringOut PubKey where
-  byteStringOut (PubKey pk) = byteStringOut pk
-instance ByteStringIn PubKey where
-  byteStringIn = byteStringIn <&> PubKey
+  byteStringIn isTerminal = byteStringIn isTerminal <&> PubKey
 
 -- ** PubKeyHash
 instance
-  ByteStringIn PubKeyHash where
-  byteStringIn = byteStringIn <&> PubKeyHash
-instance
-  ByteStringOut PubKeyHash where
-  byteStringOut = byteStringOut . getPubKeyHash
-instance ToByteString PubKeyHash where
+  ToByteString PubKeyHash where
   toByteString = getPubKeyHash
-instance FromByteString PubKeyHash where
+  byteStringOut = byteStringOut . getPubKeyHash
+instance
+  FromByteString PubKeyHash where
   fromByteString = PubKeyHash
+  byteStringIn isTerminal = byteStringIn isTerminal <&> PubKeyHash
 
 -- ** PlainText
 instance Show a => Show (PlainText f a) where
