@@ -158,27 +158,6 @@ instance TrieHeight Byte where
 instance TrieKey Bytes8 where
 instance TrieHeightKey Byte Bytes8 where
 
--- ** SingleSig
-instance ByteStringIn SingleSig where
-  byteStringIn = byteStringIn <&> uncurry SingleSig
-
--- ** MultiSig
-instance ByteStringIn MultiSig where
-  byteStringIn = byteStringIn <&> MultiSig
-
--- ** MultiSigPubKey
-instance Eq MultiSigPubKey where
-  MultiSigPubKey al an == MultiSigPubKey bl bn = al == bl && an == bn
-instance ByteStringOut MultiSigPubKey where
-  byteStringOut = byteStringOut . tupleOfMultiSigPubKey
-instance ToByteString MultiSigPubKey where
-  toByteString = toByteStringOut
-instance Show MultiSigPubKey where
-  showsPrec prec (MultiSigPubKey l n) = showApp prec "MultiSigPubKey" [showArg l, showArg n]
-instance Dato MultiSigPubKey where
-instance ByteStringIn MultiSigPubKey where
-  byteStringIn = byteStringIn <&> uncurry MultiSigPubKey
-
 -- * Helpers
 tupleOfMessageMetaData :: MessageMetaData r -> (PubKey, POSIXTime)
 tupleOfMessageMetaData MessageMetaData {..} = (messagePoster, messageTime)
@@ -188,8 +167,6 @@ tupleOfDaMetaData :: DaMetaData r -> (DataHash, LiftRef r Committee)
 tupleOfDaMetaData DaMetaData {..} = (daSchema, daCommittee)
 tupleOfSkyDataPath :: SkyDataPath r -> (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
 tupleOfSkyDataPath SkyDataPath {..} = (pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData)
-tupleOfMultiSigPubKey :: MultiSigPubKey -> ([PubKey], UInt16)
-tupleOfMultiSigPubKey MultiSigPubKey {..} = (multiSigPubKeyKeys, multiSigPubKeyThreshold)
 
 -- TODO: generate a new Committee from PoS instead of just copying the PoA committee
 -- Maybe it should depend on a seed based on the topicId and more.

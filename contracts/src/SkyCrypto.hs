@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE EmptyCase                  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -54,18 +55,22 @@ import SkyBase
 
 -- * Types
 
--- A single signature by a single data operator public key
-data SingleSig = SingleSig { singleSigPubKey :: PubKey, singleSigSignature :: Bytes64 }
+-- A pair (pubKey, signature) of signature by a single authority
+newtype SingleSig = SingleSig { getSingleSig :: (PubKey, Bytes64) }
+  deriving (Eq, ToByteString, FromByteString, ByteStringIn, ByteStringOut) via (Bytes64, PubKey)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Signatures produced by data operators for top hash
-data MultiSig = MultiSig [SingleSig]
+newtype MultiSig = MultiSig [SingleSig]
+  deriving (Eq, ToByteString, FromByteString, ByteStringIn, ByteStringOut) via [SingleSig]
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- List of pubkeys that must sign and minimum number of them that must sign
-data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
+newtype MultiSigPubKey = MultiSigPubKey { getMultiSigPubKey :: ([PubKey], UInt16) }
+--data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
+  deriving (Eq, ToByteString, FromByteString, ByteStringIn, ByteStringOut) via ([PubKey], UInt16)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -112,9 +117,12 @@ class
 
 -- ** SingleSig
 instance Show SingleSig where
-  showsPrec prec (SingleSig p s) = showApp prec "SingleSig" [showArg p, showArg s]
-instance Eq SingleSig where
-  SingleSig p s == SingleSig p' s' = p == p' && s == s'
+  showsPrec prec (SingleSig ps) = showApp prec "SingleSig" [showArg ps]
+
+-- ** MultiSigPubKey
+instance Show MultiSigPubKey where
+  showsPrec prec (MultiSigPubKey ln) = showApp prec "MultiSigPubKey" [showArg ln]
+instance Dato MultiSigPubKey where
 
 -- ** Digest
 instance
@@ -285,20 +293,20 @@ computeHash = computeDigest . toByteString
 
 -- Function that checks if a SingleSig is valid
 singleSigValid :: ToByteString a => a -> SingleSig -> Bool
-singleSigValid message (SingleSig pubKey sig) =
+singleSigValid message (SingleSig (pubKey, sig)) =
   verifyEd25519Signature (toByteString pubKey) (toByteString message) (toByteString sig)
 
 -- Main function to check if the MultiSig satisfies at least N valid unique signatures
 multiSigValid :: ToByteString a => MultiSigPubKey -> a -> MultiSig -> Bool
-multiSigValid (MultiSigPubKey pubKeys minSigs) message (MultiSig singleSigs) =
+multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) =
   let -- Extract the public keys from the SingleSig values
-      pubKeysInSignatures = map (\(SingleSig pubKey _) -> pubKey) singleSigs
+      pubKeysInSignatures = map (\(SingleSig (pubKey, _)) -> pubKey) singleSigs
       -- Check for duplicates by comparing the list to its nub version
       noDuplicates = pubKeysInSignatures == nub pubKeysInSignatures
   in if not noDuplicates
      then False -- Duplicates found, return False
      else let -- Filter for valid signatures from required public keys
-              validSignatures = filter (\ss@(SingleSig pubKey sig) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
+              validSignatures = filter (\ss@(SingleSig (pubKey, sig)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
           in length validSignatures >= toInt minSigs
 
 -- * Meta declarations

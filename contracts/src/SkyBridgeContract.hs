@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -60,9 +61,10 @@ import SkyDA
 -- Datum Stored in Bridge NFT
 ------------------------------------------------------------------------------
 
-data BridgeNFTDatum = BridgeNFTDatum
+newtype BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: DataHash
   }
+  deriving Eq via DataHash
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 instance ByteStringIn BridgeNFTDatum where

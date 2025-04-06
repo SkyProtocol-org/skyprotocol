@@ -46,7 +46,7 @@ sig1 :: Bytes64 -- signs dh1 with sk1
 sig1 = ofHex "184E401E7EA7C7E2F9B4186DEDF953437F81BD2664D1FBDE525264A4D08BFD79D81877376F1E63CE64DF46C5F1FD93CDF3B05B8B6076A6ADC05F36C81F62A500"
 
 ss1 :: SingleSig
-ss1 = SingleSig pk1 sig1
+ss1 = SingleSig (pk1, sig1)
 
 -- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
 pk2 :: PubKey
@@ -56,7 +56,7 @@ sig2 :: Bytes64 -- signs dh1 with sk2
 sig2 = ofHex "B7837207523B267F5B9AA0117C02773474A5F9F9FC4D6F48AEB2DC1B7A5796E60EE17C1F5C81D43C1973C0536932FB328897B341A7F8B3B86CB66ACEF459B405"
 
 ss2 :: SingleSig
-ss2 = SingleSig pk2 sig2
+ss2 = SingleSig (pk2, sig2)
 
 -- sk3: 9F664160D9DDCD27B5B9A0C619FC3978DDE6C51F4FEAF40688BF54281AA0D0CC
 pk3 :: PubKey
@@ -66,14 +66,14 @@ sig3 :: Bytes64 -- signs fb1 with sk3
 sig3 = ofHex "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
 
 ss3 :: SingleSig
-ss3 = SingleSig pk3 sig3
+ss3 = SingleSig (pk3, sig3)
 
 ------------------------------------------------------------------------------
 -- Multi sigs
 ------------------------------------------------------------------------------
 
 mpk1 :: MultiSigPubKey -- Require 2 of the 3 pks to sign
-mpk1 = MultiSigPubKey [pk1, pk2, pk3] (toUInt16 2)
+mpk1 = MultiSigPubKey ([pk1, pk2, pk3], toUInt16 2)
 
 msig1OK :: MultiSig
 msig1OK = MultiSig [ss1, ss2]
@@ -91,7 +91,7 @@ msig5Err :: MultiSig -- too few sigs
 msig5Err = MultiSig [ss1]
 
 mpk2 :: MultiSigPubKey -- Require 2 of the 2 pks to sign
-mpk2 = MultiSigPubKey [pk1, pk2] (toUInt16 2)
+mpk2 = MultiSigPubKey ([pk1, pk2], toUInt16 2)
 
 msig6OK :: MultiSig
 msig6OK = MultiSig [ss1, ss2]
@@ -178,7 +178,7 @@ topicSchema0 :: DataHash
 topicSchema0 = computeHash $ (ofHex "1ea7f00d" :: Bytes4)
 
 committee0 :: Committee
-committee0 = MultiSigPubKey [pk1, pk2] (UInt16 2)
+committee0 = MultiSigPubKey ([pk1, pk2], UInt16 2)
 
 daMetaData0 :: DaMetaData HashRef
 daMetaData0 = DaMetaData daSchema0 (LiftRef (digestRef committee0))
@@ -216,6 +216,7 @@ daSpec = do
       e1 `shouldBeHex` "00"
       e2 `shouldBeHex` "00"
       e0 == e0 `shouldBe` True
+      e3 == e3 `shouldBe` True
 --    trie0 == e3 `shouldBe` True
 --    trie0 `shouldBeHex` "00"
 --    computeHash rDaData0 `shouldBeHex` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"

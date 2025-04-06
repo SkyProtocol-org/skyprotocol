@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE EmptyCase                  #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -88,16 +89,19 @@ newtype
 -- a VariableLengthByteString has to be of length <= 65535 (in practice smaller, more like 8192)
 -- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
 newtype VariableLengthByteString = VariableLengthByteString BuiltinByteString
+  deriving (Eq, ToInt, FromInt, ToByteString, FromByteString, ByteStringOut, ByteStringIn, BitLogic) via BuiltinByteString
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- | Byte
 newtype Byte = Byte { fromByte :: Integer }
+  deriving (Eq, ToInt) via Integer
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- | UInt16
 newtype UInt16 = UInt16 { fromUInt16 :: Integer }
+  deriving (Eq, ToInt) via Integer
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -287,7 +291,9 @@ instance
   bitLength (FixedLengthByteString b) = bitLength b
   lowestBitClear (FixedLengthByteString b) = lowestBitClear b
   isBitSet n (FixedLengthByteString b) = readBit b n
-  lowBitsMask l = FixedLengthByteString $ shiftByteString (replicateByte (staticLength @len) 0xFF) $ -l
+  lowBitsMask = let allBits = replicateByte (staticLength @len) 0xFF
+                    nBits = 8*(staticLength @len) in
+    \ l -> FixedLengthByteString $ shiftByteString allBits $ l-nBits
   logicalOr (FixedLengthByteString a) (FixedLengthByteString b) =
     FixedLengthByteString $ orByteString False a b
   logicalAnd (FixedLengthByteString a) (FixedLengthByteString b) =
@@ -309,45 +315,11 @@ instance
 
 -- ** VariableLengthByteString
 instance
-  Eq VariableLengthByteString where
-  (VariableLengthByteString a) == (VariableLengthByteString b) = a == b
-instance
   Show VariableLengthByteString where
   showsPrec prec (VariableLengthByteString b) =
     showApp prec "VariableLengthByteString" [showArg b]
 instance Partial VariableLengthByteString where
   isElement (VariableLengthByteString b) = lengthOfByteString b <= 65535
-instance
-  ToInt VariableLengthByteString where
-  toInt (VariableLengthByteString b) = toInt b
-instance
-  FromInt VariableLengthByteString where
-  fromInt = VariableLengthByteString . toByteString
-instance
-  ToByteString VariableLengthByteString where
-  toByteString (VariableLengthByteString b) = b
-instance
-  FromByteString VariableLengthByteString where
-  fromByteString = VariableLengthByteString
-instance BitLogic VariableLengthByteString where
-  bitLength (VariableLengthByteString b) = bitLength b
-  lowestBitClear (VariableLengthByteString b) = lowestBitClear b
-  isBitSet n (VariableLengthByteString b) = isBitSet n b
-  lowBitsMask l = VariableLengthByteString $ lowBitsMask l
-  logicalOr (VariableLengthByteString a) (VariableLengthByteString b) =
-    VariableLengthByteString $ logicalOr a b
-  logicalAnd (VariableLengthByteString a) (VariableLengthByteString b) =
-    VariableLengthByteString $ logicalAnd a b
-  logicalXor (VariableLengthByteString a) (VariableLengthByteString b) =
-    VariableLengthByteString $ logicalXor a b
-  shiftRight (VariableLengthByteString b) i = VariableLengthByteString $ shiftRight b i
-  shiftLeft (VariableLengthByteString b) i = VariableLengthByteString $ shiftLeft b i
-instance ByteStringOut VariableLengthByteString where
-  byteStringOut (VariableLengthByteString b) = byteStringOut b
-instance ByteStringIn VariableLengthByteString where
-  byteStringIn =
-    byteStringIn >>= \ (UInt16 len) ->
-    byteStringInByteString len <&> VariableLengthByteString
 instance Dato VariableLengthByteString where
 
 -- ** BuiltinByteString
@@ -355,14 +327,17 @@ instance
   ToInt BuiltinByteString where
   toInt b = byteStringToInteger BigEndian b
 instance
+  FromInt BuiltinByteString where
+  fromInt = toByteString
+instance
   ToByteString BuiltinByteString where
-  toByteString x = x
+  toByteString = id
 instance
   FromByteString BuiltinByteString where
-  fromByteString x = x
+  fromByteString = id
 instance
   ByteStringIn BuiltinByteString where
-  byteStringIn = byteStringIn <&> toByteString @VariableLengthByteString
+  byteStringIn = byteStringIn >>= \ (UInt16 len) -> byteStringInByteString len
 instance BitLogic BuiltinByteString where
   bitLength b =
     let len = lengthOfByteString b
@@ -385,14 +360,10 @@ instance ByteStringOut BuiltinByteString where
 instance Dato BuiltinByteString where
 
 -- ** Byte
-instance Eq Byte where
-  (Byte a) == (Byte b) = a == b
 instance Show Byte where
   showsPrec prec (Byte n) = showApp prec "Byte" [showArg n]
 instance Partial Byte where
   isElement (Byte b) = 0 <= b && b <= 255
-instance ToInt Byte where
-  toInt = fromByte
 instance FromInt Byte where
   fromInt = validate . Byte
 instance ToByteString Byte where
@@ -417,14 +388,10 @@ instance ByteStringIn Byte where
 instance Dato Byte where
 
 -- ** UInt16
-instance Eq UInt16 where
-  (UInt16 a) == (UInt16 b) = a == b
 instance Show UInt16 where
   showsPrec prec (UInt16 n) = showApp prec "UInt16" [showArg n]
 instance Partial UInt16 where
   isElement (UInt16 b) = 0 <= b && b <= 65535
-instance ToInt UInt16 where
-  toInt = fromUInt16
 instance FromInt UInt16 where
   fromInt = validate . UInt16
 instance ToByteString UInt16 where
@@ -658,23 +625,31 @@ instance FromByteString () where
 instance Dato () where
 
 
--- ** Tuples
+-- ** Sums and Tuples
+
+-- *** Either
 instance
-  (Eq a, Eq b, Eq c) =>
-  Eq (a, b, c) where
-  (a, b, c) == (a', b', c') = a == a' && b == b' && c == c'
+  (ByteStringOut a, ByteStringOut b) =>
+  ByteStringOut (Either a b) where
+  byteStringOut (Left a) = byteStringOut (Byte 0) . byteStringOut a
+  byteStringOut (Right b) = byteStringOut (Byte 1) . byteStringOut b
 instance
-  (Eq a, Eq b, Eq c, Eq d) =>
-  Eq (a, b, c, d) where
-  (a, b, c, d) == (a', b', c', d') = a == a' && b == b' && c == c' && d == d'
+  (ByteStringOut a, ByteStringOut b) =>
+  ToByteString (Either a b) where
+  toByteString = toByteStringOut
 instance
-  (Eq a, Eq b, Eq c, Eq d, Eq e) =>
-  Eq (a, b, c, d, e) where
-  (a, b, c, d, e) == (a', b', c', d', e') = a == a' && b == b' && c == c' && d == d' && e == e'
+  (ByteStringIn a, ByteStringIn b) =>
+  ByteStringIn (Either a b) where
+  byteStringIn = byteStringIn >>= \ b ->
+    if b == Byte 0 then byteStringIn <&> Left
+    else if b == Byte 1 then byteStringIn <&> Right
+    else byteStringReaderFail
 instance
-  (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) =>
-  Eq (a, b, c, d, e, f) where
-  (a, b, c, d, e, f) == (a', b', c', d', e', f') = a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
+  (ByteStringIn a, ByteStringIn b) =>
+  FromByteString (Either a b) where
+  fromByteString = fromByteStringIn
+
+-- *** (,) or builtin Pairs
 instance
   (ByteStringOut a, ByteStringOut b) =>
   ByteStringOut (a, b) where
@@ -685,6 +660,22 @@ instance
   (ByteStringOut a, ByteStringOut b) =>
   ToByteString (a, b) where
   toByteString = toByteStringOut
+instance
+  (ByteStringIn a, ByteStringIn b) =>
+  ByteStringIn (a, b) where
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 return (a, b)
+instance
+  (ByteStringIn a, ByteStringIn b) =>
+  FromByteString (a, b) where
+  fromByteString = fromByteStringIn
+
+-- *** (,,) or builtin Triplets
+instance
+  (Eq a, Eq b, Eq c) =>
+  Eq (a, b, c) where
+  (a, b, c) == (a', b', c') = a == a' && b == b' && c == c'
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c) =>
   ByteStringOut (a, b, c) where
@@ -697,6 +688,20 @@ instance
   ToByteString (a, b, c) where
   toByteString = toByteStringOut
 instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c) =>
+  FromByteString (a, b, c) where
+  fromByteString = fromByteStringIn
+instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c) =>
+  ByteStringIn (a, b, c) where
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 return (a, b, c)
+
+-- *** Quadruplets, except compatible with data{A,B,C,D} instead of (A,B,C,D)
+data Quadruplet a b c d = Quadruplet { t4_1 :: a, t4_2 :: b, t4_3 :: c, t4_4 :: d }
+instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
   ByteStringOut (a, b, c, d) where
   byteStringOut (a, b, c, d) s =
@@ -705,9 +710,33 @@ instance
     byteStringOut c $
     byteStringOut d s
 instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d) =>
+  FromByteString (a, b, c, d) where
+  fromByteString = fromByteStringIn
+instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d) =>
   ToByteString (a, b, c, d) where
   toByteString = toByteStringOut
+
+-- *** (,,,) or builtin Quadruplets
+instance
+  (Eq a, Eq b, Eq c, Eq d) =>
+  Eq (a, b, c, d) where
+  (a, b, c, d) == (a', b', c', d') = a == a' && b == b' && c == c' && d == d'
+instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d) =>
+  ByteStringIn (a, b, c, d) where
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 byteStringIn >>= \ d ->
+                 return (a, b, c, d)
+
+-- *** (,,,,) or builtin Quintuplets
+instance
+  (Eq a, Eq b, Eq c, Eq d, Eq e) =>
+  Eq (a, b, c, d, e) where
+  (a, b, c, d, e) == (a', b', c', d', e') = a == a' && b == b' && c == c' && d == d' && e == e'
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
   ByteStringOut (a, b, c, d, e) where
@@ -718,9 +747,28 @@ instance
     byteStringOut d $
     byteStringOut e s
 instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e) =>
+  ByteStringIn (a, b, c, d, e) where
+  byteStringIn = byteStringIn >>= \ a ->
+                 byteStringIn >>= \ b ->
+                 byteStringIn >>= \ c ->
+                 byteStringIn >>= \ d ->
+                 byteStringIn >>= \ e ->
+                 return (a, b, c, d, e)
+instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e) =>
+  FromByteString (a, b, c, d, e) where
+  fromByteString = fromByteStringIn
+instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e) =>
   ToByteString (a, b, c, d, e) where
   toByteString = toByteStringOut
+
+-- *** (,,,,,) or builtin Sextuplets
+instance
+  (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) =>
+  Eq (a, b, c, d, e, f) where
+  (a, b, c, d, e, f) == (a', b', c', d', e', f') = a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 instance
   (ByteStringOut a, ByteStringOut b, ByteStringOut c, ByteStringOut d, ByteStringOut e, ByteStringOut f) =>
   ByteStringOut (a, b, c, d, e, f) where
@@ -736,43 +784,6 @@ instance
   ToByteString (a, b, c, d, e, f) where
   toByteString = toByteStringOut
 instance
-  (ByteStringIn a, ByteStringIn b) =>
-  ByteStringIn (Either a b) where
-  byteStringIn = byteStringIn >>= \ b ->
-    if b == Byte 0 then byteStringIn <&> Left
-    else if b == Byte 1 then byteStringIn <&> Right
-    else byteStringReaderFail
-instance
-  (ByteStringIn a, ByteStringIn b) =>
-  ByteStringIn (a, b) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 return (a, b)
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c) =>
-  ByteStringIn (a, b, c) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 return (a, b, c)
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d) =>
-  ByteStringIn (a, b, c, d) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 byteStringIn >>= \ d ->
-                 return (a, b, c, d)
-instance
-  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e) =>
-  ByteStringIn (a, b, c, d, e) where
-  byteStringIn = byteStringIn >>= \ a ->
-                 byteStringIn >>= \ b ->
-                 byteStringIn >>= \ c ->
-                 byteStringIn >>= \ d ->
-                 byteStringIn >>= \ e ->
-                 return (a, b, c, d, e)
-instance
   (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e, ByteStringIn f) =>
   ByteStringIn (a, b, c, d, e, f) where
   byteStringIn = byteStringIn >>= \ a ->
@@ -782,6 +793,10 @@ instance
                  byteStringIn >>= \ e ->
                  byteStringIn >>= \ f ->
                  return (a, b, c, d, e, f)
+instance
+  (ByteStringIn a, ByteStringIn b, ByteStringIn c, ByteStringIn d, ByteStringIn e, ByteStringIn f) =>
+  FromByteString (a, b, c, d, e, f) where
+  fromByteString = fromByteStringIn
 
 -- ** Lists
 instance
@@ -797,6 +812,8 @@ instance
   byteStringIn = byteStringIn >>= \ (UInt16 len) -> loop len where
     loop n = if n == 0 then return [] else
       byteStringIn >>= \ a -> loop (n - 1) <&> (a :)
+instance (ByteStringIn a) => FromByteString [a] where
+  fromByteString = fromByteStringIn
 
 -- ** Identity
 instance Eq a => Eq (Identity a) where

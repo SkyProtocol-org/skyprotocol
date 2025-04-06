@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DerivingVia                #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
@@ -65,12 +66,15 @@ type Trie r h k c = TrieTop (TrieNodeRef r h k c)
 
 -- | TrieTop can be seen as a simplified TrieZip where k=0, m=0
 -- Or should we just be using an actual TrieZip???
-data TrieTop t = TrieTop
-  { _trieHeight :: Integer,
+newtype TrieTop t = TrieTop_ (Integer, t)
+  deriving Eq via (Integer, t)
+pattern TrieTop :: Integer -> t -> TrieTop t
+pattern TrieTop
+  { _trieHeight,
     {- integerLength of the largest key in the Trie; -1 if empty -}
-    _trieTopNode :: t
+    _trieTopNode
     {- top node in the Trie -}
-  }
+  } = TrieTop_ (_trieHeight, _trieTopNode)
 
 -- | TrieNodeRef is the t used recursively in a Trie
 -- Its content is a series of wrappings for type-directed code-generation purposes
@@ -79,6 +83,8 @@ type TrieNodeRef r h k c = LiftRef r (TrieNode r h k c)
 type TrieNode r h k c = Fix (TrieNodeFL r h k c)
 
 newtype TrieNodeFL r h k c t = TrieNodeFL {tfl :: TrieNodeF h k c (LiftRef r t)}
+  deriving (Eq, ByteStringIn, FromByteString, ByteStringOut, ToByteString)
+    via TrieNodeF h k c (LiftRef r t)
 
 data TrieNodeF h k c t =
     Empty
@@ -171,10 +177,10 @@ class
 
 -- ** TrieTop
 -- for blockchain serialization purposes, we assume height will fit in a UInt16
-instance
-  (Eq t) =>
-  Eq (TrieTop t) where
-  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
+--instance
+--  (Eq t) =>
+--  Eq (TrieTop t) where
+--  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
 instance
   (ByteStringOut t) =>
   ByteStringOut (TrieTop t) where
@@ -239,6 +245,10 @@ instance
       byteStringIn <&> uncurry3 Skip
     else byteStringReaderFail
 instance
+  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, ByteStringIn t) =>
+  FromByteString (TrieNodeF h k c t) where
+  fromByteString = fromByteStringIn
+instance
   Functor (TrieNodeF h k c) where
   fmap f Empty = Empty
   fmap f (Leaf c) = Leaf c
@@ -246,20 +256,28 @@ instance
   fmap f (Skip h k t) = Skip h k (f t)
 
 -- ** TrieNodeFL
+--instance
+--  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
+--  Eq (TrieNodeFL r h k c t) where
+--  TrieNodeFL x == TrieNodeFL y = x = y
+instance
+  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
+  Show (TrieNodeFL r h k c t) where
+  showsPrec prec (TrieNodeFL x) = showApp prec "TrieNodeFL" [showArg x]
 instance
   (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c) =>
   LiftByteStringOut (TrieNodeFL r h k c) where
-  liftByteStringOut = byteStringOut . tfl
+  liftByteStringOut = byteStringOut
 instance
   (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c) =>
   LiftToByteString (TrieNodeFL r h k c) where
-  liftToByteString = toByteStringOut . tfl
+  liftToByteString = toByteStringOut
 instance
   (TrieHeightKey h k, Show c, LiftShow r) =>
   LiftShow (TrieNodeFL r h k c) where
   liftShowsPrec = showsPrec
 instance
-  (Eq h, Eq k, Eq c, LiftEq r) =>
+  (TrieHeightKey h k, Eq c, LiftEq r) =>
   LiftEq (TrieNodeFL r h k c) where
   liftEq = (==)
 instance
@@ -268,30 +286,22 @@ instance
 instance
   (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r) =>
   LiftByteStringIn (TrieNodeFL r h k c) where
-  liftByteStringIn = byteStringIn <&> TrieNodeFL
-instance
-  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
-  ByteStringOut (TrieNodeFL r h k c t) where
-  byteStringOut = liftByteStringOut
-instance
-  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
-  ToByteString (TrieNodeFL r h k c t) where
-  toByteString = liftToByteString
-instance
-  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
-  Show (TrieNodeFL r h k c t) where
-  showsPrec prec (TrieNodeFL x) = showApp prec "TrieNodeFL" [showArg x]
-instance
-  (Eq h, Eq k, Eq c, LiftEq r, Eq t) =>
-  Eq (TrieNodeFL r h k c t) where
-  (==) = liftEq
+  liftByteStringIn = byteStringIn
+--instance
+--  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
+--  ByteStringOut (TrieNodeFL r h k c t) where
+--  byteStringOut = liftByteStringOut
+--instance
+--  (LiftByteStringOut r, TrieHeightKey h k, ByteStringOut c, Dato t) =>
+--  ToByteString (TrieNodeFL r h k c t) where
+--  toByteString = liftToByteString
 instance
   (TrieHeightKey h k, Dato c, LiftDato r, Dato t) =>
   Dato (TrieNodeFL r h k c t) where
-instance
-  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r, ByteStringIn t) =>
-  ByteStringIn (TrieNodeFL r h k c t) where
-  byteStringIn = liftByteStringIn
+--instance
+--  (TrieHeightKey h k, ByteStringIn h, ByteStringIn k, ByteStringIn c, LiftByteStringIn r, ByteStringIn t) =>
+--  ByteStringIn (TrieNodeFL r h k c t) where
+--  byteStringIn = liftByteStringIn
 {- This would require refining Bifunctor into DatoBifunctor that requires Dato its two arguments:
 instance
   (LiftWrapping Identity r, TrieHeightKey h k) =>

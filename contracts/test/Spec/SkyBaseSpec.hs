@@ -15,6 +15,7 @@ import SkyCrypto
 import Trie
 
 import PlutusTx.Prelude
+import qualified PlutusTx.Prelude as P
 import PlutusTx
 import PlutusTx.Builtins
 import PlutusTx.Builtins.Internal (BuiltinString (..))
@@ -25,12 +26,12 @@ import qualified Debug.Trace as DT
 import qualified GHC.Show as GS
 import Data.Functor.Identity (Identity (..))
 import Data.String (String, IsString, fromString)
-import GHC.Base (String)
+import qualified GHC.Base as GB
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
 
 -- * Helpers
-shouldBeHex :: (ToByteString a) => a -> String -> Expectation
+shouldBeHex :: (ToByteString a) => a -> GB.String -> Expectation
 a `shouldBeHex` h =
   hexOf a `shouldBe` h
 
@@ -80,6 +81,7 @@ instance
 
 instance GS.Show Bytes4 where show = GS.show . PS.show
 instance GS.Show UInt64 where show = GS.show . PS.show
+instance GB.Eq UInt64 where (==) = (P.==)
 
 -- * Tests
 baseSpec :: Spec
@@ -148,58 +150,16 @@ baseSpec = do
       map (lowestBitClear . toUInt64 :: Integer -> Integer) lbci `shouldBe` lbco
       map (lowestBitClear . toBytes4 :: Integer -> Integer) lbci `shouldBe` lbco
     it "BitLogic Integer" $ do
-      testBitLogic (\x -> x) (\x -> x) (-1 :: Integer) 16
+      testBitLogic (\x -> x) (\x -> x) (-1 :: Integer) 16 False
     it "BitLogic Bytes4" $ do
-      testBitLogic toBytes4 toInt (toBytes4 0xffffffff) 4
+      testBitLogic toBytes4 toInt (toBytes4 0xffffffff) 4 True
     it "BitLogic UInt64" $ do
-      testBitLogic toUInt64 toInt (toUInt64 0xffffffffffffffff) 8
-{-
-    it "QuickCheck property: lowestBitSet" $
-      property $
-        \(n :: UInt64) ->
-          do
-            let b = lowestBitSet n
-            b == -1 `shouldBe` n == 0
-            b == -1 || testBit n b `shouldBe` True
-            fbLowestBitSet n `shouldBe` b
-            b == -1 || n `logicalAnd` lowBitsMask b == 0 `shouldBe` True
-            let n' :: Integer = - toInt n
-            let b' = lowestBitSet n'
-            b' `shouldBe` b
+      testBitLogic toUInt64 toInt (toUInt64 0xffffffffffffffff) 8 True
 
-    it "QuickCheck property: lowestBitClear" $
-      property $
-        \(n :: UInt64) ->
-          do
-            let b = lowestBitClear n
-            b == -1 `shouldBe` n == (toInt (-1))
-            b == -1 || not (testBit n b) `shouldBe` True
-            fbLowestBitClear n `shouldBe` b
-            b == -1 || n `logicalAnd` lowBitsMask b == lowBitsMask b `shouldBe` True
-
-    it "lowBitsMax" $ do
-      let l = lowBitsMask :: Integer -> Integer
-      map l [0, 1, 2, 3, 4, 7, 8, 16, 32, 63] `shouldBe`
-        [0, 1, 3, 7, 15, 127, 255, 65535, 4294967295, 9223372036854775807]
-      ((lowBitsMask (-1)) :: UInt64) `shouldBe` (toInt (-1))
-
-    it "extractBitField" $ do
-      let e (len, start, bits :: Integer) = extractBitField len start bits
-      e (3, 4, 37) `shouldBe` 2
-      e (4, 2, 11) `shouldBe` 2
-
-    it "QuickCheck property: extractBitField" $ property $
-        \((len, start) :: (Byte, Byte)) -> do
-          let l = toInt len
-          let s = toInt start
-          extractBitField l s (-1 :: Integer) `shouldBe` (lowBitsMask l)
--}
-
-testBitLogic :: (BitLogic a, FromInt a, Dato a, GS.Show a) =>
-  (Integer -> a) -> (a -> Integer) -> a -> Integer -> Expectation
-testBitLogic i t allBits len =
+testBitLogic :: (BitLogic a, FromInt a, Dato a, Eq a, GS.Show a, Arbitrary a) =>
+  (Integer -> a) -> (a -> Integer) -> a -> Integer -> Bool -> Expectation
+testBitLogic i t allBits len isUnsigned =
   let nBits = len * 8
-      am1 = i $ -1 + t allBits
       bM = t $ lowBitsMask nBits
       maxi = i $ (exponential 256 len) - 1
       genA = genUInt len
@@ -210,6 +170,7 @@ testBitLogic i t allBits len =
       aOr x y = t $ (i x) `logicalOr` (i y)
       aXor x y = t $ (i x) `logicalXor` (i y)
       aLowestBitClear n = lowestBitClear (i n)
+      ebf len height bits = t $ extractBitField len height (i bits)
   in
   do -- it "Checking BitLogic" $ do
 --    it "bitLength" $ do
@@ -231,8 +192,25 @@ testBitLogic i t allBits len =
       240 `aXor` 85 `shouldBe` 165
       42 `aXor` 1 `shouldBe` 43
 --    it "lowBitsMask" $ do
+      let l = t . lowBitsMask :: Integer -> Integer
+      map l [0, 1, 2, 3, 4, 7, 8, 16, 32] `shouldBe`
+        [0, 1, 3, 7, 15, 127, 255, 65535, 4294967295]
+      (lowBitsMask 63 :: UInt64) `shouldBe` toUInt64 9223372036854775807
+
 --    it "shiftRight" $ do
 --    it "shiftLeft" $ do
+      --it "extractBitField" $ do
+      ebf 3 4 37 `shouldBe` 2
+      ebf 4 2 11 `shouldBe` 2
+      --it "QuickCheck property: lowBitsMask and lowestBitClear" $
+{- XXX debug that with Ya
+      property $
+        \ (n :: a) -> do
+          let b = lowestBitClear n
+          -1 <= b && b <= nBits `shouldBe` True
+          0 <= b || (n == i 0 && not isUnsigned) `shouldBe` True
+          b < nBits && isBitSet n b `shouldBe` False
+          n `logicalOr` (allBits `logicalXor` lowBitsMask b) == allBits `shouldBe` True -}
 
 cryptoSpec = do
   describe "SkyCrypto" $ do
