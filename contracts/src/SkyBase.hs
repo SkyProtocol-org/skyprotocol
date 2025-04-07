@@ -377,12 +377,13 @@ instance FromInt BuiltinByteString where
 
 instance ToByteString BuiltinByteString where
   toByteString = id
-  byteStringOut b Terminal s = appendByteString b s
-  byteStringOut b NonTerminal s =
-    let len = toUInt16 $ lengthOfByteString b
-     in appendByteString (toByteString len) $ appendByteString b s
+  byteStringOut b Terminal = appendByteString b
+  byteStringOut b NonTerminal =
+    let len = toUInt16 $ lengthOfByteString b in
+      appendByteString (toByteString len) . appendByteString b
 
-instance FromByteString BuiltinByteString where
+instance
+  FromByteString BuiltinByteString where
   fromByteString = id
   byteStringIn Terminal = byteStringInToEnd
   byteStringIn NonTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> byteStringInFixedLength len
@@ -412,8 +413,10 @@ instance Dato BuiltinByteString
 
 instance ToByteString BuiltinString where
   toByteString = encodeUtf8
+  byteStringOut = byteStringOut . toByteString
 
-instance FromByteString BuiltinString where
+instance
+  FromByteString BuiltinString where
   fromByteString = decodeUtf8
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 

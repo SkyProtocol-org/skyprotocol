@@ -112,6 +112,13 @@ baseSpec = do
       PS.show (Byte 42) `shouldBe` "Byte 42"
       PS.show (UInt16 0xf00d) `shouldBe` "UInt16 61453"
       PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
+      let unicodeMax :: VariableLengthInteger
+          unicodeMax = fromInt 0x10ffff
+      unicodeMax == VariableLengthInteger 20 1114111 `shouldBe` True
+      PS.show unicodeMax `shouldBe` "toVariableLengthInteger 1114111"
+      (unicodeMax,33 :: Integer) `shouldBeHex2` "000310ffff21"
+      -- | Plutus doesn't quote not readably output its build
+      PS.show (5::Integer, "23"::BuiltinString, hexB "0badf00d") `shouldBe` "(5,\"23\",0badf00d)"
       Byte 42 `shouldBeHex2` "2a"
       (ofHex "abcd" :: BuiltinByteString) `shouldBeHex` "abcd"
     it "multiplyByExponential" $ do
@@ -126,6 +133,7 @@ baseSpec = do
       toByte 255 `shouldBeHex2` "ff"
       --toByte 259 `shouldThrow` anyException
       --toByte -10 `shouldThrow` anyException
+      -- 000302020100016101000162030000000000000000000163
     it "toUInt16" $ do
       toUInt16 0 `shouldBeHex2` "0000"
       toUInt16 42 `shouldBeHex2` "002a"
