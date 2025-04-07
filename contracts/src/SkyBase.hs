@@ -1,15 +1,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -38,12 +33,14 @@ module SkyBase where
 
 -- hiding (Applicative, Functor, fmap, pure, (<*>))
 
-import Control.Monad (Monad)
 -- import Control.Monad.State.Lazy (State)
 -- import Codec.Serialise (serialise, deserialise)
 -- import Codec.Serialise.Class (Serialise, encode, decode, encodeList, decodeList)
 -- import Codec.Serialise.Encoding (Encoding)
 -- import Codec.Serialise.Decoding (Decoder)
+
+import Control.Monad (Monad, (>=>))
+import Data.Bifunctor (first)
 import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
@@ -637,16 +634,13 @@ instance FromByteString Integer where
   byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @VariableLengthByteString
 
 instance BitLogic Integer where
-  bitLength n =
-    if n < 0
-      then bitLength (-n - 1) -- two's complement notion of bit length
-      else
-        if n <= 65535
-          then bitLength16 n
-          else
-            let findLen l m = if n < m then l else findLen (l + l) (m * m)
-                len = findLen 4 4294967296
-             in bitLength $ integerToByteString BigEndian len n
+  bitLength n
+    | n < 0 = bitLength (-n - 1) -- two's complement notion of bit length
+    | n <= 65535 = bitLength16 n
+    | otherwise =
+        let findLen l m = if n < m then l else findLen (l + l) (m * m)
+            len = findLen 4 4294967296
+         in bitLength $ integerToByteString BigEndian len n
   lowestBitClear n = lowestBitSet (-n - 1)
     where
       lowestBitSet n = if n == 0 then -1 else up n 1 2 []
@@ -663,7 +657,7 @@ instance BitLogic Integer where
               then down ms j q (h + j)
               else down ms j r h
   isBitSet i n = let e = exponential 2 i in n `divide` (e + e) >= e
-  lowBitsMask l = (exponential 2 l) - 1
+  lowBitsMask l = exponential 2 l - 1
   logicalOr a b =
     toInt
       $ logicalOr
@@ -1039,8 +1033,7 @@ instance Show ByteStringCursor where
 -- ** ByteStringReader
 
 instance GB.Functor ByteStringReader where
-  fmap f (ByteStringReader r) = ByteStringReader $ \s ->
-    r s <&> \(a, s') -> (f a, s')
+  fmap f (ByteStringReader r) = ByteStringReader $ fmap (first f) . r
 
 instance Functor ByteStringReader where
   fmap = GB.fmap
@@ -1051,16 +1044,14 @@ instance Applicative ByteStringReader where
 
 instance GB.Applicative ByteStringReader where
   pure a = ByteStringReader $ \s -> Just (a, s)
-  ByteStringReader x <*> ByteStringReader y = ByteStringReader $ \s ->
-    x s >>= \(f, s') ->
-      y s' <&> \(v, s'') -> (f v, s'')
+  ByteStringReader x <*> ByteStringReader y =
+    ByteStringReader $ x >=> (\(f, s') -> y s' <&> first f)
 
 instance Monad ByteStringReader where
   m >>= f =
     ByteStringReader
-      ( \s ->
-          getByteStringReader m s
-            >>= \(a, s') -> getByteStringReader (f a) s'
+      ( getByteStringReader m
+          >=> (\(a, s') -> getByteStringReader (f a) s')
       )
 
 -- ** LiftRef
@@ -1213,7 +1204,7 @@ byteStringInToEnd =
           )
 
 byteStringReaderFail :: ByteStringReader a
-byteStringReaderFail = ByteStringReader $ \s -> Nothing
+byteStringReaderFail = ByteStringReader $ const Nothing
 
 maybeFromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> BuiltinByteString -> Maybe a
 maybeFromByteStringIn_ byteStringIn bs =
@@ -1285,7 +1276,7 @@ showApp prec funName showArgList =
   showParen (prec > 10) $ showString funName . showSpaced showArgList
 
 showArg :: (Show a) => a -> ShowS
-showArg arg = showsPrec 11 arg
+showArg = showsPrec 11
 
 showSpaced :: [ShowS] -> ShowS
 showSpaced [] = id
@@ -1306,7 +1297,7 @@ hexB :: String -> BuiltinByteString
 hexB = ofHex
 
 trace' :: (Show s) => s -> e -> e
-trace' s e = trace (show s) e
+trace' s = trace (show s)
 
 {-
 trace1 :: (Show s, Show a, Show r) => s -> (a -> r) -> a -> r
