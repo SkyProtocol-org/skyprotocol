@@ -1,29 +1,29 @@
-{-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE DerivingVia                #-}
-{-# LANGUAGE EmptyCase                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE Strict                     #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE ViewPatterns               #-}
-{-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE ImportQualifiedPost #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Strict #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fexpose-all-unfoldings #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
@@ -40,23 +40,23 @@ module SkyCrypto where
 
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
+-- hiding (Applicative, Functor, fmap, pure, (<*>))
 
-import PlutusTx.Prelude -- hiding (Applicative, Functor, fmap, pure, (<*>))
+import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
+import PlutusLedgerApi.V1.Time (POSIXTime (..))
+import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
+import PlutusTx.Prelude
 import PlutusTx.Show
 import PlutusTx.Utils
-import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
-import PlutusLedgerApi.V1.Time (POSIXTime(..))
-import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
-
 import SkyBase
 
 -- * Types
 
 -- A pair (pubKey, signature) of signature by a single authority
-newtype SingleSig = SingleSig { getSingleSig :: (PubKey, Bytes64) }
+newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Bytes64)}
   deriving (Eq, ToByteString, FromByteString) via (Bytes64, PubKey)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -68,8 +68,8 @@ newtype MultiSig = MultiSig [SingleSig]
   deriving anyclass (HasBlueprintDefinition)
 
 -- List of pubkeys that must sign and minimum number of them that must sign
-newtype MultiSigPubKey = MultiSigPubKey { getMultiSigPubKey :: ([PubKey], UInt16) }
---data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
+newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
+  -- data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
   deriving (Eq, ToByteString, FromByteString) via ([PubKey], UInt16)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -82,11 +82,11 @@ type DataHash = Hash BuiltinByteString
 
 type HashRef = DigestRef Blake2b_256
 
-newtype PubKey = PubKey { getPubKey :: Bytes32 }
+newtype PubKey = PubKey {getPubKey :: Bytes32}
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-newtype Digest hf a = Digest { digestByteString :: FixedLengthByteString hf }
+newtype Digest hf a = Digest {digestByteString :: FixedLengthByteString hf}
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -102,9 +102,11 @@ data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue 
   deriving anyclass (HasBlueprintDefinition)
 
 -- * Classes
+
 class
   (StaticLength hf) =>
-  HashFunction hf where
+  HashFunction hf
+  where
   hashFunction :: BuiltinByteString -> Digest hf a
 
 class
@@ -116,141 +118,191 @@ class
 -- * Instances
 
 -- ** SingleSig
+
 instance Show SingleSig where
   showsPrec prec (SingleSig ps) = showApp prec "SingleSig" [showArg ps]
 
 -- ** MultiSigPubKey
+
 instance Show MultiSigPubKey where
   showsPrec prec (MultiSigPubKey ln) = showApp prec "MultiSigPubKey" [showArg ln]
-instance Dato MultiSigPubKey where
+
+instance Dato MultiSigPubKey
 
 -- ** Digest
+
 instance
   (HashFunction hf) =>
-  Show (Digest hf a) where
+  Show (Digest hf a)
+  where
   show (Digest x) = "Digest " <> show x
+
 instance
   (HashFunction hf) =>
-  Eq (Digest hf a) where
+  Eq (Digest hf a)
+  where
   (Digest x) == (Digest y) = x == y
+
 instance
   (HashFunction hf) =>
-  ToByteString (Digest hf a) where
+  ToByteString (Digest hf a)
+  where
   toByteString (Digest (FixedLengthByteString b)) = b
   byteStringOut (Digest b) = byteStringOut b
+
 instance
   (HashFunction hf) =>
-  FromByteString (Digest hf a) where
+  FromByteString (Digest hf a)
+  where
   fromByteString = fromByteStringIn
   byteStringIn isTerminal = byteStringIn isTerminal <&> Digest
+
 instance
   (HashFunction hf) =>
-  Dato (Digest hf a) where
+  Dato (Digest hf a)
+
 instance
   (HashFunction hf) =>
-  LiftEq (Digest hf) where
+  LiftEq (Digest hf)
+  where
   liftEq = (==)
+
 instance
   (HashFunction hf) =>
-  LiftShow (Digest hf) where
+  LiftShow (Digest hf)
+  where
   liftShowsPrec = showsPrec
+
 instance
   (HashFunction hf) =>
-  LiftToByteString (Digest hf) where
+  LiftToByteString (Digest hf)
+  where
   liftToByteString = toByteString
   liftByteStringOut = byteStringOut
+
 instance
   (HashFunction hf) =>
-  LiftFromByteString (Digest hf) where
+  LiftFromByteString (Digest hf)
+  where
   liftFromByteString = fromByteString
   liftByteStringIn = byteStringIn
+
 instance
   (HashFunction hf) =>
-  LiftDato (Digest hf) where
+  LiftDato (Digest hf)
 
 -- ** Blake2b_256
+
 instance HashFunction Blake2b_256 where
   hashFunction = Digest . FixedLengthByteString . blake2b_256
+
 instance StaticLength Blake2b_256 where
-  staticLength = 32
+  staticLength = const 32
 
 -- ** DigestRef
-instance HashFunction hf => DigestibleRef hf (DigestRef hf) where
+
+instance (HashFunction hf) => DigestibleRef hf (DigestRef hf) where
   getDigest = digestRefDigest
+
 instance
   (HashFunction hf) =>
-  Eq (DigestRef hf x) where
+  Eq (DigestRef hf x)
+  where
   DigestRef ah _ == DigestRef bh _ = ah == bh
+
 instance (HashFunction hf) => ToByteString (DigestRef hf x) where
   toByteString = toByteString . digestRefDigest
   byteStringOut = byteStringOut . digestRefDigest
---instance (HashFunction hf) => FromByteString (DigestRef hf x) where
+
+-- instance (HashFunction hf) => FromByteString (DigestRef hf x) where
 --  fromByteString = lookupDigest . fromByteString
 --  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigest
 instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
   showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
+
 instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestRef hf) a where
   wrap = return . digestRef
+
 instance (HashFunction hf, Dato a) => Wrapping Identity (DigestRef hf) a where
   unwrap = return . digestRefValue
+
 instance
   (HashFunction hf) =>
-  LiftShow (DigestRef hf) where
+  LiftShow (DigestRef hf)
+  where
   liftShowsPrec = showsPrec
+
 instance
   (HashFunction hf) =>
-  LiftToByteString (DigestRef hf) where
+  LiftToByteString (DigestRef hf)
+  where
   liftToByteString = toByteString . digestRefDigest
   liftByteStringOut = byteStringOut . digestRefDigest
+
 instance
   (HashFunction hf) =>
-  LiftEq (DigestRef hf) where
+  LiftEq (DigestRef hf)
+  where
   liftEq = (==)
+
 instance
   (HashFunction hf) =>
-  LiftDato (DigestRef hf) where
+  LiftDato (DigestRef hf)
+
 instance
   (HashFunction hf) =>
-  LiftPreWrapping Identity (DigestRef hf) where
+  LiftPreWrapping Identity (DigestRef hf)
+  where
   liftWrap = wrap
+
 instance
   (HashFunction hf) =>
-  LiftWrapping Identity (DigestRef hf) where
+  LiftWrapping Identity (DigestRef hf)
+  where
   liftUnwrap = unwrap
 
 -- ** LiftRef
+
 instance
   (HashFunction hf, DigestibleRef hf r) =>
-  DigestibleRef hf (LiftRef r) where
+  DigestibleRef hf (LiftRef r)
+  where
   getDigest = getDigest . liftref
 
 -- ** PubKey
+
 instance Eq PubKey where
   (PubKey x) == (PubKey y) = x == y
+
 instance Show PubKey where
   show (PubKey x) = "PubKey " <> show x
+
 instance ToByteString PubKey where
   toByteString = toByteString . getPubKey
   byteStringOut (PubKey pk) = byteStringOut pk
+
 instance FromByteString PubKey where
   fromByteString = PubKey . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> PubKey
 
 -- ** PubKeyHash
-instance
-  ToByteString PubKeyHash where
+
+instance ToByteString PubKeyHash where
   toByteString = getPubKeyHash
   byteStringOut = byteStringOut . getPubKeyHash
-instance
-  FromByteString PubKeyHash where
+
+instance FromByteString PubKeyHash where
   fromByteString = PubKeyHash
   byteStringIn isTerminal = byteStringIn isTerminal <&> PubKeyHash
 
 -- ** PlainText
-instance Show a => Show (PlainText f a) where
+
+instance (Show a) => Show (PlainText f a) where
   showsPrec prec (PlainText a) = showApp prec "PlainText" [showArg a]
-instance Eq a => Eq (PlainText f a) where
+
+instance (Eq a) => Eq (PlainText f a) where
   PlainText a == PlainText b = a == b
+
 -- TODO: Dato preservation + inputs
 
 -- * Helpers
@@ -273,30 +325,31 @@ castDigest (Digest x) = Digest x
 computeHash :: (ToByteString a) => a -> DataHash
 computeHash = computeDigest . toByteString
 
-
 ------------------------------------------------------------------------------
 -- Multisig Verification
 ------------------------------------------------------------------------------
 
 -- Function that checks if a SingleSig is valid
-singleSigValid :: ToByteString a => a -> SingleSig -> Bool
+singleSigValid :: (ToByteString a) => a -> SingleSig -> Bool
 singleSigValid message (SingleSig (pubKey, sig)) =
   verifyEd25519Signature (toByteString pubKey) (toByteString message) (toByteString sig)
 
 -- Main function to check if the MultiSig satisfies at least N valid unique signatures
-multiSigValid :: ToByteString a => MultiSigPubKey -> a -> MultiSig -> Bool
+multiSigValid :: (ToByteString a) => MultiSigPubKey -> a -> MultiSig -> Bool
 multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) =
   let -- Extract the public keys from the SingleSig values
       pubKeysInSignatures = map (\(SingleSig (pubKey, _)) -> pubKey) singleSigs
       -- Check for duplicates by comparing the list to its nub version
       noDuplicates = pubKeysInSignatures == nub pubKeysInSignatures
-  in if not noDuplicates
-     then False -- Duplicates found, return False
-     else let -- Filter for valid signatures from required public keys
+   in if not noDuplicates
+        then False -- Duplicates found, return False
+        else
+          let -- Filter for valid signatures from required public keys
               validSignatures = filter (\ss@(SingleSig (pubKey, sig)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
-          in length validSignatures >= toInt minSigs
+           in length validSignatures >= toInt minSigs
 
 -- * Meta declarations
+
 {-
 PlutusTx.makeLift ''FixedLengthByteString
 PlutusTx.makeIsDataSchemaIndexed ''FixedLengthByteString [('FixedLengthByteString, 0)]
