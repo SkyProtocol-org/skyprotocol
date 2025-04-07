@@ -44,7 +44,6 @@ import Data.Bifunctor (first)
 import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
-import Data.Proxy
 -- import Data.Maybe (fromJust) -- won't compile to Plutus (!) so we redefine it below.
 
 -- Used for testing and debugging
@@ -66,6 +65,8 @@ import Text.Hex (ByteString, Text, decodeHex, encodeHex)
 import Prelude qualified as P (Char, Eq, Num, Ord, Real)
 
 -- * Types
+
+data Proxy a = Proxy
 
 data L2 -- staticLength is 2
 
