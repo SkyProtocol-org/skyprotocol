@@ -205,21 +205,25 @@ daSpec = do
       da0 = (rDaMetaData0, rDaData0) -- (rDaMetaData0, rDaData0)
     it "hash of empty Trie" $ do
       let e00 = Empty :: TrieNodeF Byte Bytes8 Integer ()
-      let e0 = Empty :: TrieNodeF Byte Bytes8 Integer (TrieNodeRef Identity Byte Bytes8 Integer)
+      let e0 = Empty :: TrieNodeF Byte Bytes8 (MessageEntry HashRef) (TrieNodeRef HashRef Byte Bytes8 (MessageEntry HashRef))
       let e1 = Fix (TrieNodeFL Empty) :: TrieNode Identity Byte Bytes8 Integer
       let e2 = LiftRef (Identity e1) :: TrieNodeRef Identity Byte Bytes8 Integer
       let e3 = TrieTop (-1) e2 :: Trie64 Identity Integer
       let trie0 = runIdentity (empty :: Identity (Trie64 Identity Integer))
       Byte 1 == Byte 2 `shouldBe` False
---    e00 == e00 `shouldBe` True
+      e00 == e00 `shouldBe` True
+      e00 `shouldBeHex` "00"
       e0 `shouldBeHex` "00"
       e1 `shouldBeHex` "00"
       e2 `shouldBeHex` "00"
       e0 == e0 `shouldBe` True
       e3 == e3 `shouldBe` True
---    trie0 == e3 `shouldBe` True
---    trie0 `shouldBeHex` "00"
---    computeHash rDaData0 `shouldBeHex` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+      trie0 == e3 `shouldBe` True
+      trie0 `shouldBeHex` "000000"
+      let e4 = runIdentity $ unwrap rDaData0 >>= fr . trieTopNode
+      e4 == e0 `shouldBe` True
+      toByteString (runIdentity $ unwrap rDaData0) `shouldBeHex` "000003170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
+      toByteString rDaData0 `shouldBeHex` "27ab20b13c07319930c2cb0e9e5575ef776dafb0332d5b3a34acea29796c09fe"
       True `shouldBe` True
 --    it "hash of empty DA" $ do
 --      computeHash da0 `shouldBeHex` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"

@@ -70,11 +70,11 @@ newtype TrieTop t = TrieTop_ (Integer, t)
   deriving Eq via (Integer, t)
 pattern TrieTop :: Integer -> t -> TrieTop t
 pattern TrieTop
-  { _trieHeight,
+  { trieTopHeight,
     {- integerLength of the largest key in the Trie; -1 if empty -}
-    _trieTopNode
+    trieTopNode
     {- top node in the Trie -}
-  } = TrieTop_ (_trieHeight, _trieTopNode)
+  } = TrieTop_ (trieTopHeight, trieTopNode)
 
 -- | TrieNodeRef is the t used recursively in a Trie
 -- Its content is a series of wrappings for type-directed code-generation purposes

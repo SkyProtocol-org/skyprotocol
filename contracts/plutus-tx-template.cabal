@@ -89,7 +89,7 @@ executable gen-minting-policy-blueprint
 test-suite tests
   type: exitcode-stdio-1.0
   main-is: Spec.hs
-  other-modules: Spec.SkySpec, Spec.SkyBaseSpec
+  other-modules: Spec.SkySpec, Spec.SkyBaseSpec, Spec.TrieSpec
   hs-source-dirs: test
   build-depends:
     , base ^>=4.18.2.1

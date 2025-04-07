@@ -364,6 +364,16 @@ instance BitLogic BuiltinByteString where
   shiftLeft b i = shiftByteString (toByteString b) i
 instance Dato BuiltinByteString where
 
+-- ** BuiltinString
+instance
+  ToByteString BuiltinString where
+  toByteString = encodeUtf8
+instance
+  FromByteString BuiltinString where
+  fromByteString = decodeUtf8
+  byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
+instance Dato BuiltinString where
+
 -- ** Byte
 instance Show Byte where
   showsPrec prec (Byte n) = showApp prec "Byte" [showArg n]
@@ -1035,6 +1045,8 @@ hexOf :: (ToByteString a, IsString s) => a -> s
 hexOf = fromString . unpack . encodeHex . fromBuiltin . toByteString
 bHex :: (ToByteString a) => a -> BuiltinString
 bHex = hexOf
+hexB :: String -> BuiltinByteString
+hexB = ofHex
 
 trace':: (Show s) => s -> e -> e
 trace' s e = trace (show s) e
