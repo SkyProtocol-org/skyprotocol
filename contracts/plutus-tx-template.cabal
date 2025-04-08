@@ -7,97 +7,130 @@ extra-doc-files: README.md
 
 common options
   ghc-options:
+    -fexpose-all-unfoldings -fno-full-laziness
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-spec-constr -fno-specialise -fno-strictness
+    -fno-unbox-small-strict-fields -fno-unbox-strict-fields
+    -fobject-code -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
+
   default-language: Haskell2010
 
 library scripts
-  import:         options
-  hs-source-dirs: src
+  import:             options
+  hs-source-dirs:     src
   exposed-modules:
-    SkyBridgeContract
-    SkyMintingPolicy
     BountyContract
     SkyBase
-    Trie
+    SkyBridgeContract
     SkyCrypto
     SkyDA
+    SkyMintingPolicy
+    Trie
+
+  default-extensions:
+    DataKinds
+    DeriveAnyClass
+    DeriveFunctor
+    DeriveGeneric
+    DerivingStrategies
+    DerivingVia
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    NoImplicitPrelude
+    OverloadedStrings
+    RecordWildCards
+    ScopedTypeVariables
+    Strict
+    TypeApplications
 
   build-depends:
-    , base ^>=4.18.2.1
-    , containers ^>=0.6.7
-    , composition-prelude
-    , plutus-core ^>=1.34.1.0
-    , plutus-ledger-api ^>=1.34.1.0
-    , plutus-tx ^>=1.34.1.0
-    , serialise ^>=0.2.6.1
-    , crypton
-    , bytestring
+    , base                 ^>=4.18.2.1
     , binary
-    , hex-text ^>=0.1.0.9
-    , text ^>=2.0.2
+    , bytestring
+    , composition-prelude
+    , containers           ^>=0.6.7
+    , crypton
+    , hex-text             ^>=0.1.0.9
+    , plutus-core          ^>=1.34.1.0
+    , plutus-ledger-api    ^>=1.34.1.0
+    , plutus-tx            ^>=1.34.1.0
+    , serialise            ^>=0.2.6.1
+    , text                 ^>=2.0.2
 
   if !(impl(ghcjs) || os(ghcjs))
     build-depends: plutus-tx-plugin
 
 executable gen-validator-blueprint
-  import:           options
-  hs-source-dirs:   app
-  main-is:          GenValidatorBlueprint.hs
+  import:         options
+  hs-source-dirs: app
+  main-is:        GenValidatorBlueprint.hs
   build-depends:
-    , base ^>=4.18.2.1
-    , containers ^>=0.6.7
-    , bytestring ^>=0.11.5.3
-    , plutus-core ^>=1.34.1.0
-    , plutus-ledger-api ^>=1.34.1.0
-    , plutus-tx ^>=1.34.1.0
-    , plutus-tx-plugin ^>=1.34.1.0
-    , hex-text ^>=0.1.0.9
-    , text ^>=2.0.2
+    , base               ^>=4.18.2.1
+    , bytestring         ^>=0.11.5.3
+    , containers         ^>=0.6.7
+    , hex-text           ^>=0.1.0.9
+    , plutus-core        ^>=1.34.1.0
+    , plutus-ledger-api  ^>=1.34.1.0
+    , plutus-tx          ^>=1.34.1.0
+    , plutus-tx-plugin   ^>=1.34.1.0
     , scripts
+    , text               ^>=2.0.2
 
 executable gen-bounty-blueprint
-  import:           options
-  hs-source-dirs:   app
-  main-is:          GenBountyBlueprint.hs
+  import:         options
+  hs-source-dirs: app
+  main-is:        GenBountyBlueprint.hs
   build-depends:
-    , base ^>=4.18.2.1
-    , containers ^>=0.6.7
-    , bytestring ^>=0.11.5.3
-    , plutus-core ^>=1.34.1.0
-    , plutus-ledger-api ^>=1.34.1.0
-    , plutus-tx ^>=1.34.1.0
-    , plutus-tx-plugin ^>=1.34.1.0
-    , hex-text ^>=0.1.0.9
-    , text ^>=2.0.2
+    , base               ^>=4.18.2.1
+    , bytestring         ^>=0.11.5.3
+    , containers         ^>=0.6.7
+    , hex-text           ^>=0.1.0.9
+    , plutus-core        ^>=1.34.1.0
+    , plutus-ledger-api  ^>=1.34.1.0
+    , plutus-tx          ^>=1.34.1.0
+    , plutus-tx-plugin   ^>=1.34.1.0
     , scripts
+    , text               ^>=2.0.2
 
 executable gen-minting-policy-blueprint
-  import:           options
-  hs-source-dirs:   app
-  main-is:          GenMintingPolicyBlueprint.hs
+  import:         options
+  hs-source-dirs: app
+  main-is:        GenMintingPolicyBlueprint.hs
   build-depends:
-    , base ^>=4.18.2.1
-    , containers ^>=0.6.7
-    , bytestring ^>=0.11.5.3
-    , plutus-core ^>=1.34.1.0
-    , plutus-ledger-api ^>=1.34.1.0
-    , plutus-tx ^>=1.34.1.0
-    , plutus-tx-plugin ^>=1.34.1.0
-    , hex-text ^>=0.1.0.9
-    , text ^>=2.0.2
+    , base               ^>=4.18.2.1
+    , bytestring         ^>=0.11.5.3
+    , containers         ^>=0.6.7
+    , hex-text           ^>=0.1.0.9
+    , plutus-core        ^>=1.34.1.0
+    , plutus-ledger-api  ^>=1.34.1.0
+    , plutus-tx          ^>=1.34.1.0
+    , plutus-tx-plugin   ^>=1.34.1.0
     , scripts
+    , text               ^>=2.0.2
 
 test-suite tests
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules: Spec.SkySpec, Spec.SkyBaseSpec, Spec.TrieSpec
-  hs-source-dirs: test
+  type:             exitcode-stdio-1.0
+  main-is:          Spec.hs
+  other-modules:
+    Spec.SkyBaseSpec
+    Spec.SkySpec
+    Spec.TrieSpec
+
+  hs-source-dirs:   test
   build-depends:
-    , base ^>=4.18.2.1
-    , hspec >=2.9
-    , plutus-core ^>=1.34.1.0
-    , plutus-ledger-api ^>=1.34.1.0
-    , plutus-tx ^>=1.34.1.0
-    , plutus-tx-plugin ^>=1.34.1.0
+    , base               ^>=4.18.2.1
+    , hspec              >=2.9
+    , plutus-core        ^>=1.34.1.0
+    , plutus-ledger-api  ^>=1.34.1.0
+    , plutus-tx          ^>=1.34.1.0
+    , plutus-tx-plugin   ^>=1.34.1.0
     , QuickCheck
     , scripts
+
   default-language: Haskell2010

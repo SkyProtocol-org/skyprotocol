@@ -1,31 +1,4 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE Strict #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-spec-constr #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
-{-# OPTIONS_GHC -fno-unbox-strict-fields #-}
-{-# OPTIONS_GHC -fobject-code #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 {-# HLINT ignore "Use newtype instead of data" #-}
 
@@ -66,6 +39,8 @@ import Prelude qualified as P (Char, Eq, Num, Ord, Real)
 
 -- * Types
 
+-- | Redefining 'Proxy', since Plutus doesn't support `k :: t`
+-- e.g. type of type thingy
 data Proxy a = Proxy
 
 data L2 -- staticLength is 2
@@ -380,11 +355,10 @@ instance ToByteString BuiltinByteString where
   toByteString = id
   byteStringOut b Terminal = appendByteString b
   byteStringOut b NonTerminal =
-    let len = toUInt16 $ lengthOfByteString b in
-      appendByteString (toByteString len) . appendByteString b
+    let len = toUInt16 $ lengthOfByteString b
+     in appendByteString (toByteString len) . appendByteString b
 
-instance
-  FromByteString BuiltinByteString where
+instance FromByteString BuiltinByteString where
   fromByteString = id
   byteStringIn Terminal = byteStringInToEnd
   byteStringIn NonTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> byteStringInFixedLength len
@@ -416,8 +390,7 @@ instance ToByteString BuiltinString where
   toByteString = encodeUtf8
   byteStringOut = byteStringOut . toByteString
 
-instance
-  FromByteString BuiltinString where
+instance FromByteString BuiltinString where
   fromByteString = decodeUtf8
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
