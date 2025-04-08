@@ -13,6 +13,7 @@ module SkyBase where
 -- import Codec.Serialise.Decoding (Decoder)
 
 import Control.Monad (Monad, (>=>))
+--import Control.Monad.Error.Class
 import Data.Bifunctor (first)
 import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
@@ -43,11 +44,29 @@ import Prelude qualified as P (Char, Eq, Num, Ord, Real)
 -- e.g. type of type thingy
 data Proxy a = Proxy
 
+data L0 -- staticLength is 0
+
+data L1 -- staticLength is 1
+
 data L2 -- staticLength is 2
+
+data L3 -- staticLength is 3
 
 data L4 -- staticLength is 4
 
+data L5 -- staticLength is 5
+
+data L6 -- staticLength is 6
+
+data L7 -- staticLength is 7
+
 data L8 -- staticLength is 8
+
+data L9 -- staticLength is 9
+
+data L10 -- staticLength is 10
+
+data L16 -- staticLength is 16
 
 data L32 -- staticLength is 32
 
@@ -56,7 +75,7 @@ data L64 -- staticLength is 64
 -- | ByteString of statically known length
 newtype
   (StaticLength len) =>
-  FixedLengthByteString len = FixedLengthByteString BuiltinByteString
+  FixedLengthByteString len = FixedLengthByteString {getFixedLengthByteString :: BuiltinByteString}
   deriving anyclass (HasBlueprintDefinition)
 
 -- NB: To fit on-chain on Cardano (or affordably on any L1,
@@ -141,6 +160,8 @@ type UInt256 = FixedLengthInteger L32
 -- | Partial types
 class Partial a where
   isElement :: a -> Bool
+--  mValidate :: MonadError String m => a -> m a
+--  mValidate a = if isElement a then return a else throwError "Bad value"
   validate :: a -> a
   validate a = if isElement a then a else traceError "Bad value"
 
@@ -148,15 +169,22 @@ class Partial a where
 class StaticLength l where
   staticLength :: Proxy l -> Integer
 
+-- | Only one of toInt and maybeToInt is defined. toInt is unsafe if maybeToInt is partial.
 class ToInt a where
   toInt :: a -> Integer
+  toInt = fromJust . maybeToInt
+  maybeToInt :: a -> Maybe Integer
+  maybeToInt = Just . toInt
 
 class FromInt a where
   fromInt :: Integer -> a
+  fromInt = fromJust . maybeFromInt
+  maybeFromInt :: Integer -> Maybe a
+  maybeFromInt = Just . fromInt
 
 -- | At least one of toByteString or appendByteStringTerminal must be defined.
--- Additionally, if the output isn't fixed-length or otherwise self-delimited, then
--- appendStringOutNonTerminal must be defined.
+-- Additionally, if the output isn't fixed-length or otherwise self-delimited,
+-- then byteStringOut must be defined.
 -- TODO: replace with something that uses Cardano's standard CBOR encoding.
 -- But keep the bytestring variant for the sake of other chains?
 data IsTerminal = NonTerminal | Terminal
@@ -246,14 +274,41 @@ class
 
 -- ** StaticLength
 
+instance StaticLength L0 where
+  staticLength = const 0
+
+instance StaticLength L1 where
+  staticLength = const 1
+
 instance StaticLength L2 where
   staticLength = const 2
+
+instance StaticLength L3 where
+  staticLength = const 3
 
 instance StaticLength L4 where
   staticLength = const 4
 
+instance StaticLength L5 where
+  staticLength = const 5
+
+instance StaticLength L6 where
+  staticLength = const 6
+
+instance StaticLength L7 where
+  staticLength = const 7
+
 instance StaticLength L8 where
   staticLength = const 8
+
+instance StaticLength L9 where
+  staticLength = const 9
+
+instance StaticLength L10 where
+  staticLength = const 10
+
+instance StaticLength L16 where
+  staticLength = const 16
 
 instance StaticLength L32 where
   staticLength = const 32
@@ -305,7 +360,8 @@ instance
   (StaticLength len) =>
   FromByteString (FixedLengthByteString len)
   where
-  fromByteString = validate . FixedLengthByteString
+  fromByteString = -- validate . -- XXX reenable validation after figuring out
+    FixedLengthByteString
   byteStringIn _ = byteStringInFixedLength (staticLength $ Proxy @len) <&> FixedLengthByteString
 
 instance
@@ -325,8 +381,28 @@ instance
     FixedLengthByteString $ andByteString False a b
   logicalXor (FixedLengthByteString a) (FixedLengthByteString b) =
     FixedLengthByteString $ xorByteString False a b
-  shiftRight (FixedLengthByteString b) i = FixedLengthByteString $ shiftByteString b $ -i
-  shiftLeft (FixedLengthByteString b) i = FixedLengthByteString $ shiftByteString (toByteString b) i
+  shiftRight =
+    let noBits = replicateByte (staticLength $ Proxy @len) 0
+        nBits = 8 * staticLength (Proxy @len) in
+      \fb i ->
+        if i < 0 then
+          traceError "Illegal negative index in shiftRight" -- or make it a NOP ?
+        else FixedLengthByteString $
+        if i > nBits then
+          noBits
+        else
+          shiftByteString (getFixedLengthByteString fb) $ - i
+  shiftLeft =
+    let noBits = replicateByte (staticLength $ Proxy @len) 0
+        nBits = 8 * staticLength (Proxy @len) in
+      \fb i ->
+        if i < 0 then
+          traceError "Illegal negative index in shiftLeft" -- or make it a NOP ?
+        else FixedLengthByteString $
+        if i > nBits then
+          noBits
+        else
+          shiftByteString (getFixedLengthByteString fb) i
 
 instance
   (StaticLength len) =>
@@ -405,7 +481,8 @@ instance Partial Byte where
   isElement (Byte b) = 0 <= b && b <= 255
 
 instance FromInt Byte where
-  fromInt = validate . Byte
+  fromInt n = Byte (n `remainder` 256)
+  maybeFromInt n = if (0 <= n && n <= 255) then Just $ Byte n else Nothing
 
 instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
@@ -438,7 +515,8 @@ instance Partial UInt16 where
   isElement (UInt16 b) = 0 <= b && b <= 65535
 
 instance FromInt UInt16 where
-  fromInt = validate . UInt16
+  fromInt n = UInt16 (n `remainder` 65536)
+  maybeFromInt n = if (0 <= n && n <= 65535) then Just $ UInt16 n else Nothing
 
 instance ToByteString UInt16 where
   toByteString (UInt16 n) = integerToByteString BigEndian 2 n
@@ -1093,7 +1171,7 @@ multiplyByExponential a e n =
   if n == 0
     then a
     else
-      let a' = if n `modulo` 2 == 1 then a * e else a
+      let a' = if n `remainder` 2 == 1 then a * e else a
           e' = e * e
           n' = n `divide` 2
        in multiplyByExponential a' e' n'
@@ -1121,7 +1199,7 @@ equalizeByteStringLength :: BuiltinByteString -> BuiltinByteString -> (BuiltinBy
 equalizeByteStringLength a b =
   let la = lengthOfByteString a
       lb = lengthOfByteString b
-   in if la < lb
+   in if lb > la
         then (appendByteString (replicateByte (lb - la) 0) a, b)
         else
           if la > lb

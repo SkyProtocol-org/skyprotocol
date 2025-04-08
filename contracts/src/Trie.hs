@@ -34,6 +34,7 @@
 {-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
 {-# OPTIONS_GHC -fno-unbox-strict-fields #-}
 {-# OPTIONS_GHC -fobject-code #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module Trie where
@@ -123,7 +124,8 @@ data
        Note that may thus not fit the type h of the height,
        e.g. because h==UInt8, k==UInt256 and 256 > 255 the max value in h. -}
     triePathKey :: k,
-    {- ^ bits of key starting from triePathHeight (:: Int) of the pointed node. -}
+    {- ^ bits of key starting from triePathHeight of the pointed node.
+         This node and descendants cover keys from k*2**h to k*2**h+2**h-1 included. -}
     _triePathSkipMask :: k,
     {- ^ bits of a mask indicating which of the bits of k1 are skipped. -}
     _triePathOthers :: [d]

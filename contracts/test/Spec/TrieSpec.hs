@@ -86,15 +86,22 @@ spec = describe "Spec.TrieSpec" $ do
   it "list I/O 1" $ ol [] `shouldBeHex` "000000"
   it "list I/O 2" $ ol [(0,"a")] `shouldBeHex` "00010161"
   it "list I/O 3" $ ol [(0,"a"),(1,"b")] `shouldBeHex` "000202010001610162"
-  it "list I/O 4" $ ol [(0,"a"),(1,"b"),(2,"c")] `shouldBeHex` "00030201000161010001620300000000000000000000000000000000000163"
+  it "list I/O 4" $ ol [(0,"a"),(1,"b"),(2,"c")] `shouldBeHex` "000302020100016101000162030000000000000000000163"
+  it "list I/O 5" $ ol [(4611686018427387904,"")] `shouldBeHex` "0040033e400000000000000001"
+  it "list I/O 2**62" $ PS.show (ol [(4611686018427387904,"")]) `shouldBe` "Identity (TrieTop 63 (LiftRef (Identity (Fix (TrieNodeFL Skip Byte 62 FixedLengthByteString 4000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
+  it "list I/O 2**63" $ PS.show (ol [(9223372036854775808,"")]) `shouldBe` "Identity (TrieTop 64 (LiftRef (Identity (Fix (TrieNodeFL Skip Byte 63 FixedLengthByteString 8000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
   it "list to trie and back 1" $ testListOfList' []
   it "list to trie and back 2" $ testListOfList' [(13, "13"), (34, "34")]
   it "list to trie and back 3" $ testListOfList' initialValues
   it "list to trie and back 4" $ testListOfList [(34, "34"), (1597, "1597"), (13, "13")] initialValues
   it "list to trie and back 5" $ testListOfList [(1597, "1597"), (34, "34"), (13, "13")] initialValues
-  it "list to trie and back 6" $ testListOfList' [(4611686018427387904,"")] -- 2**62
+  it "list to trie and back 2**32" $ testListOfList' [(4294967296,"")]
+  it "list to trie and back 2**33" $ testListOfList' [(8589934592,"")]
+  it "list to trie and back 2**62" $ testListOfList' [(4611686018427387904,"")]
+  it "blah" $ PS.show (roundtrip1 [(9223372036854775807,"")]) `shouldBe` ""
+--  it "blah" $ PS.show (roundtrip1 [(9223372036854775808,"")]) `shouldBe` "" -- 2**63 explodes
+  it "blah" $ PS.show (roundtrip1 [(9223372036854775809,"")]) `shouldBe` ""
   {-
-  it "blah" $ PS.show (roundtrip1 [(9223372036854775808,"")]) `shouldBe` ""
   it "list to trie and back 7" $ testListOfList' [(9223372036854775808,"")] -- 2**63
 
   it "basic construction of the trie" $ do

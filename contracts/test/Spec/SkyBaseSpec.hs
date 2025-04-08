@@ -7,6 +7,10 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
+{-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
+
 
 module Spec.SkyBaseSpec where
 
@@ -22,13 +26,19 @@ import PlutusTx.Builtins.Internal (BuiltinString (..))
 import qualified PlutusTx.Show as PS
 import PlutusTx.Utils
 
-import qualified Debug.Trace as DT
+import qualified GHC.Base as GB
+import qualified GHC.Err as GE
 import qualified GHC.Show as GS
+import qualified Debug.Trace as DT
+
+import Data.Bits (unsafeShiftL)
 import Data.Functor.Identity (Identity (..))
 import Data.String (String, IsString, fromString)
-import qualified GHC.Base as GB
+import Data.Text (pack, unpack)
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
+import Control.Exception
+import Prelude (Int, putStrLn)
 
 -- * Helpers
 shouldBeHex :: (ToByteString a) => a -> GB.String -> Expectation
@@ -60,7 +70,7 @@ instance
 instance
   (StaticLength len) =>
   Arbitrary (FixedLengthInteger len) where
-  arbitrary = genUInt (staticLength @len) >>= return . FixedLengthInteger
+  arbitrary = genUInt (staticLength $ Proxy @len) >>= return . FixedLengthInteger
 instance
   (StaticLength len) =>
   GS.Show (FixedLengthInteger len) where
@@ -73,7 +83,7 @@ instance
 instance
   (StaticLength len) =>
   Arbitrary (FixedLengthByteString len) where
-  arbitrary = genByteString (staticLength @len) >>= return . FixedLengthByteString
+  arbitrary = genByteString (staticLength $ Proxy @len) >>= return . FixedLengthByteString
 instance
   (StaticLength len) =>
   GB.Eq (FixedLengthByteString len) where
@@ -95,6 +105,8 @@ instance GS.Show Bytes4 where show = GS.show . PS.show
 instance GS.Show UInt64 where show = GS.show . PS.show
 instance GB.Eq UInt64 where (==) = (P.==)
 
+instance Exception String where
+
 -- * Tests
 baseSpec :: Spec
 baseSpec = do
@@ -104,14 +116,28 @@ baseSpec = do
       appendByteString (replicateByte 3 4) (replicateByte 2 3) `shouldBeHex2` "0404040303"
       integerToByteString BigEndian 6 0x1234567890 `shouldBeHex2` "001234567890"
       let fsb = findFirstSetBit . toByteString . toUInt32
+      -- NOPE: logInfo @String "foo" `shouldBe` True
       fsb 0x8004 `shouldBe` 2
       fsb 0x00ff `shouldBe` 0
       fsb 0xff00 `shouldBe` 8
       fsb 0x00f0 `shouldBe` 4
+      toInt ((fromInt 128 :: Bytes8) `shiftLeft` 56) `shouldBe` 9223372036854775808
+      PS.show (shiftLeftWithBits (fromInt 1 :: Bytes8) 63 (fromInt 0)) `shouldBe` "FixedLengthByteString 8000000000000000"
+    it "exception handling" $ do
+      -- Attempt to call the function and catch any exceptions
+      --result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
+      result <- try (evaluate (toInt . toByte $ 257)) :: GB.IO (Either ErrorCall Integer)
+      case result of
+        Left (ErrorCall x)  -> do putStrLn $ "The exception is: " ++ x
+                                  x `shouldBe` "FOO"
+        Right val -> putStrLn $ "The result is: " ++ (GS.show $ PS.show val)
+
     it "serialization" $ do
       PS.show (Byte 42) `shouldBe` "Byte 42"
       PS.show (UInt16 0xf00d) `shouldBe` "UInt16 61453"
       PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
+      PS.show (fromInt 0x5678901234567890 :: Bytes8) `shouldBe` "FixedLengthByteString 5678901234567890"
+      -- Trace error message not shown :-(
       let unicodeMax :: VariableLengthInteger
           unicodeMax = fromInt 0x10ffff
       unicodeMax == VariableLengthInteger 20 1114111 `shouldBe` True
@@ -127,6 +153,13 @@ baseSpec = do
     it "exponential" $ do
       exponential 7 4 `shouldBe` 2401
       exponential 4 7 `shouldBe` 16384
+      exponential 2 63 `shouldBe` 9223372036854775808
+      exponential 3 42 `shouldBe` 109418989131512359209
+      bitLength (exponential 3 42) `shouldBe` 67
+      -- a Mersenne number, large enough to require Bignums, yet not too large either (66 bytes)
+      let m521 = (exponential 2 521) - 1
+      PS.show m521 `shouldBe` "6864797660130609714981900799081393217269435300143305409394463459185543183397656052122559640661454554977296311391480858037121987999716643812574028291115057151"
+      bitLength m521 `shouldBe` 521
     it "toByte" $ do
       toByte 0 `shouldBeHex2` "00"
       toByte 42 `shouldBeHex2` "2a"
