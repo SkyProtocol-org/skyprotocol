@@ -204,8 +204,12 @@ class ToByteString a where
 -- fromByteString can be left defaulted, and maybeFromByteString almost always is
 -- fromByteString is almost always unsafe, unless every byte string of any length is valid.
 class FromByteString a where
-  fromByteString :: BuiltinByteString -> a
-  fromByteString = fromByteStringIn
+--  {-# INLINEABLE fromByteString #-}
+--  fromByteString :: BuiltinByteString -> a
+--  fromByteString = fromJust . maybeFromByteString
+--  {-# INLINEABLE maybeFromByteString #-}
+--  maybeFromByteString :: BuiltinByteString -> Maybe a
+--  maybeFromByteString = maybeFromByteStringIn
   byteStringIn :: IsTerminal -> ByteStringReader a
 
 {- Failure to include bitLength in either Haskell or Plutus seems incompetent to me. --fare
@@ -350,7 +354,14 @@ instance
   (StaticLength len) =>
   FromInt (FixedLengthByteString len)
   where
-  fromInt = FixedLengthByteString . integerToByteString BigEndian (staticLength $ Proxy @len)
+  maybeFromInt =
+    let length = staticLength $ Proxy @len
+        isValidInt = isUInt $ 8 * length in
+      \n ->
+        if isValidInt n then
+          Just . FixedLengthByteString . integerToByteString BigEndian length $ n
+        else
+          Nothing
 
 instance
   (StaticLength len) =>
@@ -363,8 +374,9 @@ instance
   (StaticLength len) =>
   FromByteString (FixedLengthByteString len)
   where
-  fromByteString = -- validate . -- XXX reenable validation after figuring out
-    FixedLengthByteString
+  -- {-# INLINEABLE fromByteString #-}
+  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  -- maybeFromByteString = maybeValidate . FixedLengthByteString
   byteStringIn _ = byteStringInFixedLength (staticLength $ Proxy @len) <&> FixedLengthByteString
 
 instance
@@ -389,7 +401,8 @@ instance
         nBits = 8 * staticLength (Proxy @len) in
       \fb i ->
         if i < 0 then
-          traceError "Illegal negative index in shiftRight" -- or make it a NOP ?
+          -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
+          fb -- DEBUG: NOP while debugging
         else FixedLengthByteString $
         if i > nBits then
           noBits
@@ -400,7 +413,8 @@ instance
         nBits = 8 * staticLength (Proxy @len) in
       \fb i ->
         if i < 0 then
-          traceError "Illegal negative index in shiftLeft" -- or make it a NOP ?
+          -- traceError "Illegal negative index in shiftLeft" -- DEBUG: no trace error for now.
+          fb -- DEBUG: NOP while debugging
         else FixedLengthByteString $
         if i > nBits then
           noBits
@@ -438,7 +452,7 @@ instance ToByteString BuiltinByteString where
      in appendByteString (toByteString len) . appendByteString b
 
 instance FromByteString BuiltinByteString where
-  fromByteString = id
+  -- fromByteString = id -- XXX
   byteStringIn Terminal = byteStringInToEnd
   byteStringIn NonTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> byteStringInFixedLength len
 
@@ -470,7 +484,7 @@ instance ToByteString BuiltinString where
   byteStringOut = byteStringOut . toByteString
 
 instance FromByteString BuiltinString where
-  fromByteString = decodeUtf8
+  -- fromByteString = decodeUtf8 -- XXX
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
 instance Dato BuiltinString
@@ -484,15 +498,18 @@ instance Partial Byte where
   isElement = isUInt 8 . getByte
 
 instance FromInt Byte where
-  fromInt n = Byte (n `remainder` 256)
-  maybeFromInt n = if (0 <= n && n <= 255) then Just $ Byte n else Nothing
+  -- fromInt n = Byte (n `remainder` 256) -- DEBUG
+  maybeFromInt = maybeValidate . Byte
 
 instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
   byteStringOut (Byte n) _ = consByteString n
 
 instance FromByteString Byte where
-  fromByteString = toByte . byteStringToInteger BigEndian
+  -- {-# INLINEABLE fromByteString #-} -- XXX
+  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  -- maybeFromByteString = maybeFromByteString >=>
+  --  return . Byte . byteStringToInteger BigEndian . toByteString @(FixedLengthByteString L1)
   byteStringIn _ = ByteStringReader nextByteStringCursor
 
 instance BitLogic Byte where
@@ -518,14 +535,17 @@ instance Partial UInt16 where
   isElement = isUInt 16 . getUInt16
 
 instance FromInt UInt16 where
-  fromInt n = UInt16 (n `remainder` 65536)
-  maybeFromInt n = if (0 <= n && n <= 65535) then Just $ UInt16 n else Nothing
+  -- fromInt n = UInt16 (n `remainder` 65536) -- DEBUG
+  maybeFromInt = maybeValidate . UInt16
 
 instance ToByteString UInt16 where
   toByteString (UInt16 n) = integerToByteString BigEndian 2 n
 
 instance FromByteString UInt16 where
-  fromByteString = toUInt16 . byteStringToInteger BigEndian
+  -- {-# INLINEABLE fromByteString #-}
+  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  -- maybeFromByteString = maybeFromByteString >=>
+  --  return . UInt16 . byteStringToInteger BigEndian . toByteString @(FixedLengthByteString L2)
   byteStringIn _ = byteStringInFixedLength 2 <&> fromByteString
 
 instance BitLogic UInt16 where
@@ -562,9 +582,6 @@ instance
   Partial (FixedLengthInteger len)
   where
   isElement = isUInt (8 * (staticLength (Proxy @len))) . getFixedLengthInteger
-  validate f@(FixedLengthInteger i) =
-    let b = integerToByteString BigEndian (staticLength $ Proxy @len) i
-     in if b == b then f else traceError "Bad integer"
 
 instance ToInt (FixedLengthInteger len) where
   toInt (FixedLengthInteger n) = n
@@ -573,7 +590,7 @@ instance
   (StaticLength len) =>
   FromInt (FixedLengthInteger len)
   where
-  fromInt = validate . FixedLengthInteger
+  maybeFromInt = maybeValidate . FixedLengthInteger
 
 instance
   (StaticLength len) =>
@@ -585,10 +602,9 @@ instance
   (StaticLength len) =>
   FromByteString (FixedLengthInteger len)
   where
-  fromByteString bs =
-    if lengthOfByteString bs /= staticLength (Proxy @len)
-      then traceError "Wrong size ByteString"
-      else FixedLengthInteger $ byteStringToInteger BigEndian bs
+--  {-# INLINEABLE fromByteString #-}
+--  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+--  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
   byteStringIn _ =
     byteStringInFixedLength (staticLength $ Proxy @len)
       <&> FixedLengthInteger
@@ -640,7 +656,7 @@ instance ToByteString VariableLengthInteger where
   byteStringOut = byteStringOut . toByteString
 
 instance FromByteString VariableLengthInteger where
-  fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
+--  fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
   byteStringIn isTerminal = byteStringIn isTerminal <&> fromByteString
 
 instance BitLogic VariableLengthInteger where
@@ -686,7 +702,7 @@ instance ToByteString Integer where
   byteStringOut = byteStringOut . toByteString
 
 instance FromByteString Integer where
-  fromByteString = byteStringToInteger BigEndian
+--  fromByteString = byteStringToInteger BigEndian
   byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @VariableLengthByteString
 
 instance BitLogic Integer where
@@ -745,7 +761,7 @@ instance ToByteString POSIXTime where
   byteStringOut = byteStringOut . getPOSIXTime
 
 instance FromByteString POSIXTime where
-  fromByteString = POSIXTime . fromByteString
+--  fromByteString = POSIXTime . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> POSIXTime
 
 -- ** CurrencySymbol
@@ -755,7 +771,7 @@ instance ToByteString CurrencySymbol where
   byteStringOut = byteStringOut . unCurrencySymbol
 
 instance FromByteString CurrencySymbol where
-  fromByteString = CurrencySymbol . fromByteString
+--  fromByteString = CurrencySymbol . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> CurrencySymbol
 
 -- PlutusTx only has this for pairs, not longer tuples
@@ -767,6 +783,8 @@ instance ToByteString () where
   byteStringOut () _ s = s
 
 instance FromByteString () where
+--XXX  {-# INLINEABLE fromByteString #-}
+--XXX  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   byteStringIn _ = return ()
 
 instance Dato ()
@@ -973,7 +991,7 @@ instance (ToByteString a) => ToByteString (Identity a) where
   byteStringOut = byteStringOut . runIdentity
 
 instance (FromByteString a) => FromByteString (Identity a) where
-  fromByteString = Identity . fromByteString
+  -- fromByteString = Identity . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> Identity
 
 instance (Dato a) => PreWrapping Identity Identity a where
@@ -1041,7 +1059,7 @@ instance
   (LiftFromByteString f) =>
   FromByteString (Fix f)
   where
-  fromByteString = Fix . liftFromByteString
+--  fromByteString = Fix . liftFromByteString
   byteStringIn isTerminal = liftByteStringIn isTerminal <&> Fix
 
 {-
@@ -1161,10 +1179,7 @@ instance
 
 -- * Helpers
 
--- | Data.Maybe.fromJust reimplemented in Plutus-friendly way
-fromJust :: Maybe a -> a
-fromJust (Just a) = a
-fromJust Nothing = traceError "fromJust Nothing"
+-- ** Arithmetics
 
 -- | given len *in bits*, is a given number a non-negative integer of that given length in binary?
 isUInt :: Integer -> Integer -> Bool
@@ -1186,6 +1201,8 @@ multiplyByExponential a e n =
 -- | How is this not in Plutus already?
 exponential :: Integer -> Integer -> Integer
 exponential = multiplyByExponential 1
+
+-- *** Bit-banging utilities
 
 toByte :: Integer -> Byte
 toByte = fromInt
@@ -1236,6 +1253,8 @@ byteString1 = integerToByteString BigEndian 1 0xFF
 
 byteString2 = integerToByteString BigEndian 2 0xFFFF
 
+-- *** ByteString output
+
 {-type ByteStringWriter a = State (BuiltinByteString -> BuiltinByteString) a
 writeByteString :: ByteStringOut a => a -> ByteStringWriter ()
 writeByteString a = get >>= \ suffix -> put (byteStringOut a . suffix)
@@ -1243,6 +1262,8 @@ byteStringWriterResult :: ByteStringWriter a -> BuiltinByteString
 byteStringWriterResult m = execState m emptyByteString-}
 toByteStringOut :: (ToByteString a) => a -> BuiltinByteString
 toByteStringOut a = byteStringOut a Terminal emptyByteString
+
+-- *** ByteString parsing
 
 byteStringInFixedLength :: Integer -> ByteStringReader BuiltinByteString
 byteStringInFixedLength n =
@@ -1300,8 +1321,18 @@ nextByteStringCursor bsc =
           ByteStringCursor (cursorByteString bsc) (cursorStart bsc + 1) (cursorEnd bsc)
         )
 
-cursorLength :: ByteStringCursor -> Integer
-cursorLength bsc = cursorEnd bsc - cursorStart bsc
+maybeFromByteString :: (FromByteString a) => BuiltinByteString -> Maybe a -- XXX DEBUG
+maybeFromByteString = maybeFromByteStringIn -- XXX DEBUG
+
+fromByteString :: (FromByteString a) => BuiltinByteString -> a -- XXX DEBUG
+fromByteString = fromJust . maybeFromByteString -- XXX DEBUG
+
+-- *** Sums and Tuples
+
+-- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
+fromJust :: Maybe a -> a
+fromJust (Just a) = a
+fromJust Nothing = traceError "fromJust Nothing"
 
 uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
 uncurry3 f (a, b, c) = f a b c

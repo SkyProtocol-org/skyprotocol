@@ -116,7 +116,7 @@ instance
   (HashFunction hf) =>
   FromByteString (Digest hf a)
   where
-  fromByteString = fromByteStringIn
+--  fromByteString = fromByteStringIn
   byteStringIn isTerminal = byteStringIn isTerminal <&> Digest
 
 instance
@@ -244,7 +244,7 @@ instance ToByteString PubKey where
   byteStringOut (PubKey pk) = byteStringOut pk
 
 instance FromByteString PubKey where
-  fromByteString = PubKey . fromByteString
+--  fromByteString = PubKey . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> PubKey
 
 -- ** PubKeyHash
@@ -254,7 +254,7 @@ instance ToByteString PubKeyHash where
   byteStringOut = byteStringOut . getPubKeyHash
 
 instance FromByteString PubKeyHash where
-  fromByteString = PubKeyHash
+--  fromByteString = PubKeyHash
   byteStringIn isTerminal = byteStringIn isTerminal <&> PubKeyHash
 
 -- ** PlainText
