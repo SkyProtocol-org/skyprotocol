@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Use newtype instead of data" #-}
 
 module SkyBase where
@@ -88,13 +86,13 @@ newtype VariableLengthByteString = VariableLengthByteString BuiltinByteString
   deriving anyclass (HasBlueprintDefinition)
 
 -- | Byte
-newtype Byte = Byte {fromByte :: Integer}
+newtype Byte = Byte {getByte :: Integer}
   deriving (Eq, ToInt) via Integer
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- | UInt16
-newtype UInt16 = UInt16 {fromUInt16 :: Integer}
+newtype UInt16 = UInt16 {getUInt16 :: Integer}
   deriving (Eq, ToInt) via Integer
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -102,7 +100,7 @@ newtype UInt16 = UInt16 {fromUInt16 :: Integer}
 -- | FixedLengthInteger
 newtype
   (StaticLength len) =>
-  FixedLengthInteger len = FixedLengthInteger Integer
+  FixedLengthInteger len = FixedLengthInteger {getFixedLengthInteger :: Integer}
   deriving anyclass (HasBlueprintDefinition)
 
 -- Make it a newtype VariableLengthInteger = VariableLengthInteger { getVli :: (Integer, Integer) } ???
@@ -160,10 +158,11 @@ type UInt256 = FixedLengthInteger L32
 -- | Partial types
 class Partial a where
   isElement :: a -> Bool
---  mValidate :: MonadError String m => a -> m a
---  mValidate a = if isElement a then return a else throwError "Bad value"
+  -- | given an element of the type, return Just it if it is well-formed, Nothing otherwise.
+  maybeValidate :: a -> Maybe a
+  maybeValidate a = if isElement a then Just a else Nothing
   validate :: a -> a
-  validate a = if isElement a then a else traceError "Bad value"
+  validate = fromJust . maybeValidate
 
 -- | Static Length data
 class StaticLength l where
@@ -176,6 +175,8 @@ class ToInt a where
   maybeToInt :: a -> Maybe Integer
   maybeToInt = Just . toInt
 
+-- | You need to define one and only one of fromInt or maybeFromInt, the other one will follow.
+-- fromInt is not safe unless the function is total, will error out on bad input -- Use with care.
 class FromInt a where
   fromInt :: Integer -> a
   fromInt = fromJust . maybeFromInt
@@ -199,7 +200,9 @@ class ToByteString a where
   byteStringOut :: a -> IsTerminal -> BuiltinByteString -> BuiltinByteString
   byteStringOut a _ = appendByteString $ toByteString a
 
--- | fromByteString can be left defaulted, but byteStringIn must be defined
+-- | byteStringIn must always be defined, but
+-- fromByteString can be left defaulted, and maybeFromByteString almost always is
+-- fromByteString is almost always unsafe, unless every byte string of any length is valid.
 class FromByteString a where
   fromByteString :: BuiltinByteString -> a
   fromByteString = fromByteStringIn
@@ -478,7 +481,7 @@ instance Show Byte where
   showsPrec prec (Byte n) = showApp prec "Byte" [showArg n]
 
 instance Partial Byte where
-  isElement (Byte b) = 0 <= b && b <= 255
+  isElement = isUInt 8 . getByte
 
 instance FromInt Byte where
   fromInt n = Byte (n `remainder` 256)
@@ -512,7 +515,7 @@ instance Show UInt16 where
   showsPrec prec (UInt16 n) = showApp prec "UInt16" [showArg n]
 
 instance Partial UInt16 where
-  isElement (UInt16 b) = 0 <= b && b <= 65535
+  isElement = isUInt 16 . getUInt16
 
 instance FromInt UInt16 where
   fromInt n = UInt16 (n `remainder` 65536)
@@ -558,9 +561,7 @@ instance
   (StaticLength len) =>
   Partial (FixedLengthInteger len)
   where
-  isElement (FixedLengthInteger i) = i <= maxValue
-    where
-      maxValue = exponential 2 (staticLength $ Proxy @len) - 1
+  isElement = isUInt (8 * (staticLength (Proxy @len))) . getFixedLengthInteger
   validate f@(FixedLengthInteger i) =
     let b = integerToByteString BigEndian (staticLength $ Proxy @len) i
      in if b == b then f else traceError "Bad integer"
@@ -1165,6 +1166,12 @@ fromJust :: Maybe a -> a
 fromJust (Just a) = a
 fromJust Nothing = traceError "fromJust Nothing"
 
+-- | given len *in bits*, is a given number a non-negative integer of that given length in binary?
+isUInt :: Integer -> Integer -> Bool
+isUInt len =
+  let maxUInt = (exponential 2 len) - 1 in
+    \n -> 0 <= n && n <= maxUInt
+
 -- | How is this not in Plutus already?
 multiplyByExponential :: Integer -> Integer -> Integer -> Integer
 multiplyByExponential a e n =
@@ -1319,10 +1326,6 @@ curry5 f a b c d e = f (a, b, c, d, e)
 
 curry6 :: ((a, b, c, d, e, f) -> g) -> a -> b -> c -> d -> e -> f -> g
 curry6 g a b c d e f = g (a, b, c, d, e, f)
-
-{-
-serialiseData :: BuiltinData -> BuiltinByteString
--}
 
 -- ** For Show
 

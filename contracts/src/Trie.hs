@@ -680,7 +680,7 @@ maybeOfLeaf x =
   fr x
     >>= return . \case
       Leaf v -> Just v
-      _ -> Nothing -- only the Empty case should be used
+      _ -> Nothing -- only the Empty case should be reached
 
 singleton :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> c -> e (Trie r h k c)
 singleton k v = empty >>= insert v k
