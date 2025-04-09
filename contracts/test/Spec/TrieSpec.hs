@@ -90,7 +90,7 @@ spec = describe "Spec.TrieSpec" $ do
   it "list I/O 5" $ ol [(4611686018427387904,"")] `shouldBeHex` "0040033e400000000000000001"
   it "list I/O 2**62" $ PS.show (ol [(4611686018427387904,"")]) `shouldBe` "Identity (TrieTop 63 (LiftRef (Identity (Fix (TrieNodeFL Skip Byte 62 FixedLengthByteString 4000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
   it "list I/O 2**63" $ PS.show (ol [(9223372036854775808,"")]) `shouldBe` "Identity (TrieTop 64 (LiftRef (Identity (Fix (TrieNodeFL Skip Byte 63 FixedLengthByteString 8000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
-{-  it "list to trie and back 1" $ testListOfList' []
+  it "list to trie and back 1" $ testListOfList' []
   it "list to trie and back 2" $ testListOfList' [(13, "13"), (34, "34")]
   it "list to trie and back 3" $ testListOfList' initialValues
   it "list to trie and back 4" $ testListOfList [(34, "34"), (1597, "1597"), (13, "13")] initialValues
@@ -98,12 +98,9 @@ spec = describe "Spec.TrieSpec" $ do
   it "list to trie and back 2**32" $ testListOfList' [(4294967296,"")]
   it "list to trie and back 2**33" $ testListOfList' [(8589934592,"")]
   it "list to trie and back 2**62" $ testListOfList' [(4611686018427387904,"")]
-  it "blah" $ PS.show (roundtrip1 [(9223372036854775807,"")]) `shouldBe` ""
---  it "blah" $ PS.show (roundtrip1 [(9223372036854775808,"")]) `shouldBe` "" -- 2**63 explodes
-  it "blah" $ PS.show (roundtrip1 [(9223372036854775809,"")]) `shouldBe` ""
-  { -
-  it "list to trie and back 7" $ testListOfList' [(9223372036854775808,"")] -- 2**63
-
+  it "list to trie and back 2**63-1" $ PS.show (roundtrip1 [(9223372036854775807,"")]) `shouldBe` "[(FixedLengthByteString 7fffffffffffffff,\"\")]"
+  it "list to trie and back 2**63" $ PS.show (roundtrip1 [(9223372036854775808,"")]) `shouldBe` "[(FixedLengthByteString 8000000000000000,\"\")]"
+  it "list to trie and back 2**63+1" $ PS.show (roundtrip1 [(9223372036854775809,"")]) `shouldBe` "[(FixedLengthByteString 8000000000000001,\"\")]"
   it "basic construction of the trie" $ do
     let testLookup l k v = runIdentity (ol l >>= lookup (fromInt k)) `shouldBe` v
     testLookup [] 3 Nothing
@@ -155,4 +152,3 @@ spec = describe "Spec.TrieSpec" $ do
                             ((rf $ Leaf "value1") :: Identity TR)
     let v1d = runIdentity $ applyMerkleProof l1d proof1
     v1d == t1d `shouldBe` True
--}
