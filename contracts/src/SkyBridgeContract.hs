@@ -53,7 +53,7 @@ newtype BridgeNFTDatum = BridgeNFTDatum
 ------------------------------------------------------------------------------
 
 -- The currency symbol is the unique identifier of the NFT currency (= hash of minting script)
-data BridgeParams = BridgeParams
+newtype BridgeParams = BridgeParams
   { bridgeNFTCurrencySymbol :: CurrencySymbol
   }
   deriving stock (Generic)
@@ -191,7 +191,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     -- There must be exactly one output UTXO with our NFT's unique currency symbol
     outputHasNFT :: Bool
     outputHasNFT =
-      let assetClass = (AssetClass ((bridgeNFTCurrencySymbol params), TokenName "SkyBridge")) in
+      let assetClass = (AssetClass (bridgeNFTCurrencySymbol params, TokenName "SkyBridge")) in
       assetClassValueOf (txOutValue ownOutput) assetClass == 1
 
 -- Core validation function, for easy testing

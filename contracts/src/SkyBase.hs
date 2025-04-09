@@ -204,14 +204,16 @@ class ToByteString a where
 -- fromByteString can be left defaulted, and maybeFromByteString almost always is
 -- fromByteString is almost always unsafe, unless every byte string of any length is valid.
 class FromByteString a where
---  {-# INLINEABLE fromByteString #-}
+  {-# INLINEABLE fromByteString #-}
   fromByteString :: BuiltinByteString -> a
   fromByteString = fromByteStringIn
 --  fromByteString = fromJust . maybeFromByteString
---  {-# INLINEABLE maybeFromByteString #-}
---  maybeFromByteString :: BuiltinByteString -> Maybe a
---  maybeFromByteString = maybeFromByteStringIn
   byteStringIn :: IsTerminal -> ByteStringReader a
+--  ??? THIS CAUSES HAVOC IN THE PLUTUS COMPILER, WHY???
+--  {-# INLINEABLE maybeFromByteString__ #-}
+--  maybeFromByteString__ :: BuiltinByteString -> Maybe a
+--  maybeFromByteString__ = maybeFromByteStringIn
+
 
 {- Failure to include bitLength in either Haskell or Plutus seems incompetent to me. --fare
    (see CIP-123, compare to CLHS integer-length) -}
@@ -1334,7 +1336,6 @@ nextByteStringCursor bsc =
 
 maybeFromByteString :: (FromByteString a) => BuiltinByteString -> Maybe a -- XXX DEBUG
 maybeFromByteString = maybeFromByteStringIn -- XXX DEBUG
-
 --fromByteString :: (FromByteString a) => BuiltinByteString -> a -- XXX DEBUG
 --fromByteString = fromJust . maybeFromByteString -- XXX DEBUG
 
