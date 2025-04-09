@@ -125,6 +125,9 @@ baseSpec = do
       fsb 0x00ff `shouldBe` 0
       fsb 0xff00 `shouldBe` 8
       fsb 0x00f0 `shouldBe` 4
+      fsb 0x0000 `shouldBe` -1
+      fsb 0xffffffff `shouldBe` 0
+      fsb 0x80000000 `shouldBe` 31
     it "exception handling" $ do
       -- Attempt to call the function and catch any exceptions
       --result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
@@ -201,15 +204,20 @@ baseSpec = do
       map (bitLength . toBytes4) nums32 `shouldBe` bls32
       map bli [-1,-2,-3,-4,-5,-128,-129,-256,-257,-1000] `shouldBe` [0,1,2,2,3,7,8,8,9,10]
       bli 1000000000000066600000000000001 `shouldBe` 100 -- Belphegor's Prime
-    it "lowestBitClear" $ do
-      let lbci = [0,1,2,3,5,7,1151]
-          lbco = [0,1,0,2,1,3,7]
-          lbcin = [-1,-2,-5,-100,-1153]
-          lbcon = [-1,0,2,0,7]
+    let lbci = [0,1,2,3,5,7,1151]
+        lbco = [0,1,0,2,1,3,7]
+        lbcin = [-1,-2,-5,-100,-1153]
+        lbcon = [-1,0,2,0,7]
+        lbbyte = [0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,8]
+    it "lowestBitClear 1" $ do
       map (lowestBitClear :: Integer -> Integer) lbci `shouldBe` lbco
       map (lowestBitClear :: Integer -> Integer) lbcin `shouldBe` lbcon
       map (lowestBitClear . toUInt64 :: Integer -> Integer) lbci `shouldBe` lbco
       map (lowestBitClear . toBytes4 :: Integer -> Integer) lbci `shouldBe` lbco
+    it "lowestBitClear 2" $ do
+      map (lowestBitClear . toByte :: Integer -> Integer) [0..255] `shouldBe` lbbyte
+    it "lowestBitClear 3" $ do
+      map (lowestBitClear @(FixedLengthByteString L1) . fromInt :: Integer -> Integer) [0..255] `shouldBe` lbbyte
 {-      map (\(n :: Integer) -> (n,
                                exponential 2 0,
                                n `quotient` 2,
@@ -249,7 +257,7 @@ testBitLogic typ i t allBits len isUnsigned =
       aLowestBitClear 0 `shouldBe` 0
       aLowestBitClear 159 `shouldBe` 5
       lowestBitClear (maxi `shiftRight` (len * 2)) `shouldBe` len * 6
-      lowestBitClear allBits `shouldBe` -1
+      lowestBitClear allBits `shouldBe` if isUnsigned then nBits else -1
     itt "isBitSet" $ do
       isBitSet 5 (i 0) `shouldBe` False
       isBitSet 0 (i 5) `shouldBe` True

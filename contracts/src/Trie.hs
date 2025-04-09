@@ -1,41 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE DerivingVia                #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE FunctionalDependencies     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
 {-# LANGUAGE InstanceSigs               #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE Strict                     #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
-{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-spec-constr #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
-{-# OPTIONS_GHC -fno-unbox-strict-fields #-}
-{-# OPTIONS_GHC -fobject-code #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module Trie where
 
@@ -369,26 +338,25 @@ instance
   PreZipper e (TriePath h k) (TrieStep h k)
   where
   {-# INLINEABLE pathStep #-}
-  pathStep (TriePath h k m s) =
-    return $
-      if isBitSet 0 m
-        then
-          let h1 = lowestBitClear m
-              k1 = k `logicalAnd` lowBitsMask h1
-              hr = h + h1
-              kr = k `shiftRight` h1
-              mr = m `shiftRight` h1
-           in
-            if h1 == -1 then traceError "FOO" else -- XXXX
-            Just (SkipStep (fromInt $ h1 - 1) k1, TriePath hr kr mr s)
+  pathStep p@(TriePath h k m s) =
+    if isBitSet 0 m
+    then
+      let h1 = lowestBitClear m
+          k1 = k `logicalAnd` lowBitsMask h1
+          hr = h + h1
+          kr = k `shiftRight` h1
+          mr = m `shiftRight` h1
+      in
+        if h1 == 0 then if m `logicalAnd` fromInt 1 == fromInt 0 then pathStep p {- infinite loop -} else failNow else --DEBUG
+          return . Just $ (SkipStep (fromInt $ h1 - 1) k1, TriePath hr kr mr s)
         else case s of
           t : sr ->
             let hr = h + 1
                 kr = k `shiftRight` 1
                 mr = m `shiftRight` 1
                 branch = if isBitSet 0 k then RightStep else LeftStep
-             in Just (branch t, TriePath hr kr mr sr)
-          [] -> Nothing
+             in return . Just $ (branch t, TriePath hr kr mr sr)
+          [] -> return Nothing
 
   -- stepDown from a TriePath
   {-# INLINEABLE stepDown #-}

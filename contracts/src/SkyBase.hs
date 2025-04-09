@@ -219,7 +219,7 @@ class FromByteString a where
    (see CIP-123, compare to CLHS integer-length) -}
 class BitLogic a where
   bitLength :: a -> Integer
-  lowestBitClear :: a -> Integer -- NB: returns -1 for 0, not maxBitLength, even for non-negative types!
+  lowestBitClear :: a -> Integer -- NB: returns nBits for allBits, but -1 for -1 for Integers.
   isBitSet :: Integer -> a -> Bool
   lowBitsMask :: Integer -> a
   logicalOr :: a -> a -> a
@@ -469,7 +469,8 @@ instance BitLogic BuiltinByteString where
               let byte = indexByteString b i
                in if byte > 0 then bitLength8 byte + 8 * (len - i - 1) else loop $ i + 1
      in loop 0
-  lowestBitClear b = findFirstSetBit $ complementByteString b
+  lowestBitClear b = let n = findFirstSetBit $ complementByteString b in
+    if n == -1 then 8 * lengthOfByteString b else n
   isBitSet = flip readBit
   lowBitsMask l = shiftByteString (replicateByte (bitLengthToByteLength l) 0xFF) $ (-l) `quotient` 8
   logicalOr a b = let (a', b') = equalizeByteStringLength a b in orByteString False a' b'
@@ -524,7 +525,8 @@ instance FromByteString Byte where
 
 instance BitLogic Byte where
   bitLength (Byte n) = bitLength8 n
-  lowestBitClear (Byte b) = findFirstSetBit $ toByteString $ 255 - b
+  lowestBitClear (Byte b) = let n = findFirstSetBit $ toByteString $ 255 - b in
+    if n == -1 then 8 else n
   isBitSet n b = readBit (toByteString b) n
   lowBitsMask l = Byte $ indexByteString (shiftByteString byteString1 $ l - 8) 0
   logicalOr a b = Byte $ indexByteString (orByteString False (toByteString a) (toByteString b)) 0
@@ -562,7 +564,8 @@ instance FromByteString UInt16 where
 
 instance BitLogic UInt16 where
   bitLength (UInt16 n) = bitLength16 n
-  lowestBitClear (UInt16 b) = findFirstSetBit $ toByteString $ 65535 - b
+  lowestBitClear (UInt16 b) = let n = findFirstSetBit $ toByteString $ 65535 - b in
+    if n == -1 then 16 else n
   isBitSet n b = readBit (toByteString b) n
   lowBitsMask l = UInt16 $ indexByteString (shiftByteString byteString2 $ l - 16) 0
   logicalOr a b = UInt16 $ indexByteString (orByteString False (toByteString a) (toByteString b)) 0
@@ -1396,6 +1399,14 @@ bHex = hexOf
 
 hexB :: String -> BuiltinByteString
 hexB = ofHex
+
+failNow :: a
+failNow = traceError "FOO"
+
+-- Plutus refuses to compile noReturn = noReturn
+-- which isn't because it won't loop forever at times when not asked!
+noReturn :: a -> b
+noReturn x = case () of () -> noReturn x
 
 trace' :: (Show s) => s -> e -> e
 trace' s = trace (show s)
