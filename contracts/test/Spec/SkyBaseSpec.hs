@@ -1,4 +1,5 @@
 {-# LANGUAGE BinaryLiterals #-}
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -52,11 +53,14 @@ a `shouldBeHex2` h = do
   a == b `shouldBe` True
   hexOf b `shouldBe` h
 
+genUInt len = choose (0, (exponential 256 len) - 1)
+genByteString len = genUInt len >>= return . integerToByteString LittleEndian len
+
 toBytes4 :: Integer -> Bytes4
 toBytes4 = fromInt
 
-genUInt len = choose (0, (exponential 256 len) - 1)
-genByteString len = genUInt len >>= return . integerToByteString LittleEndian len
+toBytes8 :: Integer -> Bytes8
+toBytes8 = fromInt
 
 -- * QuickCheck support
 instance
@@ -121,8 +125,6 @@ baseSpec = do
       fsb 0x00ff `shouldBe` 0
       fsb 0xff00 `shouldBe` 8
       fsb 0x00f0 `shouldBe` 4
-      toInt ((fromInt 128 :: Bytes8) `shiftLeft` 56) `shouldBe` 9223372036854775808
-      PS.show (shiftLeftWithBits (fromInt 1 :: Bytes8) 63 (fromInt 0)) `shouldBe` "FixedLengthByteString 8000000000000000"
     it "exception handling" $ do
       -- Attempt to call the function and catch any exceptions
       --result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
@@ -132,19 +134,23 @@ baseSpec = do
                                   x `shouldBe` "FOO"
         Right val -> putStrLn $ "The result is: " ++ (GS.show $ PS.show val)
 
-    it "serialization" $ do
-      PS.show (Byte 42) `shouldBe` "Byte 42"
+    it "serialization 1" $ PS.show (Byte 42) `shouldBe` "Byte 42"
+    it "serialization 2" $ do
       PS.show (UInt16 0xf00d) `shouldBe` "UInt16 61453"
-      PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
-      PS.show (fromInt 0x5678901234567890 :: Bytes8) `shouldBe` "FixedLengthByteString 5678901234567890"
-      -- Trace error message not shown :-(
+      PS.show (toUInt16 0xbad) `shouldBe` "UInt16 2989"
+      PS.show (maybeFromInt 0x11111 :: Maybe UInt16) `shouldBe` "Nothing"
+    it "serialization 3" $ PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
+    it "serialization 4" $ PS.show (fromInt 0x5678901234567890 :: Bytes8) `shouldBe` "FixedLengthByteString 5678901234567890"
+    it "serialization 5" $ do
       let unicodeMax :: VariableLengthInteger
           unicodeMax = fromInt 0x10ffff
       unicodeMax == VariableLengthInteger 20 1114111 `shouldBe` True
       PS.show unicodeMax `shouldBe` "toVariableLengthInteger 1114111"
       (unicodeMax,33 :: Integer) `shouldBeHex2` "000310ffff21"
+    it "serialization 7" $
       -- | Plutus doesn't quote not readably output its build
       PS.show (5::Integer, "23"::BuiltinString, hexB "0badf00d") `shouldBe` "(5,\"23\",0badf00d)"
+    it "serialization 8" $ do
       Byte 42 `shouldBeHex2` "2a"
       (ofHex "abcd" :: BuiltinByteString) `shouldBeHex` "abcd"
     it "multiplyByExponential" $ do
@@ -160,6 +166,8 @@ baseSpec = do
       let m521 = (exponential 2 521) - 1
       PS.show m521 `shouldBe` "6864797660130609714981900799081393217269435300143305409394463459185543183397656052122559640661454554977296311391480858037121987999716643812574028291115057151"
       bitLength m521 `shouldBe` 521
+      map (\i -> exponential 2 i) [0..16] `shouldBe`
+        [1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536]
     it "toByte" $ do
       toByte 0 `shouldBeHex2` "00"
       toByte 42 `shouldBeHex2` "2a"
@@ -195,23 +203,30 @@ baseSpec = do
       bli 1000000000000066600000000000001 `shouldBe` 100 -- Belphegor's Prime
     it "lowestBitClear" $ do
       let lbci = [0,1,2,3,5,7,1151]
-          lbcin = [-1,-2,-5,-100,-1153]
           lbco = [0,1,0,2,1,3,7]
+          lbcin = [-1,-2,-5,-100,-1153]
           lbcon = [-1,0,2,0,7]
       map (lowestBitClear :: Integer -> Integer) lbci `shouldBe` lbco
       map (lowestBitClear :: Integer -> Integer) lbcin `shouldBe` lbcon
       map (lowestBitClear . toUInt64 :: Integer -> Integer) lbci `shouldBe` lbco
       map (lowestBitClear . toBytes4 :: Integer -> Integer) lbci `shouldBe` lbco
-    it "BitLogic Integer" $ do
-      testBitLogic (\x -> x) (\x -> x) (-1 :: Integer) 16 False
-    it "BitLogic Bytes4" $ do
-      testBitLogic toBytes4 toInt (toBytes4 0xffffffff) 4 True
-    it "BitLogic UInt64" $ do
-      testBitLogic toUInt64 toInt (toUInt64 0xffffffffffffffff) 8 True
+{-      map (\(n :: Integer) -> (n,
+                               exponential 2 0,
+                               n `quotient` 2,
+                               lowestBitClear n,
+                               isBitSet 0 n))
+          [0] `shouldBe` [] -}
+    testBitLogic "Integer" fromInt toInt (-1 :: Integer) 16 False
+    testBitLogic "Bytes4" fromInt toInt (toBytes4 0xffffffff) 4 True
+    testBitLogic "UInt64" fromInt toInt (toUInt64 0xffffffffffffffff) 8 True
+    testBitLogic "Bytes8" fromInt toInt (toBytes8 0xffffffffffffffff) 8 True
+    it "shiftLeftWithBits" $ do
+      (toBytes8 128 `shiftLeft` 56) `shouldBeHex2` "8000000000000000"
+      PS.show (shiftLeftWithBits (toBytes8 1) 63 (fromInt 0)) `shouldBe` "FixedLengthByteString 8000000000000000"
 
 testBitLogic :: (BitLogic a, FromInt a, Dato a, Eq a, GS.Show a, Arbitrary a) =>
-  (Integer -> a) -> (a -> Integer) -> a -> Integer -> Bool -> Expectation
-testBitLogic i t allBits len isUnsigned =
+  String -> (Integer -> a) -> (a -> Integer) -> a -> Integer -> Bool -> Spec
+testBitLogic typ i t allBits len isUnsigned =
   let nBits = len * 8
       bM = t $ lowBitsMask nBits
       maxi = i $ (exponential 256 len) - 1
@@ -224,24 +239,29 @@ testBitLogic i t allBits len isUnsigned =
       aXor x y = t $ (i x) `logicalXor` (i y)
       aLowestBitClear n = lowestBitClear (i n)
       ebf len height bits = t $ extractBitField len height (i bits)
+      itt x = it $ typ ++ " " ++ x
   in
   do -- it "Checking BitLogic" $ do
---    it "bitLength" $ do
+    itt "bitLength" $ do
       (bitLength $ i 17) `shouldBe` 5
       bitLength r17 `shouldBe` (len * 8) - 3
---    it "lowestBitClear" $ do
+    itt "lowestBitClear" $ do
       aLowestBitClear 0 `shouldBe` 0
       aLowestBitClear 159 `shouldBe` 5
       lowestBitClear (maxi `shiftRight` (len * 2)) `shouldBe` len * 6
       lowestBitClear allBits `shouldBe` -1
---    it "isBitSet" $ do
---    it "logicalAnd" $ do
+    itt "isBitSet" $ do
+      isBitSet 5 (i 0) `shouldBe` False
+      isBitSet 0 (i 5) `shouldBe` True
+      isBitSet 2 (i 7) `shouldBe` True
+      isBitSet 7 (i 2) `shouldBe` False
+    itt "logicalAnd" $ do
       240 `aAnd` 85 `shouldBe` 80
       42 `aAnd` 1 `shouldBe` 0
---    it "logicalOr" $ do
+    itt "logicalOr" $ do
       240 `aOr` 85 `shouldBe` 245
       42 `aOr` 1 `shouldBe` 43
---    it "logicalXor" $ do
+    itt "logicalXor" $ do
       240 `aXor` 85 `shouldBe` 165
       42 `aXor` 1 `shouldBe` 43
 --    it "lowBitsMask" $ do
@@ -252,7 +272,7 @@ testBitLogic i t allBits len isUnsigned =
 
 --    it "shiftRight" $ do
 --    it "shiftLeft" $ do
-      --it "extractBitField" $ do
+    itt "extractBitField" $ do
       ebf 3 4 37 `shouldBe` 2
       ebf 4 2 11 `shouldBe` 2
       --it "QuickCheck property: lowBitsMask and lowestBitClear" $

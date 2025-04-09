@@ -205,7 +205,8 @@ class ToByteString a where
 -- fromByteString is almost always unsafe, unless every byte string of any length is valid.
 class FromByteString a where
 --  {-# INLINEABLE fromByteString #-}
---  fromByteString :: BuiltinByteString -> a
+  fromByteString :: BuiltinByteString -> a
+  fromByteString = fromByteStringIn
 --  fromByteString = fromJust . maybeFromByteString
 --  {-# INLINEABLE maybeFromByteString #-}
 --  maybeFromByteString :: BuiltinByteString -> Maybe a
@@ -452,7 +453,7 @@ instance ToByteString BuiltinByteString where
      in appendByteString (toByteString len) . appendByteString b
 
 instance FromByteString BuiltinByteString where
-  -- fromByteString = id -- XXX
+  fromByteString = id
   byteStringIn Terminal = byteStringInToEnd
   byteStringIn NonTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> byteStringInFixedLength len
 
@@ -484,7 +485,7 @@ instance ToByteString BuiltinString where
   byteStringOut = byteStringOut . toByteString
 
 instance FromByteString BuiltinString where
-  -- fromByteString = decodeUtf8 -- XXX
+  fromByteString = decodeUtf8 -- XXX
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
 instance Dato BuiltinString
@@ -499,7 +500,12 @@ instance Partial Byte where
 
 instance FromInt Byte where
   -- fromInt n = Byte (n `remainder` 256) -- DEBUG
-  maybeFromInt = maybeValidate . Byte
+  -- maybeFromInt = maybeValidate . Byte
+  maybeFromInt n =
+--    if n == -1 then traceError "FOO" else
+      Just $ Byte (n `remainder` 256) -- DEBUG
+--    if n == -1 then traceError "FOO" else
+--      maybeValidate . Byte $ n
 
 instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
@@ -507,6 +513,8 @@ instance ToByteString Byte where
 
 instance FromByteString Byte where
   -- {-# INLINEABLE fromByteString #-} -- XXX
+  fromByteString = Byte . byteStringToInteger BigEndian
+    . toByteString . fromByteString @(FixedLengthByteString L1)
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   -- maybeFromByteString = maybeFromByteString >=>
   --  return . Byte . byteStringToInteger BigEndian . toByteString @(FixedLengthByteString L1)
@@ -543,6 +551,8 @@ instance ToByteString UInt16 where
 
 instance FromByteString UInt16 where
   -- {-# INLINEABLE fromByteString #-}
+  fromByteString = UInt16 . byteStringToInteger BigEndian
+    . toByteString @(FixedLengthByteString L2) . fromByteString
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   -- maybeFromByteString = maybeFromByteString >=>
   --  return . UInt16 . byteStringToInteger BigEndian . toByteString @(FixedLengthByteString L2)
@@ -656,7 +666,7 @@ instance ToByteString VariableLengthInteger where
   byteStringOut = byteStringOut . toByteString
 
 instance FromByteString VariableLengthInteger where
---  fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
+  fromByteString b = VariableLengthInteger (bitLength b) (byteStringToInteger BigEndian b)
   byteStringIn isTerminal = byteStringIn isTerminal <&> fromByteString
 
 instance BitLogic VariableLengthInteger where
@@ -702,7 +712,7 @@ instance ToByteString Integer where
   byteStringOut = byteStringOut . toByteString
 
 instance FromByteString Integer where
---  fromByteString = byteStringToInteger BigEndian
+  fromByteString = byteStringToInteger BigEndian
   byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @VariableLengthByteString
 
 instance BitLogic Integer where
@@ -728,7 +738,7 @@ instance BitLogic Integer where
          in if r == 0
               then down ms j q (h + j)
               else down ms j r h
-  isBitSet i n = let e = exponential 2 i in n `divide` (e + e) >= e
+  isBitSet i n = let e = exponential 2 i in n `remainder` (e + e) >= e
   lowBitsMask l = exponential 2 l - 1
   logicalOr a b =
     toInt
@@ -745,7 +755,7 @@ instance BitLogic Integer where
       $ logicalXor
         (VariableLengthByteString $ toByteString a)
         (VariableLengthByteString $ toByteString b)
-  shiftRight b i = b `divide` exponential 2 i
+  shiftRight b i = b `quotient` exponential 2 i
   shiftLeft b i = b * exponential 2 i
   shiftLeftWithBits a l b = (a `shiftLeft` l) + b
 
@@ -1059,7 +1069,7 @@ instance
   (LiftFromByteString f) =>
   FromByteString (Fix f)
   where
---  fromByteString = Fix . liftFromByteString
+  fromByteString = Fix . liftFromByteString
   byteStringIn isTerminal = liftByteStringIn isTerminal <&> Fix
 
 {-
@@ -1195,7 +1205,7 @@ multiplyByExponential a e n =
     else
       let a' = if n `remainder` 2 == 1 then a * e else a
           e' = e * e
-          n' = n `divide` 2
+          n' = n `quotient` 2
        in multiplyByExponential a' e' n'
 
 -- | How is this not in Plutus already?
@@ -1215,6 +1225,7 @@ toUInt32 = fromInt
 
 toUInt64 :: Integer -> UInt64
 toUInt64 = fromInt
+
 
 toVariableLengthInteger :: Integer -> UInt64
 toVariableLengthInteger = fromInt
@@ -1324,8 +1335,8 @@ nextByteStringCursor bsc =
 maybeFromByteString :: (FromByteString a) => BuiltinByteString -> Maybe a -- XXX DEBUG
 maybeFromByteString = maybeFromByteStringIn -- XXX DEBUG
 
-fromByteString :: (FromByteString a) => BuiltinByteString -> a -- XXX DEBUG
-fromByteString = fromJust . maybeFromByteString -- XXX DEBUG
+--fromByteString :: (FromByteString a) => BuiltinByteString -> a -- XXX DEBUG
+--fromByteString = fromJust . maybeFromByteString -- XXX DEBUG
 
 -- *** Sums and Tuples
 

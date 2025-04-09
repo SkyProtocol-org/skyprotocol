@@ -378,7 +378,9 @@ instance
               hr = h + h1
               kr = k `shiftRight` h1
               mr = m `shiftRight` h1
-           in Just (SkipStep (fromInt $ h1 - 1) k1, TriePath hr kr mr s)
+           in
+            if h1 == -1 then traceError "FOO" else -- XXXX
+            Just (SkipStep (fromInt $ h1 - 1) k1, TriePath hr kr mr s)
         else case s of
           t : sr ->
             let hr = h + 1
@@ -533,6 +535,7 @@ instance
                            oldBranch <-
                              if oldBranchLength > 0
                              then
+--                              if oldBranchLength == 0 then traceError "FOO" else -- XXX
                                let hh = fromInt (oldBranchLength - 1)
                                    bb = bits `logicalAnd` lowBitsMask oldBranchLength
                                in stepUp (SkipStep hh bb) child
