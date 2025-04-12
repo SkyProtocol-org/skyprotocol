@@ -195,6 +195,9 @@ msg1 = VariableLengthByteString . stringToBuiltinByteString $ "Hello, World!"
 msg2 :: VariableLengthByteString
 msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft"
 
+msg3 :: VariableLengthByteString
+msg3 = VariableLengthByteString . stringToBuiltinByteString $ "Slava Drakonu"
+
 daSpec :: Spec
 daSpec = do
   describe "simple tests for SkyDA" $ do
@@ -214,10 +217,7 @@ daSpec = do
     let (Just msg2i, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
     let Just (msg1b , proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3
           :: Maybe (_, SkyDataProof Blake2b_256)
-    let rMsgMetaData1 = runIdentity $ wrap $ MessageMetaData pk1 timestamp1 :: LiftRef HashRef (MessageMetaData HashRef)
     let rMessageData1 = runIdentity $ wrap msg1 :: LiftRef HashRef (MessageData HashRef)
-    --let rMessageData2 = runIdentity $ wrap msg2
-    let rMessageEntry1 = (rMsgMetaData1, rMessageData1)
     it "msg1 matches" $ do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
@@ -228,106 +228,34 @@ daSpec = do
       (triePathHeight . pathMessageTriePath $ proof1) == 0 `shouldBe` True
       (triePathKey . pathMessageTriePath $ proof1) == msg1i `shouldBe` True
 
+    ------------------------------------------------------------------------------
+    -- Test Bounty Contract
+    ------------------------------------------------------------------------------
+
+    -- da10 has same committee as da3 but different root hash
+    let (Just topic1, da10) = runIdentity $ insertTopic topicSchema0 da3
+    let (Just msg3i, da11) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+
+    -- da20 has different committee as top hash 2 but same root hash
+    let da10 = runIdentity $ updateDaCommittee mpk1 da11
+
+    let Just (msg3b , proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11
+          :: Maybe (_, SkyDataProof Blake2b_256)
+    let rMessageData1 = runIdentity $ wrap msg3 :: LiftRef HashRef (MessageData HashRef)
+    it "msg3 matches" $ do
+      msg1b == LiftRef (digestRef msg3) `shouldBe` True
+    let l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash
+    it "proof3 correct" $ do
+      applySkyDataProof proof3 l3d == castDigest (computeDigest da11) `shouldBe` True
+      (triePathHeight . pathTopicTriePath $ proof3) == 0 `shouldBe` True
+      (triePathKey . pathTopicTriePath $ proof3) == topic1 `shouldBe` True
+      (triePathHeight . pathMessageTriePath $ proof3) == 0 `shouldBe` True
+      (triePathKey . pathMessageTriePath $ proof3) == msg3i `shouldBe` True
+
+    it "hashes differ" $ do
+      (castDigest (computeDigest da3) :: DataHash) == (castDigest (computeDigest da3)) `shouldBe` False
+
 {-
-------------------------------------------------------------------------------
--- Bounty Contract
-------------------------------------------------------------------------------
-
-topic2TopHash :: DataHash
-topic2TopHash = Digest . FixedLengthByteString $ ofHex "0000"
-
-mainCommitteeFP :: DataHash
-mainCommitteeFP = mfp1
-
-topicInDAProof1 :: SimplifiedMerkleProof
-topicInDAProof1 = SimplifiedMerkleProof topic1TopHash topic2TopHash
-
-mainRootHash1 :: DataHash
-mainRootHash1 = merkleProofToDataHash topicInDAProof1
-
-topHash1 :: DataHash
-topHash1 = pairHash mainCommitteeFP mainRootHash1
-
--- Top hash 2 has same committee as top hash 1 but different root hash
-
-topicInDAProof2 :: SimplifiedMerkleProof
-topicInDAProof2 = SimplifiedMerkleProof topic2TopHash topic1TopHash -- switch order
-
-mainRootHash2 :: DataHash
-mainRootHash2 = merkleProofToDataHash topicInDAProof2
-
-topHash2 :: DataHash
-topHash2 = pairHash mainCommitteeFP mainRootHash2
-
--- Top hash 3 has different committee as top hash 2 but same root hash
-
-topHash3 :: DataHash
-topHash3 = pairHash topic1CommitteeFP mainRootHash1
-
-bountySpec :: Spec
-bountySpec = do
-
-  it "valid merkle proofs should be accepted 1" $ do
-    let proof = MerkleProof
-          { targetKey = ofHex "02"
-          , keySize = 256
-          , keyPath = [0]
-          , siblingHashes = [ofHex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"]
-          }
-    let targetHash = ofHex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"
-    let rootHash = ofHex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
-    validate rootHash proof targetHash `shouldBe` True
-
-  it "valid merkle proofs should be accepted 2" $ do
-    let doubleProof = MerkleProof
-          { targetKey = ofHex "01"
-          , keySize = 256
-          , keyPath = [0]
-          , siblingHashes = [ofHex "303D2543F7E1AEEF893A9DC0C097A5A1C55522D73855BB597C36C94A7D99F5AF"]
-          }
-    let targetHash = ofHex "AADDAD8B4DA8F0A58CBF948CA41553DB039285D3A4C207B46F3C5F95FB28449A"
-    let rootHash = ofHex "AAA668EACAC5BD082FACE0281D63849C422F1FB776B6D17365F55A2DA432E188"
-    validate rootHash doubleProof targetHash `shouldBe` True
-
-  it "invalid merkle proofs should not be accepted" $ do
-    let invalidProof = MerkleProof
-          { targetKey = hex "01"
-          , keySize = 256
-          , keyPath = [0]
-          , siblingHashes = [ofHex "92DB047787B7FCAFB4211D1AE970DD1CA6FA57DA7D5590D489B9521D3898187C"]
-          }
-    let targetHash = ofHex "8CA3CA37EFDBFEA80767D1D88BC1E52DCD7620D40A2135875358F85292514126"
-    let rootHash = ofHex "9C6239944C0A848E327EF1A7E52DA1AB00281E37A74561786949DB708D45B369"
-    validate rootHash invalidProof targetHash `shouldBe` True
-
-  it "main root hash 1 should be correct" $ do
-    -- Sha256 of concatenation of topic1TopHash ++ topic2TopHash
-    -- 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f ++ 0000
-    hexOf mainRootHash1 `shouldBe` "9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263"
-
-  it "main root hash 2 should be correct" $ do
-    -- Sha256 of concatenation of topic2TopHash ++ topic1TopHash
-    -- 0000 ++ 5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f
-    hexOf mainRootHash2 `shouldBe` "9445c184e34e8e672e574e51141b1a88df56f692598811a3c31aab6d6727a10f"
-
-  it "top hash 1 should be correct" $ do
-    -- Sha256 of concatenation of mainCommitteeFP ++ mainRootHash1
-    -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
-    -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
-    hexOf topHash1 `shouldBe` "41f011893595e8cf96f9effee819310d41f9038c7adfb0d3d7b1b5ddfaac6710"
-
-  it "top hash 2 should be correct" $ do
-    -- Sha256 of concatenation of mainCommitteeFP ++ mainRootHash2
-    -- 5470fbfd926cdaa4ffc4d9d186670b37c35a3055875fbcaac403d0a3cf86df9f
-    -- ++ 9445c184e34e8e672e574e51141b1a88df56f692598811a3c31aab6d6727a10f
-    hexOf topHash2 `shouldBe` "3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1"
-
-  it "top hash 3 should be correct" $ do
-    -- Sha256 of concatenation of topic1CommitteeFP ++ mainRootHash1
-    -- b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767
-    -- ++ 9f06268167a61b7f54210ebcd0a92d9000211a41401f7827b5bf905b8fd3e263
-    hexOf topHash3 `shouldBe` "9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce"
-
 TODO: reenable
 it "contract should accept claim for dh1" $ do
     clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` True

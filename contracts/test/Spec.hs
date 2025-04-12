@@ -14,7 +14,7 @@ main = hspec $ do
   describe "Fingerprint Tests" Spec.SkySpec.fingerprintSpec
   describe "Trie Tests" Spec.TrieSpec.spec
   describe "Simple SkyDA Tests" Spec.SkySpec.daSpec
-{-  describe "Merkle Proof Tests" Spec.SkySpec.merkleSpec
+{-
   describe "Topic Tests" Spec.SkySpec.topicSpec
   describe "Bounty Tests" Spec.SkySpec.bountySpec
   describe "Bridge Tests" Spec.SkySpec.bridgeSpec

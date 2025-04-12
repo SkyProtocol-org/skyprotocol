@@ -280,6 +280,16 @@ initDa daSchema daCommittee = do
   rMetaData <- return (DaMetaData daSchema rCommittee) >>= wrap
   return (rMetaData, rMessageTrie)
 
+-- TODO: implement a "monadic lens" instead?
+updateDaCommittee :: (LiftDato r, LiftWrapping e r) => Committee -> SkyDa r -> e (SkyDa r)
+updateDaCommittee newCommittee da@(rDaMetaData, rTopicTrie) = do
+  rNewCommittee <- wrap newCommittee
+  (DaMetaData daSchema _) <- unwrap rDaMetaData
+  rNewDaMetaData <- wrap $ DaMetaData daSchema rNewCommittee
+  return (rNewDaMetaData, rTopicTrie)
+
+
+
 -- * Meta Declarations
 --PlutusTx.makeLift ''SkyDataProof
 --PlutusTx.makeIsDataSchemaIndexed ''SkyDataProof [('SkyDataProof, 0)]
