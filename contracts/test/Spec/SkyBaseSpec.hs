@@ -96,6 +96,11 @@ instance
   (StaticLength len) =>
   GS.Show (FixedLengthByteString len) where
   show = GS.show . PS.show
+instance
+  (HashFunction hf) =>
+  GS.Show (Digest hf a)
+  where
+  show = GS.show . PS.show
 
 instance
   Arbitrary BuiltinByteString where

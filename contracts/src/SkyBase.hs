@@ -828,6 +828,28 @@ instance
             then byteStringIn isTerminal <&> Right
             else byteStringReaderFail
 
+-- *** Maybe
+
+instance
+  (ToByteString a) =>
+  ToByteString (Maybe a)
+  where
+  byteStringOut Nothing isTerminal = byteStringOut (Byte 0) NonTerminal
+  byteStringOut (Just a) isTerminal = byteStringOut (Byte 1) NonTerminal . byteStringOut a isTerminal
+
+instance
+  (FromByteString a) =>
+  FromByteString (Maybe a)
+  where
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \b ->
+      if b == Byte 0
+        then return Nothing
+        else
+          if b == Byte 1
+            then byteStringIn isTerminal <&> Just
+            else byteStringReaderFail
+
 -- *** (,) or builtin Pairs
 
 instance
@@ -1405,8 +1427,8 @@ failNow = traceError "FOO"
 
 -- Plutus refuses to compile noReturn = noReturn
 -- which isn't because it won't loop forever at times when not asked!
-noReturn :: a -> b
-noReturn x = case () of () -> noReturn x
+noReturn :: a -> a
+noReturn x = noReturn x
 
 trace' :: (Show s) => s -> e -> e
 trace' s = trace (show s)

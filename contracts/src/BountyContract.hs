@@ -63,10 +63,6 @@ import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, sha2_256)
 import Data.Functor.Identity (Identity (..))
 
---PlutusTx.makeLift ''SkyDataProof
---PlutusTx.makeIsDataSchemaIndexed ''SkyDataProof [('SkyDataProof, 0)]
-
-
 ------------------------------------------------------------------------------
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
@@ -102,7 +98,7 @@ instance ToByteString DecodedClientParams where
 -- Redeemers for client contract
 ------------------------------------------------------------------------------
 
-data ClientRedeemer = ClaimBounty SkyDataProof | Timeout
+data ClientRedeemer = ClaimBounty (SkyDataProof Blake2b_256) | Timeout
 instance FromByteString ClientRedeemer where
   byteStringIn isTerminal = byteStringIn isTerminal <&> \case
     Left proof -> ClaimBounty proof
@@ -117,7 +113,7 @@ instance FromByteString ClientRedeemer where
 ------------------------------------------------------------------------------
 
 -- Separating validation logic to make for easy testing
-validateClaimBounty :: POSIXTime -> Interval POSIXTime -> DataHash -> TopicId -> SkyDataProof -> DataHash -> Bool
+validateClaimBounty :: POSIXTime -> Interval POSIXTime -> DataHash -> TopicId -> SkyDataProof Blake2b_256 -> DataHash -> Bool
 validateClaimBounty bountyDeadline txValidRange
                     messageHash topicId proof@SkyDataPath {..} daTopHash =
   -- Check if the current slot is within the deadline

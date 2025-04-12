@@ -147,7 +147,7 @@ class
 -- * Instances
 
 -- ** TrieTop
--- for blockchain serialization purposes, we assume height will fit in a UInt16
+-- for blockchain serialization purposes, we assume height+1 will fit in a UInt16
 --instance
 --  (Eq t) =>
 --  Eq (TrieTop t) where
@@ -347,7 +347,6 @@ instance
           kr = k `shiftRight` h1
           mr = m `shiftRight` h1
       in
-        if h1 == 0 then if m `logicalAnd` fromInt 1 == fromInt 0 then pathStep p {- infinite loop -} else failNow else --DEBUG
           return . Just $ (SkipStep (fromInt $ h1 - 1) k1, TriePath hr kr mr s)
         else case s of
           t : sr ->
@@ -603,11 +602,10 @@ zipLastLeaf = zipFocusLastLeaf >=> \ (Zip node (TriePath _ k _ _)) -> fr node >>
   Leaf c -> return $ Just (k, c) -- found it
   _ -> return Nothing -- not found: should be Empty, since Branch and Skip are invalid.
 
--- TODO: bounds check on k and return a Maybe instead of erroring out
-zipNextIndex :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e k
-zipNextIndex z = zipLastLeaf z >>= \case
-  Nothing -> return . fromInt $ 0
-  Just (k, _) -> return . fromInt $ 1 + toInt k
+zipNextIndex :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> e (Maybe k)
+zipNextIndex z = zipLastLeaf z >>= return . maybeFromInt . \case
+  Nothing -> 0
+  Just (k, _) -> 1 + toInt k
 
 appendListOfZipper :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> [(k, c)] -> e [(k, c)]
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
@@ -639,7 +637,7 @@ lookup :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> Trie
 lookup k = zipperOf >=> zipLookup k
 
 -- TODO: bounds check on k and return a Maybe instead of erroring out
-nextIndex :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Trie r h k c -> e k
+nextIndex :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Trie r h k c -> e (Maybe k)
 nextIndex = zipperOf >=> zipNextIndex
 
 leafOfMaybe :: (LiftPreWrapping e r, TrieHeightKey h k, LiftDato r, Dato c) => Maybe c -> e (TrieNodeRef r h k c)

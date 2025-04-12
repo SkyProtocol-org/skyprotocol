@@ -199,108 +199,36 @@ daSpec :: Spec
 daSpec = do
   describe "simple tests for SkyDA" $ do
     -- Create an empty SkyDA, check its digest
-    let
-      rDaMetaData0 = runIdentity (wrap daMetaData0 :: Identity (LiftRef HashRef (DaMetaData HashRef)))
-      rDaData0 = runIdentity ((empty >>= wrap) :: Identity (LiftRef HashRef (Trie64 HashRef (MessageEntry HashRef))))
-      da0 = (rDaMetaData0, rDaData0) -- (rDaMetaData0, rDaData0)
-    it "hash of empty Trie" $ do
-      let e00 = Empty :: TrieNodeF Byte Bytes8 Integer ()
-      let e0 = Empty :: TrieNodeF Byte Bytes8 (MessageEntry HashRef) (TrieNodeRef HashRef Byte Bytes8 (MessageEntry HashRef))
-      let e1 = Fix (TrieNodeFL Empty) :: TrieNode Identity Byte Bytes8 Integer
-      let e2 = LiftRef (Identity e1) :: TrieNodeRef Identity Byte Bytes8 Integer
-      let e3 = TrieTop (-1) e2 :: Trie64 Identity Integer
-      let trie0 = runIdentity (empty :: Identity (Trie64 Identity Integer))
-      Byte 1 == Byte 2 `shouldBe` False
-      e00 == e00 `shouldBe` True
-      e00 `shouldBeHex` "00"
-      e0 `shouldBeHex` "00"
-      e1 `shouldBeHex` "00"
-      e2 `shouldBeHex` "00"
-      e0 == e0 `shouldBe` True
-      e3 == e3 `shouldBe` True
-      trie0 == e3 `shouldBe` True
-      trie0 `shouldBeHex` "000000"
-      let e4 = runIdentity $ unwrap rDaData0 >>= fr . trieTopNode
-      e4 == e0 `shouldBe` True
-      toByteString (runIdentity $ unwrap rDaData0) `shouldBeHex` "000003170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314"
-      toByteString rDaData0 `shouldBeHex` "27ab20b13c07319930c2cb0e9e5575ef776dafb0332d5b3a34acea29796c09fe"
-      True `shouldBe` True
---    it "hash of empty DA" $ do
---      computeHash da0 `shouldBeHex` "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+    let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
+    it "hash of empty DA" $ do
+      computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
 
-{-  -- Check that proofs come in empty
-  let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0
-  maybeProof0 `shouldBe` Nothing -}
-    return ()
+    -- Check that proofs come in empty
+    let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0
+          :: Maybe (_, SkyDataProof Blake2b_256)
+    it "No proof for (0,0) in empty Da" $ do
+      maybeProof0 `shouldBeHex` "00"
+
+    let (Just topic0, da1) = runIdentity $ insertTopic topicSchema0 da0
+    let (Just msg1i, da2) = runIdentity $ insertMessage pk1 timestamp1 msg1 topic0 da1
+    let (Just msg2i, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
+    let Just (msg1b , proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3
+          :: Maybe (_, SkyDataProof Blake2b_256)
+    let rMsgMetaData1 = runIdentity $ wrap $ MessageMetaData pk1 timestamp1 :: LiftRef HashRef (MessageMetaData HashRef)
+    let rMessageData1 = runIdentity $ wrap msg1 :: LiftRef HashRef (MessageData HashRef)
+    --let rMessageData2 = runIdentity $ wrap msg2
+    let rMessageEntry1 = (rMsgMetaData1, rMessageData1)
+    it "msg1 matches" $ do
+      msg1b == LiftRef (digestRef msg1) `shouldBe` True
+    let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
+    it "proof1 correct" $ do
+      applySkyDataProof proof1 l1d == castDigest (computeDigest da3) `shouldBe` True
+      (triePathHeight . pathTopicTriePath $ proof1) == 0 `shouldBe` True
+      (triePathKey . pathTopicTriePath $ proof1) == topic0 `shouldBe` True
+      (triePathHeight . pathMessageTriePath $ proof1) == 0 `shouldBe` True
+      (triePathKey . pathMessageTriePath $ proof1) == msg1i `shouldBe` True
+
 {-
-  it "should generate a proof, validate it, and compute the root hash correctly" $ do
-    let t1 = runIdentity $ olt [(1,"value1"),(2,"value2")]
-    let t1d :: DataHash = computeHash t1
-    let proof1 = runIdentity $ getMerkleProof 1 t1
-    let l1d :: DataHash = castDigest . getDigest . lifted . runIdentity $ ((rf $ Leaf "value1") :: Identity TR)
-    let v1 = runIdentity $ isMerkleProof 1 l1d t1d proof1
-    v1 `shouldBe` True
-    let t0 = runIdentity $ olt []
-    let t2 = runIdentity $ olt initialValues
-    let u :: U = runIdentity $ ofList [(42,("foo",t1)),(17,("bar",t2)),(0,("",t0))]
-    let ud :: Digest Blake2b_256 = computeDigest u
-    let proof2 = runIdentity $ getMerkleProof 42 u
-    let l2d :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf ("foo", t1)) :: Identity UR)
-    let v2 = runIdentity $ isMerkleProof 42 l2d ud proof2
-    v2 `shouldBe` True
-    -- should fail to validate an incorrect proof
-    let l1d' :: Digest Blake2b_256 = getDigest . lifted . runIdentity $ ((rf $ Leaf "value3") :: Identity TR)
-    let v1' = runIdentity $ isMerkleProof 1 l1d' t1d proof1
-    v1' `shouldBe` False
-
-
-
-proof1 :: SkyDataProof
-proof1 = SimplifiedMerkleProof dh1 dh2
-
-rootHash1 :: DataHash
-rootHash1 = merkleProofToDataHash proof1
-
-merkleSpec :: Spec
-merkleSpec = do
-
-  it "hash 1 should be in proof" $ do
-    hashInMerkleProof proof1 dh1 `shouldBe` True
-
-  it "hash 2 should be in proof" $ do
-    hashInMerkleProof proof1 dh2 `shouldBe` True
-
-  it "other hash should not be in proof" $ do
-    hashInMerkleProof proof1 mfp1 `shouldBe` False
-
-  it "proof root hash should be concatenation of hashes" $ do
-    -- sha256 of dh1 ++ dh2: CAFEBABE
-    hexOf rootHash1 `shouldBe` "65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971"
-
-------------------------------------------------------------------------------
--- Topic Top Hash
-------------------------------------------------------------------------------
-
-topic1 :: TopicID
-topic1 = TopicID $ hex "00"
-
-topic2 :: TopicID
-topic2 = ofHex "01"
-
-topic1CommitteeFP :: DataHash
-topic1CommitteeFP = mfp2
-
-topic1TopHash :: DataHash
-topic1TopHash = makeTopicTopHash topic1 topic1CommitteeFP rootHash1
-
-topicSpec :: Spec
-topicSpec = do
-
-  it "topic 1 top hash should be correct" $ do
-    -- Sha256 of concatenation of topic1 ++ topic1CommitteeFP ++ rootHash1:
-    -- 00 ++ b25f003443ff6eb36a6baafaf5bc5d5e78c1dbd4533e3c49be498f23a9ac5767 ++ 65ab12a8ff3263fbc257e5ddf0aa563c64573d0bab1f1115b9b107834cfa6971
-    hexOf topic1TopHash `shouldBe` "5c82f057ac60bbc4c347d15418960d453468ffa2b6f8b2e0041d0cad3453f67f"
-
 ------------------------------------------------------------------------------
 -- Bounty Contract
 ------------------------------------------------------------------------------
@@ -502,4 +430,3 @@ bridgeSpec = do
   it "bridge doesn't accept top hash 2 with wrong old top hash" $ do
     (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig dh1) `shouldBe` False
 -}
-

@@ -50,6 +50,20 @@ initialValues = [(fromInt 13, "13"), (fromInt 34, "34"), (fromInt 1597, "1597")]
 spec :: Spec
 spec = describe "Spec.TrieSpec" $ do
 
+  it "empty Trie" $ do
+    let e0 = Empty :: TrieNodeF Byte Bytes8 (MessageEntry HashRef) (TrieNodeRef HashRef Byte Bytes8 (MessageEntry HashRef))
+    let e1 = Fix (TrieNodeFL Empty) :: TrieNode Identity Byte Bytes8 Integer
+    let e2 = LiftRef (Identity e1) :: TrieNodeRef Identity Byte Bytes8 Integer
+    let e3 = TrieTop (-1) e2 :: Trie64 Identity Integer
+    let trie0 = runIdentity (empty :: Identity (Trie64 Identity Integer))
+    Byte 1 == Byte 2 `shouldBe` False
+    e0 `shouldBeHex` "00"
+    e1 `shouldBeHex` "00"
+    e2 `shouldBeHex` "00"
+    trie0 `shouldBeHex` "000000"
+    e0 == e0 `shouldBe` True
+    trie0 == e3 `shouldBe` True
+
   let rF :: TrieNodeF Byte Bytes8 BuiltinString SR -> SR = LiftRef . Identity . Fix . TrieNodeFL
   let fR :: SR -> TrieNodeF Byte Bytes8 BuiltinString SR = tfl . getFix . runIdentity . liftref
   let tp :: Integer -> Integer -> Integer -> [SR] -> TriePath Byte Bytes8 SR
@@ -147,6 +161,7 @@ spec = describe "Spec.TrieSpec" $ do
         t1 = runIdentity $ olt [(1,"value1"),(2,"value2")]
     let t1d :: DataHash = castDigest $ computeDigest t1
     let proof1 = runIdentity $ getMerkleProof 1 t1
+    triePathHeight proof1 == 0 `shouldBe` True
     triePathKey proof1 == 1 `shouldBe` True
     let l1d :: DataHash = castDigest . getDigest . liftref . runIdentity $
                             ((rf $ Leaf "value1") :: Identity TR)

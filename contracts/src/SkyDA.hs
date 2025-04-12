@@ -1,4 +1,5 @@
 {-# LANGUAGE PartialTypeSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module SkyDA where
 
@@ -80,7 +81,7 @@ data SkyDataPath (r :: Type -> Type) = SkyDataPath
     pathMessageMetaData :: LiftRef r (MessageMetaData r)
   }
 
-type SkyDataProof = SkyDataPath Hash
+type SkyDataProof hf = SkyDataPath (Digest hf)
 
 -- * Instances
 
@@ -182,18 +183,21 @@ insertTopic ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
   DataHash ->
   SkyDa r ->
-  e (TopicId, SkyDa r)
+  e (Maybe TopicId, SkyDa r)
 insertTopic newTopicSchema da@(rDaMetaData, rOldTopicTrie) =
   do
     newTopicCommittee <- generateCommittee da
     oldTopicTrie <- unwrap rOldTopicTrie
     newTopicId <- nextIndex oldTopicTrie
-    newMessageTrie <- empty
-    rNewMessageTrie <- wrap newMessageTrie
-    rNewTopicMetaData <- wrap $ TopicMetaData newTopicSchema newTopicCommittee
-    let newTopic = (rNewTopicMetaData, rNewMessageTrie)
-    rNewTopicTrie <- insert newTopic newTopicId oldTopicTrie >>= wrap
-    return (newTopicId, (rDaMetaData, rNewTopicTrie))
+    case newTopicId of
+      Nothing -> return (Nothing, da)
+      Just topicId -> do
+        newMessageTrie <- empty
+        rNewMessageTrie <- wrap newMessageTrie
+        rNewTopicMetaData <- wrap $ TopicMetaData newTopicSchema newTopicCommittee
+        let newTopic = (rNewTopicMetaData, rNewMessageTrie)
+        rNewTopicTrie <- insert newTopic topicId oldTopicTrie >>= wrap
+        return (newTopicId, (rDaMetaData, rNewTopicTrie))
 
 insertMessage ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
@@ -214,13 +218,18 @@ insertMessage poster timestamp newMessage topicId da@(rDaMetaData, rOldTopicTrie
         rNewMessageMetaData <- wrap $ MessageMetaData poster timestamp
         rNewMessageData <- wrap newMessage
         newMessageId <- nextIndex oldMessageTrie
-        rNewMessageTrie <- insert (rNewMessageMetaData, rNewMessageData) newMessageId oldMessageTrie >>= wrap
-        rNewTopicTrie <- insert (rTopicMetaData, rNewMessageTrie) topicId oldTopicTrie >>= wrap
-        return (Just newMessageId, (rDaMetaData, rNewTopicTrie))
+        case newMessageId of
+          Nothing -> return (Nothing, da) -- error "table full"
+          Just messageId -> do
+            rNewMessageTrie <- insert (rNewMessageMetaData, rNewMessageData) messageId oldMessageTrie
+                               >>= wrap
+            rNewTopicTrie <- insert (rTopicMetaData, rNewMessageTrie) topicId oldTopicTrie
+                             >>= wrap
+            return (Just messageId, (rDaMetaData, rNewTopicTrie))
 
 -- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProof #-}
-applySkyDataProof :: SkyDataProof -> DataHash -> DataHash
+applySkyDataProof :: (HashFunction hf) => SkyDataProof hf -> DataDigest hf -> DataDigest hf
 applySkyDataProof SkyDataPath {..} messageDataHash =
   runIdentity $ do
     let messageLeaf = Leaf (liftref pathMessageMetaData, messageDataHash) :: TrieNodeF Byte Bytes8 _ ()
@@ -247,13 +256,13 @@ getSkyDataPath (topicId, messageId) da@(rDaMetaData, rTopicTrie) = do
                 SkyDataPath rDaMetaData topicPath rTopicMetaData messagePath rMessageMetaData
               )
 
-getSkyDataProof :: (Monad e, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef Blake2b_256 r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataProof))
+getSkyDataProof :: (Monad e, HashFunction hf, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef hf r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataProof hf))
 getSkyDataProof ids da =
   getSkyDataPath ids da >>= \case
     Nothing -> return Nothing
     Just (rMessageData, path) -> return $ Just (rMessageData, proofOfSkyDataPath path)
 
-proofOfSkyDataPath :: (LiftDato r, DigestibleRef Blake2b_256 r) => SkyDataPath r -> SkyDataProof
+proofOfSkyDataPath :: (HashFunction hf, LiftDato r, DigestibleRef hf r) => SkyDataPath r -> SkyDataProof hf
 proofOfSkyDataPath SkyDataPath {..} =
   SkyDataPath
     (lcg $ pathDaMetaData)
@@ -264,4 +273,13 @@ proofOfSkyDataPath SkyDataPath {..} =
   where
     lcg = LiftRef . castDigest . getDigest
 
+initDa :: (LiftDato r, LiftWrapping e r) => DataHash -> Committee -> e (SkyDa r)
+initDa daSchema daCommittee = do
+  rMessageTrie <- empty >>= wrap
+  rCommittee <- return daCommittee >>= wrap
+  rMetaData <- return (DaMetaData daSchema rCommittee) >>= wrap
+  return (rMetaData, rMessageTrie)
+
 -- * Meta Declarations
+--PlutusTx.makeLift ''SkyDataProof
+--PlutusTx.makeIsDataSchemaIndexed ''SkyDataProof [('SkyDataProof, 0)]
