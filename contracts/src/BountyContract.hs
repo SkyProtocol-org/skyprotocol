@@ -1,34 +1,7 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NoImplicitPrelude          #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE Strict                     #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE ViewPatterns               #-}
-{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-spec-constr #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
-{-# OPTIONS_GHC -fno-unbox-strict-fields #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module BountyContract where
 
@@ -121,7 +94,10 @@ validateClaimBounty bountyDeadline txValidRange
   -- The bounty's message hash is in the DA
   daTopHash == applySkyDataProof proof messageHash &&
   -- topic ID matches
-  topicId == triePathKey pathTopicTriePath
+  topicId == triePathKey pathTopicTriePath &&
+  -- heights are 0
+  triePathHeight pathTopicTriePath == 0 &&
+  triePathHeight pathMessageTriePath == 0
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =
