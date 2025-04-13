@@ -65,8 +65,8 @@ newtype BridgeNFTDatum = BridgeNFTDatum
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
--- PlutusTx.makeLift ''BridgeNFTDatum
--- PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
+PlutusTx.makeLift ''BridgeNFTDatum
+PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for the bridge contract
@@ -99,8 +99,8 @@ data BridgeRedeemer = UpdateBridge
 instance FromByteString BridgeRedeemer where
   byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 UpdateBridge
 
--- PlutusTx.makeLift ''BridgeRedeemer
--- PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
+PlutusTx.makeLift ''BridgeRedeemer
+PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
 ------------------------------------------------------------------------------
 -- NFT Utilities
@@ -211,7 +211,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
     -- There must be exactly one output UTXO with our NFT's unique currency symbol
     outputHasNFT :: Bool
     outputHasNFT =
-      let assetClass = (AssetClass (bridgeNFTCurrencySymbol params, TokenName "SkyBridge"))
+      let assetClass = AssetClass (bridgeNFTCurrencySymbol params, TokenName "SkyBridge")
        in assetClassValueOf (txOutValue ownOutput) assetClass == 1
 
 -- Core validation function, for easy testing

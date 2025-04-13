@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 {-# HLINT ignore "Use newtype instead of data" #-}
 
 module SkyBase where
@@ -28,6 +30,7 @@ import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Builtins.Internal (BuiltinString (..))
+import PlutusTx.Lift
 import PlutusTx.List (length)
 import PlutusTx.Prelude
 import PlutusTx.Show

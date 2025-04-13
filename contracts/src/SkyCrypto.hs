@@ -1,15 +1,22 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module SkyCrypto where
 
 import Data.Functor.Identity (Identity (..))
 -- hiding (Applicative, Functor, fmap, pure, (<*>))
 
 import GHC.Generics (Generic)
+import Language.Haskell.TH qualified as TH hiding (newName)
+import PlutusCore.Default
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
+import PlutusTx.Lift
 import PlutusTx.List (elem, filter, length, nub)
 import PlutusTx.Prelude
 import PlutusTx.Show
@@ -58,7 +65,10 @@ newtype PlainText f a = PlainText a
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-data Blake2b_256 -- static knowledge of hash function
+-- | Hash function type
+data Blake2b_256
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
 data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue :: x}
   deriving stock (Generic)
@@ -79,6 +89,177 @@ class
   getDigest :: r a -> Digest hf a
 
 -- * Instances
+
+-- WARNING this was copied from plutus instance for haskell's 'Void' data type
+-- I do not know if it can be used
+instance ToData Blake2b_256 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData Blake2b_256 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData Blake2b_256 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L2 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L2 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L2 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L3 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L3 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L3 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L4 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L4 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L4 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L5 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L5 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L5 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L6 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L6 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L6 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L7 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L7 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L7 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L8 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L8 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L8 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L9 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L9 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L9 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L10 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L10 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L10 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L16 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L16 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L16 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L32 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L32 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L32 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
+
+instance ToData L64 where
+  {-# INLINEABLE toBuiltinData #-}
+  toBuiltinData = \case {}
+
+instance FromData L64 where
+  {-# INLINEABLE fromBuiltinData #-}
+  fromBuiltinData _ = Nothing
+
+instance UnsafeFromData L64 where
+  {-# INLINEABLE unsafeFromBuiltinData #-}
+  -- "PT2" is `voidIsNotSupportedError`
+  unsafeFromBuiltinData _ = traceError "PT2"
 
 -- ** SingleSig
 
@@ -313,6 +494,43 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
            in length validSignatures >= toInt minSigs
 
 -- * Meta declarations
+
+makeLift ''FixedLengthByteString
+makeIsDataIndexed ''FixedLengthByteString [('FixedLengthByteString, 0)]
+
+makeLift ''Digest
+makeIsDataIndexed ''Digest [('Digest, 0)]
+
+makeTypeable (TH.ConT ''DefaultUni) ''Blake2b_256
+makeTypeable (TH.ConT ''DefaultUni) ''L2
+makeTypeable (TH.ConT ''DefaultUni) ''L3
+makeTypeable (TH.ConT ''DefaultUni) ''L4
+makeTypeable (TH.ConT ''DefaultUni) ''L5
+makeTypeable (TH.ConT ''DefaultUni) ''L6
+makeTypeable (TH.ConT ''DefaultUni) ''L7
+makeTypeable (TH.ConT ''DefaultUni) ''L8
+makeTypeable (TH.ConT ''DefaultUni) ''L9
+makeTypeable (TH.ConT ''DefaultUni) ''L10
+makeTypeable (TH.ConT ''DefaultUni) ''L16
+makeTypeable (TH.ConT ''DefaultUni) ''L32
+makeTypeable (TH.ConT ''DefaultUni) ''L64
+
+makeLift ''UInt16
+makeIsDataIndexed ''UInt16 [('UInt16, 0)]
+
+makeLift ''PubKey
+makeIsDataIndexed ''PubKey [('PubKey, 0)]
+
+makeLift ''MultiSigPubKey
+makeIsDataIndexed ''MultiSigPubKey [('MultiSigPubKey, 0)]
+
+makeLift ''SingleSig
+makeIsDataIndexed ''SingleSig [('SingleSig, 0)]
+
+makeLift ''MultiSig
+makeIsDataIndexed ''MultiSig [('MultiSig, 0)]
+
+-- makeLift ''Blake2b_256
 
 {-
 PlutusTx.makeLift ''FixedLengthByteString

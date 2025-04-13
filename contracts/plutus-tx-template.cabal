@@ -7,33 +7,15 @@ extra-doc-files: README.md
 
 common options
   ghc-options:
-    -fexpose-all-unfoldings
-    -fno-full-laziness
-    -fno-ignore-interface-pragmas
-    -fno-omit-interface-pragmas
-    -fno-spec-constr
-    -fno-specialise
-    -fno-strictness
-    -fno-unbox-small-strict-fields
-    -fno-unbox-strict-fields
-    -Wno-unrecognised-pragmas
-    -fobject-code
-    -fplugin-opt PlutusTx.Plugin:preserve-logging
-    -- -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
-  default-language: Haskell2010
+    -fexpose-all-unfoldings -fno-full-laziness
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -fno-spec-constr -fno-specialise -fno-strictness
+    -fno-unbox-small-strict-fields -fno-unbox-strict-fields
+    -Wno-unrecognised-pragmas -fobject-code -fplugin-opt
+    PlutusTx.Plugin:preserve-logging
 
-library scripts
-  import:             options
-  hs-source-dirs:     src
-  exposed-modules:
-    BountyContract
-    SkyBase
-    SkyBridgeContract
-    SkyCrypto
-    SkyDA
-    SkyMintingPolicy
-    Trie
-
+  -- -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
+  default-language:   Haskell2010
   default-extensions:
     DataKinds
     DeriveAnyClass
@@ -56,6 +38,19 @@ library scripts
     Strict
     TypeApplications
 
+library scripts
+  import:           options
+  hs-source-dirs:   src
+  exposed-modules:
+    BountyContract
+    SkyBase
+    SkyBridgeContract
+    SkyCrypto
+    SkyDA
+    SkyMintingPolicy
+    Trie
+
+  default-language: Haskell2010
   build-depends:
     , base                 ^>=4.18.2.1
     , binary
@@ -68,6 +63,7 @@ library scripts
     , plutus-ledger-api    ^>=1.44.0.0
     , plutus-tx            ^>=1.44.0.0
     , serialise            ^>=0.2.6.1
+    , template-haskell
     , text                 ^>=2.0.2
 
   if !(impl(ghcjs) || os(ghcjs))
@@ -140,4 +136,5 @@ test-suite tests
     , QuickCheck
     , scripts
     , text               ^>=2.0.2
+
   default-language: Haskell2010
