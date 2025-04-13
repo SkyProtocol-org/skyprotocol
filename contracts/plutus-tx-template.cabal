@@ -19,7 +19,7 @@ common options
     -Wno-unrecognised-pragmas
     -fobject-code
     -fplugin-opt PlutusTx.Plugin:preserve-logging
-    -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
+    -- -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
   default-language: Haskell2010
 
 library scripts
@@ -64,9 +64,9 @@ library scripts
     , containers           ^>=0.6.7
     , crypton
     , hex-text             ^>=0.1.0.9
-    , plutus-core          ^>=1.34.1.0
-    , plutus-ledger-api    ^>=1.34.1.0
-    , plutus-tx            ^>=1.34.1.0
+    , plutus-core          ^>=1.44.0.0
+    , plutus-ledger-api    ^>=1.44.0.0
+    , plutus-tx            ^>=1.44.0.0
     , serialise            ^>=0.2.6.1
     , text                 ^>=2.0.2
 
@@ -82,10 +82,10 @@ executable gen-validator-blueprint
     , bytestring         ^>=0.11.5.3
     , containers         ^>=0.6.7
     , hex-text           ^>=0.1.0.9
-    , plutus-core        ^>=1.34.1.0
-    , plutus-ledger-api  ^>=1.34.1.0
-    , plutus-tx          ^>=1.34.1.0
-    , plutus-tx-plugin   ^>=1.34.1.0
+    , plutus-core        ^>=1.44.0.0
+    , plutus-ledger-api  ^>=1.44.0.0
+    , plutus-tx          ^>=1.44.0.0
+    , plutus-tx-plugin   ^>=1.44.0.0
     , scripts
     , text               ^>=2.0.2
 
@@ -98,10 +98,10 @@ executable gen-bounty-blueprint
     , bytestring         ^>=0.11.5.3
     , containers         ^>=0.6.7
     , hex-text           ^>=0.1.0.9
-    , plutus-core        ^>=1.34.1.0
-    , plutus-ledger-api  ^>=1.34.1.0
-    , plutus-tx          ^>=1.34.1.0
-    , plutus-tx-plugin   ^>=1.34.1.0
+    , plutus-core        ^>=1.44.0.0
+    , plutus-ledger-api  ^>=1.44.0.0
+    , plutus-tx          ^>=1.44.0.0
+    , plutus-tx-plugin   ^>=1.44.0.0
     , scripts
     , text               ^>=2.0.2
 
@@ -114,10 +114,10 @@ executable gen-minting-policy-blueprint
     , bytestring         ^>=0.11.5.3
     , containers         ^>=0.6.7
     , hex-text           ^>=0.1.0.9
-    , plutus-core        ^>=1.34.1.0
-    , plutus-ledger-api  ^>=1.34.1.0
-    , plutus-tx          ^>=1.34.1.0
-    , plutus-tx-plugin   ^>=1.34.1.0
+    , plutus-core        ^>=1.44.0.0
+    , plutus-ledger-api  ^>=1.44.0.0
+    , plutus-tx          ^>=1.44.0.0
+    , plutus-tx-plugin   ^>=1.44.0.0
     , scripts
     , text               ^>=2.0.2
 
@@ -133,10 +133,10 @@ test-suite tests
   build-depends:
     , base               ^>=4.18.2.1
     , hspec              >=2.9
-    , plutus-core        ^>=1.34.1.0
-    , plutus-ledger-api  ^>=1.34.1.0
-    , plutus-tx          ^>=1.34.1.0
-    , plutus-tx-plugin   ^>=1.34.1.0
+    , plutus-core        ^>=1.44.0.0
+    , plutus-ledger-api  ^>=1.44.0.0
+    , plutus-tx          ^>=1.44.0.0
+    , plutus-tx-plugin   ^>=1.44.0.0
     , QuickCheck
     , scripts
     , text               ^>=2.0.2

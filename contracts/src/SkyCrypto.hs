@@ -1,15 +1,16 @@
 module SkyCrypto where
 
 import Data.Functor.Identity (Identity (..))
-import GHC.Generics (Generic)
 -- hiding (Applicative, Functor, fmap, pure, (<*>))
 
+import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
+import PlutusTx.List (elem, filter, length, nub)
 import PlutusTx.Prelude
 import PlutusTx.Show
 import PlutusTx.Utils
@@ -116,7 +117,7 @@ instance
   (HashFunction hf) =>
   FromByteString (Digest hf a)
   where
---  fromByteString = fromByteStringIn
+  --  fromByteString = fromByteStringIn
   byteStringIn isTerminal = byteStringIn isTerminal <&> Digest
 
 instance
@@ -244,7 +245,7 @@ instance ToByteString PubKey where
   byteStringOut (PubKey pk) = byteStringOut pk
 
 instance FromByteString PubKey where
---  fromByteString = PubKey . fromByteString
+  --  fromByteString = PubKey . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> PubKey
 
 -- ** PubKeyHash
@@ -254,7 +255,7 @@ instance ToByteString PubKeyHash where
   byteStringOut = byteStringOut . getPubKeyHash
 
 instance FromByteString PubKeyHash where
---  fromByteString = PubKeyHash
+  --  fromByteString = PubKeyHash
   byteStringIn isTerminal = byteStringIn isTerminal <&> PubKeyHash
 
 -- ** PlainText
@@ -296,11 +297,12 @@ singleSigValid :: (ToByteString a) => a -> SingleSig -> Bool
 singleSigValid message (SingleSig (pubKey, sig)) =
   verifyEd25519Signature (toByteString pubKey) (toByteString message) (toByteString sig)
 
+-- WARNING: 'nub' and 'elem' use GHC Prelude Eq
 -- Main function to check if the MultiSig satisfies at least N valid unique signatures
 multiSigValid :: (ToByteString a) => MultiSigPubKey -> a -> MultiSig -> Bool
 multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) =
   let -- Extract the public keys from the SingleSig values
-      pubKeysInSignatures = map (\(SingleSig (pubKey, _)) -> pubKey) singleSigs
+      pubKeysInSignatures = fmap (\(SingleSig (pubKey, _)) -> pubKey) singleSigs
       -- Check for duplicates by comparing the list to its nub version
       noDuplicates = pubKeysInSignatures == nub pubKeysInSignatures
    in if not noDuplicates
