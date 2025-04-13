@@ -1,0 +1,110 @@
+cabal-version:      3.6
+name:               sky-atlas
+version:            0.1.0
+
+common common
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DeriveAnyClass
+    DerivingStrategies
+    DerivingVia
+    GADTs
+    LambdaCase
+    MultiWayIf
+    OverloadedStrings
+    RecordWildCards
+    RoleAnnotations
+    TypeFamilies
+    UndecidableInstances
+    ViewPatterns
+
+  ghc-options:        -Wall -Wincomplete-uni-patterns -Wunused-packages
+
+  -- speed-ups GHCi considerably
+  ghc-options:        -fno-show-valid-hole-fits
+
+common plutus-ghc-options
+  -- so unfoldings are present even when compiled without optmizations
+  ghc-options:
+    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
+    -Wno-partial-type-signatures
+
+  -- expose all unfoldings, so plutustx compiler can do its job
+  ghc-options:
+    -fexpose-all-unfoldings -fobject-code
+    -fplugin-opt PlutusTx.Plugin:defer-errors
+
+  -- set target plutus-core version
+  ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
+
+library onchain
+  import:           common, plutus-ghc-options
+  hs-source-dirs:   onchain
+  exposed-modules:
+    -- BetRef.OnChain.BetRef
+    -- BetRef.OnChain.BetRef.Compiled
+  build-depends:
+    , base
+    , plutus-core
+    , plutus-ledger-api
+    , plutus-tx
+    , plutus-tx-plugin
+
+library offchain-lib
+  import:           common
+  hs-source-dirs:   offchain
+  exposed-modules:
+    -- BetRef.Api.Api
+    -- BetRef.Api.BetRef
+    -- BetRef.Api.Context
+    -- BetRef.Api.Operations
+    -- BetRef.Api.Tx
+  build-depends:
+    , base
+    , aeson
+    , sky-atlas:onchain
+    -- , atlas-cardano
+    , swagger2
+    , servant-server
+    , servant-swagger
+    , containers
+    , text
+
+executable sky-atlas
+  import:           common
+  hs-source-dirs:   app
+  main-is:          Main.hs
+  ghc-options:
+    -O2 -threaded -rtsopts -with-rtsopts=-T
+  build-depends:
+    , aeson-pretty
+    , base
+    , bytestring
+    -- , atlas-cardano
+    , sky-atlas:offchain-lib
+    , servant-server
+    , transformers
+    , wai-cors
+    , http-types
+    , warp
+
+test-suite tests
+  import:         common
+  ghc-options:    -threaded -rtsopts
+  type:           exitcode-stdio-1.0
+  main-is:        Spec.hs
+  hs-source-dirs: tests
+  other-modules:
+    -- BetRef.Tests.PlaceBet
+    -- BetRef.Tests.TakeBetPot
+  build-depends:
+    , base
+    , containers
+    , sky-atlas:onchain
+    , sky-atlas:offchain-lib
+    , extra
+    , text
+    -- , atlas-cardano
+    , mtl
+    , tasty
