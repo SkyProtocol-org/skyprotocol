@@ -8,6 +8,7 @@ import PlutusTx
 import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
+import PlutusLedgerApi.V1.Interval (Interval(..), strictLowerBound, strictUpperBound)
 import PlutusLedgerApi.V1.Time (POSIXTime(..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
 import Data.Functor.Identity (Identity (..))
@@ -186,17 +187,38 @@ daMetaData0 = DaMetaData daSchema0 (LiftRef (digestRef committee0))
 timestamp1 :: POSIXTime
 timestamp1 = 455155200000 -- June 4th 1989
 
+deadline :: POSIXTime
+deadline = 1000180800000 -- Sep 11th 2001
+
+txBeforeDeadlineRange :: Interval POSIXTime
+txBeforeDeadlineRange = Interval (strictLowerBound 999316800000) -- Sep 1st 2001
+                          (strictUpperBound 1000008000000) -- Sep 9th 2001
+
+txAfterDeadlineRange :: Interval POSIXTime
+txAfterDeadlineRange = Interval (strictLowerBound 1000267200000) -- Sep 12th 2001
+                          (strictUpperBound 1000872000000) -- Sep 19th 2001
+
+txAroundDeadlineRange :: Interval POSIXTime
+txAroundDeadlineRange = Interval (strictLowerBound 1000008000000) -- Sep 9th 2001
+                          (strictUpperBound 1000872000000) -- Sep 19th 2001
+
 msgMeta1 :: MessageMetaData HashRef
 msgMeta1 = MessageMetaData pk1 timestamp1
 
 msg1 :: VariableLengthByteString
 msg1 = VariableLengthByteString . stringToBuiltinByteString $ "Hello, World!"
 
+msg1Hash :: DataHash
+msg1Hash = castDigest . computeDigest $ msg1
+
 msg2 :: VariableLengthByteString
 msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft"
 
 msg3 :: VariableLengthByteString
 msg3 = VariableLengthByteString . stringToBuiltinByteString $ "Slava Drakonu"
+
+msg3Hash :: DataHash
+msg3Hash = castDigest . computeDigest $ msg3
 
 daSpec :: Spec
 daSpec = do
@@ -221,8 +243,10 @@ daSpec = do
     it "msg1 matches" $ do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
+    let topHash1 = castDigest (computeDigest da3) :: DataHash
+
     it "proof1 correct" $ do
-      applySkyDataProof proof1 l1d == castDigest (computeDigest da3) `shouldBe` True
+      applySkyDataProof proof1 l1d == topHash1 `shouldBe` True
       (triePathHeight . pathTopicTriePath $ proof1) == 0 `shouldBe` True
       (triePathKey . pathTopicTriePath $ proof1) == topic0 `shouldBe` True
       (triePathHeight . pathMessageTriePath $ proof1) == 0 `shouldBe` True
@@ -243,43 +267,43 @@ daSpec = do
           :: Maybe (_, SkyDataProof Blake2b_256)
     let rMessageData1 = runIdentity $ wrap msg3 :: LiftRef HashRef (MessageData HashRef)
     it "msg3 matches" $ do
-      msg1b == LiftRef (digestRef msg3) `shouldBe` True
+      msg3b == LiftRef (digestRef msg3) `shouldBe` True
     let l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash
+    let topHash3 = castDigest (computeDigest da11) :: DataHash
     it "proof3 correct" $ do
-      applySkyDataProof proof3 l3d == castDigest (computeDigest da11) `shouldBe` True
+      applySkyDataProof proof3 l3d == topHash3 `shouldBe` True
       (triePathHeight . pathTopicTriePath $ proof3) == 0 `shouldBe` True
       (triePathKey . pathTopicTriePath $ proof3) == topic1 `shouldBe` True
       (triePathHeight . pathMessageTriePath $ proof3) == 0 `shouldBe` True
       (triePathKey . pathMessageTriePath $ proof3) == msg3i `shouldBe` True
 
     it "hashes differ" $ do
-      (castDigest (computeDigest da3) :: DataHash) == (castDigest (computeDigest da3)) `shouldBe` False
+      (castDigest (computeDigest da1) :: DataHash) == (castDigest (computeDigest da3)) `shouldBe` False
 
+    it "Bounty contract should accept claim for msg1" $ do
+      validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` True
+
+    it "Bounty contract should accept claim for msg3" $ do
+      validateClaimBounty deadline txBeforeDeadlineRange msg3Hash topic1 proof3 topHash3 `shouldBe` True
+
+    it "contract should not accept claim for wrong topic" $ do
+      validateClaimBounty deadline txBeforeDeadlineRange msg3Hash topic0 proof3 topHash3 `shouldBe` False
+
+    it "contract should not accept claim for wrong data" $ do
+      validateClaimBounty deadline txBeforeDeadlineRange msg3Hash topic1 proof1 topHash1 `shouldBe` False
+
+    it "contract should not accept claim after deadline" $ do
+      validateClaimBounty deadline txAfterDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` False
+
+    it "contract should not accept claim in interval around deadline" $ do
+      validateClaimBounty deadline txAroundDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` False
+
+    it "contract should not accept claim with wrong proof" $ do
+      validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof3 topHash1 `shouldBe` False
+
+    it "contract should not accept claim with wrong top hash" $ do
+      validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof1 topHash3 `shouldBe` False
 {-
-TODO: reenable
-it "contract should accept claim for dh1" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` True
-
-  it "contract should accept claim for dh2" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh2 topHash1 `shouldBe` True
-
-  it "contract should not accept claim for wrong topic" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic2 dh1 topHash1 `shouldBe` False
-
-  it "contract should not accept claim for wrong data in topic proof" $ do
-    clientTypedValidatorCore (ClaimBounty (SimplifiedMerkleProof topHash1 topHash1) topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
-
-  it "contract should not accept claim for wrong topic in DA proof" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 (SimplifiedMerkleProof topHash1 topHash1) topic1CommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
-
-  it "contract should not accept claim for wrong topic committee" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 mainCommitteeFP mainCommitteeFP) topic1 dh1 topHash1 `shouldBe` False
-
-  it "contract should not accept claim for wrong main committee" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP topic1CommitteeFP) topic1 dh1 topHash1 `shouldBe` False
-
-  it "contract should not accept claim for wrong top hash" $ do
-    clientTypedValidatorCore (ClaimBounty proof1 topicInDAProof1 topic1CommitteeFP mainCommitteeFP) topic1 dh1 dh1 `shouldBe` False
 
 ------------------------------------------------------------------------------
 -- Bridge Contract
