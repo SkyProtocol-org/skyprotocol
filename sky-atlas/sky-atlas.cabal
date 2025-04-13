@@ -64,7 +64,7 @@ library offchain-lib
     , base
     , aeson
     , sky-atlas:onchain
-    -- , atlas-cardano
+    , atlas-cardano >= 0.12.0
     , swagger2
     , servant-server
     , servant-swagger
@@ -81,7 +81,7 @@ executable sky-atlas
     , aeson-pretty
     , base
     , bytestring
-    -- , atlas-cardano
+    , atlas-cardano >= 0.12.0
     , sky-atlas:offchain-lib
     , servant-server
     , transformers

@@ -112,8 +112,4 @@ package cardano-node
 package bitvec
    flags: -simd
 
--- -------------------------------------------------------------------------
-
--------- End contents from @cardano-wallet@'s @cabal.project@ file. --------
-
 -------- End contents from @atlas@'s @cabal.project@ file. --------
