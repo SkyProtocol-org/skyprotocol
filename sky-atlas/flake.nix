@@ -78,7 +78,7 @@
                   hlint = { };
                   haskell-language-server = { };
                   fourmolu = { };
-                  cabal-fmt = { };
+                  # cabal-fmt = { };
                 };
 
                 # Non-Haskell shell tools go here
