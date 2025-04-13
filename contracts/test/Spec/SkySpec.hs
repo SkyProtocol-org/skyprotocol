@@ -303,6 +303,16 @@ daSpec = do
 
     it "contract should not accept claim with wrong top hash" $ do
       validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof1 topHash3 `shouldBe` False
+
+    it "Bounty contract should accept timeout after deadline" $ do
+      validateTimeout deadline txAfterDeadlineRange `shouldBe` True
+
+    it "contract should reject timeout before deadline" $ do
+      validateTimeout deadline txBeforeDeadlineRange `shouldBe` False
+
+    it "contract should reject timeout in interval around deadline" $ do
+      validateTimeout deadline txAroundDeadlineRange `shouldBe` False
+
 {-
 
 ------------------------------------------------------------------------------
