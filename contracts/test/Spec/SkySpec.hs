@@ -89,6 +89,7 @@ signatureSpec = do
   let msig5Err = MultiSig [ss1] -- too few sigs
   let msig6OK = MultiSig [ss1, ss2]
   let msig7Err = MultiSig [ss1, ss3] -- pk3 is not in mpk2
+  let msig8Err = MultiSig [ss1, ss1] -- repeated pk
 
   describe "Multi Sig operations" $ do
 
@@ -112,6 +113,9 @@ signatureSpec = do
 
     it "multi sig 7 should be invalid" $ do
       (multiSigValid mpk2 fb1 msig7Err) `shouldBe` False
+
+    it "multi sig 8 should be invalid for repeating pk" $ do
+      (multiSigValid mpk2 fb1 msig8Err) `shouldBe` False
 
     it "multi sig 3 should be invalid for wrong hash" $ do
       (multiSigValid mpk1 fb2 msig3OK) `shouldBe` False
@@ -189,6 +193,7 @@ daSpec = do
   describe "simple tests for SkyDA" $ do
     -- Create an empty SkyDA, check its digest
     let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
+    let rootHash0 = castDigest . getDigest . snd $ da0
     let topHash0 = computeHash da0
     it "hash of empty DA" $ do
       computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
@@ -209,6 +214,7 @@ daSpec = do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
     let topHash1 = computeHash da3 :: DataHash
+    let rootHash1 = castDigest . getDigest . snd $ da3
 
     it "proof1 correct" $ do
       applySkyDataProof proof1 l1d == topHash1 `shouldBe` True
@@ -284,71 +290,38 @@ daSpec = do
     -- Bridge Contract
     ------------------------------------------------------------------------------
 
-    -- topHash3 signed by sk1
-    -- topHash3: c0bd8a731290df2fe149240c8271e56182b9d211ab8b9e5ba4ea7073af9dbc8a
-    let topHash3Sig1 = SingleSig (pk1, signMessage sk1 (toByteString da3))
-    let topHash3Sig2 = SingleSig (pk1, signMessage sk1 (toByteString da3))
-    it "topHash3Sig1" $ do topHash3Sig1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65e857366dd21fe441630fd4442e981b255aa86a5f310aa7f655fbf51af170ca7b20df09324c8bc388d1c6ea6de06d18b0f1c90e6a7f33558f2e3425b147930008"
-    it "topHash3Sig2" $ do topHash3Sig2 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65e857366dd21fe441630fd4442e981b255aa86a5f310aa7f655fbf51af170ca7b20df09324c8bc388d1c6ea6de06d18b0f1c90e6a7f33558f2e3425b147930008"
-    return ()
-{-
--- top hash 2 signed by sk2
--- th2: 3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1
-topHash2Sig2 :: SingleSig
-topHash2Sig2 = SingleSig pk2 (hex "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003")
-
-topHash2Sig :: MultiSig
-topHash2Sig = MultiSig [topHash2Sig1, topHash2Sig2]
-
--- top hash 3 signed by sk1
--- th3: 9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce
-topHash3Sig1 :: SingleSig
-topHash3Sig1 = SingleSig pk1 (hex "9286F3C3FCA4ADC044013E343089829AB9EB68C96B407B7C4D400B63B8E9B5A551C4FACB948615ADAC3C47833FD1320BEA76B09A90D7B2982D511E1C4B6A010F")
-
--- top hash 3 signed by sk2
--- th3: 9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce
-topHash3Sig2 :: SingleSig
-topHash3Sig2 = SingleSig pk2 (hex "A5CF5C46F3DB920896E93ECBC726EECA8F488B6ED1A3E2D7122AE0E067DC9A1A24FC8EDD22DDDD329CFFB6791D5840BD0F95BF27463711F99225B5162719E20E")
-
-topHash3Sig :: MultiSig
-topHash3Sig = MultiSig [topHash3Sig1, topHash3Sig2]
-
-bridgeSpec :: Spec
-bridgeSpec = do
-
-  it "topHash2Sig1 valid" $ do
-    (singleSigValid topHash2 topHash2Sig1) `shouldBe` True
-
-  it "topHash2Sig2 valid" $ do
-    (singleSigValid topHash2 topHash2Sig2) `shouldBe` True
-
-  it "topHash2Sig valid" $ do
-    (multiSigValid mainCommitteePK topHash2 topHash2Sig) `shouldBe` True
-
-  it "topHash3Sig1 valid" $ do
-    (singleSigValid topHash3 topHash3Sig1) `shouldBe` True
-
-  it "topHash3Sig2 valid" $ do
-    (singleSigValid topHash3 topHash3Sig2) `shouldBe` True
-
-  it "topHash3Sig valid" $ do
-    (multiSigValid mainCommitteePK topHash3 topHash3Sig) `shouldBe` True
-
-  it "bridge accepts top hash 2" $ do
-    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` True
-
-  it "bridge accepts top hash 3" $ do
-    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash3 topHash3Sig topHash1) `shouldBe` True
-
-  it "bridge doesn't accept top hash 2 with wrong committee" $ do
-    (bridgeTypedValidatorCore topic1CommitteePK mainRootHash1 topHash2 topHash2Sig topHash1) `shouldBe` False
-
-  it "bridge doesn't accept top hash 2 with wrong old root hash" $ do
-    (bridgeTypedValidatorCore mainCommitteePK mainRootHash2 topHash2 topHash2Sig topHash1) `shouldBe` False
-
-  it "bridge doesn't accept top hash 2 with wrong signature" $ do
-    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 msig1OK topHash1) `shouldBe` False
-
-  it "bridge doesn't accept top hash 2 with wrong old top hash" $ do
-    (bridgeTypedValidatorCore mainCommitteePK mainRootHash1 topHash2 topHash2Sig dh1) `shouldBe` False
--}
+    -- topHash1 signed by sk1
+    let topHash1Sig1 = SingleSig (pk1, signMessage sk1 topHash1)
+    let topHash1Sig2 = SingleSig (pk2, signMessage sk2 topHash1)
+    let topHash1Sig = MultiSig [topHash1Sig1, topHash1Sig2]
+    it "topHash1Sig1" $ do topHash1Sig1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65dc65685ad60efab880662412c3811612693e0d9d0ede937d388c45ee3319ed30be8952eded08cf2aa0f7879b16019dc64e0565c22e11fc120820e995689b5504"
+    it "topHash1Sig2" $ do topHash1Sig2 `shouldBeHex` "42fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329aea16cd1a605054aa23eb05acec102f549d3a7b64ef43a56d4f352bb82d2e0a1c983a3e76017161f6b5583baad04aa20e4af3b3f9dda2361668e4a4c66e16e4a00"
+    it "topHash1Sig1 valid" $ do
+      (singleSigValid topHash1 topHash1Sig1) `shouldBe` True
+    it "topHash1Sig2 valid" $ do
+      (singleSigValid topHash1 topHash1Sig2) `shouldBe` True
+    it "topHash1Sig valid" $ do
+      (multiSigValid mpk1 topHash1 topHash1Sig) `shouldBe` True
+    let topHash3Sig1 = SingleSig (pk1, signMessage sk1 topHash3)
+    let topHash3Sig2 = SingleSig (pk2, signMessage sk2 topHash3)
+    let topHash3Sig = MultiSig [topHash3Sig1, topHash3Sig2]
+    it "topHash3Sig1" $ do topHash3Sig1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65686847497dd0d4f0cdbdb7ebc76dfb960079de1b9de9ccd292a3c46390df88b4b2e2600af7afcf4139f5a50ab8764e79c9e8abfb25b1859f50ece312d62daa03"
+    it "topHash3Sig2" $ do topHash3Sig2 `shouldBeHex` "42fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae85462c6be83569014f935a4764fdc70ec942e7380fdc9ebdb786afaaf0285b730a83977aa15c17443d54ac01a43325b81e1dac802098a476de46444cf666a706"
+    it "topHash3Sig2 valid" $ do
+      (singleSigValid topHash3 topHash3Sig1) `shouldBe` True
+    it "topHash3Sig2 valid" $ do
+      (singleSigValid topHash3 topHash3Sig2) `shouldBe` True
+    it "topHash3Sig valid" $ do
+      (multiSigValid committee0 topHash3 topHash3Sig) `shouldBe` True
+    it "bridge accepts transition from topHash0 to topHash1" $ do
+      bridgeTypedValidatorCore daSchema0 committee0 rootHash0 topHash1 topHash1Sig topHash0 `shouldBe` True
+    it "bridge accepts transition from topHash1 to topHash3" $ do
+      bridgeTypedValidatorCore daSchema0 committee0 rootHash1 topHash3 topHash3Sig topHash1 `shouldBe` True
+    it "bridge rejects transition from topHash0 to topHash1 with wrong committee" $ do
+      bridgeTypedValidatorCore daSchema0 mpk1 rootHash0 topHash1 topHash1Sig topHash0 `shouldBe` False
+    it "bridge rejects transition from topHash1 to topHash3 with wrong root hash" $ do
+      bridgeTypedValidatorCore daSchema0 committee0 rootHash0 topHash3 topHash3Sig topHash1 `shouldBe` False
+    it "bridge rejects transition from topHash1 to topHash3 with wrong signature" $ do
+      bridgeTypedValidatorCore daSchema0 committee0 rootHash1 topHash3 topHash1Sig topHash1 `shouldBe` False
+    it "bridge rejects transition from topHash1 to topHash3 with old topHash" $ do
+      bridgeTypedValidatorCore daSchema0 committee0 rootHash1 topHash3 topHash3Sig topHash0 `shouldBe` False

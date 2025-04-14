@@ -310,14 +310,14 @@ signMessage sk msg =
 derivePubKey :: SecKey -> PubKey
 derivePubKey = fromByteString . toBuiltin . DSIGN.rawSerialiseVerKeyDSIGN . DSIGN.deriveVerKeyDSIGN @Ed25519DSIGN . fromJust . DSIGN.rawDeserialiseSignKeyDSIGN . fromBuiltin . toByteString
 
-------------------------------------------------------------------------------
--- Multisig Verification
-------------------------------------------------------------------------------
+verifySignature :: (ToByteString a) => PubKey -> a -> Signature -> Bool
+verifySignature pubKey message sig =
+  verifyEd25519Signature (toByteString pubKey) (toByteString message) (toByteString sig)
 
 -- Function that checks if a SingleSig is valid
 singleSigValid :: (ToByteString a) => a -> SingleSig -> Bool
 singleSigValid message (SingleSig (pubKey, sig)) =
-  verifyEd25519Signature (toByteString pubKey) (toByteString message) (toByteString sig)
+  verifySignature pubKey message sig
 
 -- WARNING: 'nub' and 'elem' use GHC Prelude Eq
 -- Main function to check if the MultiSig satisfies at least N valid unique signatures
@@ -333,7 +333,6 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
           let -- Filter for valid signatures from required public keys
               validSignatures = filter (\ss@(SingleSig (pubKey, sig)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
            in length validSignatures >= toInt minSigs
-
 
 -- * Meta declarations
 
