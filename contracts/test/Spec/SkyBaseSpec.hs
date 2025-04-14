@@ -140,9 +140,11 @@ baseSpec = do
       --result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
       result <- try (evaluate (toInt . toByte $ 257)) :: GB.IO (Either ErrorCall Integer)
       case result of
-        Left (ErrorCall x)  -> do putStrLn $ "The exception is: " ++ x
-                                  x `shouldBe` "FOO"
-        Right val -> putStrLn $ "The result is: " ++ (GS.show $ PS.show val)
+        Left (ErrorCall x)  -> do -- putStrLn $ "The exception is: " ++ x
+                                  x `shouldBe` "PlutusTx.Builtins.Internal.error" -- unhappily uninformative
+        Right val -> do -- putStrLn $ "The result is: " ++ (GS.show $ PS.show val)
+          val `shouldBe` 257
+          True `shouldBe` False -- wrong to reach this
 
     it "serialization 1" $ PS.show (Byte 42) `shouldBe` "42"
     it "serialization 2" $ do

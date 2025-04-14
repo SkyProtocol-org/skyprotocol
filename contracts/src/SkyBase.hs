@@ -508,13 +508,7 @@ instance Partial Byte where
   isElement = isUInt 8 . getByte
 
 instance FromInt Byte where
-  -- fromInt n = Byte (n `remainder` 256) -- DEBUG
-  -- maybeFromInt = maybeValidate . Byte
-  maybeFromInt n =
-    --    if n == -1 then traceError "FOO" else
-    Just $ Byte (n `remainder` 256) -- DEBUG
-    --    if n == -1 then traceError "FOO" else
-    --      maybeValidate . Byte $ n
+  maybeFromInt = maybeValidate . Byte
 
 instance ToByteString Byte where
   toByteString (Byte n) = integerToByteString BigEndian 1 n
