@@ -1,4 +1,4 @@
-{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 --module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
 module Spec.SkySpec where
@@ -22,106 +22,73 @@ import SkyBridgeContract
 import BountyContract
 import Spec.SkyBaseSpec
 
-dh1 :: DataHash -- blake2b_256 for "Hello, World!"
-dh1 = ofHex "511bc81dde11180838c562c82bb35f3223f46061ebde4a955c27b3f489cf1e03"
-
-dh2 :: DataHash -- blake2b_256 for "Taxation is Theft"
-dh2 = ofHex "f7fc5335c31d34a0c362acf0e751716a029fa4ea152e3c3a27305a4c6d5e02ed"
-
-fb1 :: FixedLengthByteString L2
-fb1 = ofHex "CAFE"
-
-fb2 :: FixedLengthByteString L2
-fb2 = ofHex "BABE"
-
 ------------------------------------------------------------------------------
 -- Single sigs
 ------------------------------------------------------------------------------
 -- Keys generated via https://cyphr.me/ed25519_tool/ed.html
 
--- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
-pk1 :: PubKey
-pk1 = ofHex "3363A313E34CF6D3B9E0CE44AED5A54567C4302B873DD69EC7F37B9E83AABF65"
+sk1, sk2, sk3 :: SecKey -- random seckeys, do not use outside of tests
+sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
+sk2 = ofHex "B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F"
+sk3 = ofHex "9F664160D9DDCD27B5B9A0C619FC3978DDE6C51F4FEAF40688BF54281AA0D0CC"
 
-sig1 :: Bytes64 -- signs dh1 with sk1
-sig1 = ofHex "184E401E7EA7C7E2F9B4186DEDF953437F81BD2664D1FBDE525264A4D08BFD79D81877376F1E63CE64DF46C5F1FD93CDF3B05B8B6076A6ADC05F36C81F62A500"
+pk1, pk2, pk3 :: PubKey
+pk1 = derivePubKey sk1
+pk2 = derivePubKey sk2
+pk3 = derivePubKey sk3
 
-ss1 :: SingleSig
-ss1 = SingleSig (pk1, sig1)
-
--- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
-pk2 :: PubKey
-pk2 = ofHex "42FB07466D301CA2CC2EFF2FD93A67EB1EBBEC213E6532A04DC82BE6A41329AE"
-
-sig2 :: Bytes64 -- signs dh1 with sk2
-sig2 = ofHex "B7837207523B267F5B9AA0117C02773474A5F9F9FC4D6F48AEB2DC1B7A5796E60EE17C1F5C81D43C1973C0536932FB328897B341A7F8B3B86CB66ACEF459B405"
-
-ss2 :: SingleSig
-ss2 = SingleSig (pk2, sig2)
-
--- sk3: 9F664160D9DDCD27B5B9A0C619FC3978DDE6C51F4FEAF40688BF54281AA0D0CC
-pk3 :: PubKey
-pk3 = ofHex "22B9524D37A16C945DEEC3455D92A1EBC5AC857174F5A0A8B376517A205DCA73"
-
-sig3 :: Bytes64 -- signs fb1 with sk3
-sig3 = ofHex "2F1BC348540A34C6A049E590B03C8FC87D0A9AAC213DFF829A0BD4F9B46CBCAF744AE08676761EBA38926A58AA60782B897A64295E3010339640E81EDA74A20E"
-
-ss3 :: SingleSig
-ss3 = SingleSig (pk3, sig3)
-
-------------------------------------------------------------------------------
--- Multi sigs
-------------------------------------------------------------------------------
-
-mpk1 :: MultiSigPubKey -- Require 2 of the 3 pks to sign
-mpk1 = MultiSigPubKey ([pk1, pk2, pk3], toUInt16 2)
-
-msig1OK :: MultiSig
-msig1OK = MultiSig [ss1, ss2]
-
-msig2OK :: MultiSig
-msig2OK = MultiSig [ss1, ss2, ss3]
-
-msig3OK :: MultiSig
-msig3OK = MultiSig [ss2, ss3]
-
-msig4Err :: MultiSig -- no sigs at all
-msig4Err = MultiSig []
-
-msig5Err :: MultiSig -- too few sigs
-msig5Err = MultiSig [ss1]
-
-mpk2 :: MultiSigPubKey -- Require 2 of the 2 pks to sign
-mpk2 = MultiSigPubKey ([pk1, pk2], toUInt16 2)
-
-msig6OK :: MultiSig
-msig6OK = MultiSig [ss1, ss2]
-
-msig7Err :: MultiSig -- pk3 is not in mpk2
-msig7Err = MultiSig [ss1, ss3]
+mpk1, mpk2 :: MultiSigPubKey
+mpk1 = MultiSigPubKey ([pk1, pk2, pk3], toUInt16 2) -- Require 2 of the 3 pks to sign
+mpk2 = MultiSigPubKey ([pk1, pk2], toUInt16 2) -- Require 2 of the 2 pks to sign
 
 signatureSpec :: Spec
 signatureSpec = do
 
-  describe "Single Sig operations" $ do
+  let fb1 = ofHex "CAFE" :: FixedLengthByteString L2
+  let fb2 = ofHex "BABE" :: FixedLengthByteString L2
 
+  let sig1 = signMessage sk1 fb1
+  let ss1 = SingleSig (pk1, sig1)
+  let sig2 = signMessage sk2 fb1
+  let ss2 = SingleSig (pk2, sig2)
+  let sig3 = signMessage sk3 fb1
+  let ss3 = SingleSig (pk3, sig3)
+
+  describe "check crypto primitives" $ do
+    it "deriving pk's" $ do
+      pk1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65"
+      pk2 `shouldBeHex` "42fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae"
+      pk3 `shouldBeHex` "22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca73"
+    it "signing" $ do
+      sig1 `shouldBeHex` "184e401e7ea7c7e2f9b4186dedf953437f81bd2664d1fbde525264a4d08bfd79d81877376f1e63ce64df46c5f1fd93cdf3b05b8b6076a6adc05f36c81f62a500"
+      sig2 `shouldBeHex` "b7837207523b267f5b9aa0117c02773474a5f9f9fc4d6f48aeb2dc1b7a5796e60ee17c1f5c81d43c1973c0536932fb328897b341a7f8b3b86cb66acef459b405"
+      sig3 `shouldBeHex` "2f1bc348540a34c6a049e590b03c8fc87d0a9aac213dff829a0bd4f9b46cbcaf744ae08676761eba38926a58aa60782b897a64295e3010339640e81eda74a20e"
+
+  describe "Single Sig operations" $ do
     it "single sig 1 should be valid" $ do
       (singleSigValid fb1 ss1) `shouldBe` True
-
     it "single sig 2 should be valid" $ do
       (singleSigValid fb1 ss2) `shouldBe` True
-
     it "single sig 3 should be valid" $ do
       (singleSigValid fb1 ss3) `shouldBe` True
-
     it "single sig 1 should not be valid for wrong hash" $ do
       (singleSigValid fb2 ss1) `shouldBe` False
-
     it "single sig 2 should not be valid for wrong hash" $ do
       (singleSigValid fb2 ss2) `shouldBe` False
-
     it "single sig 3 should not be valid for wrong hash" $ do
       (singleSigValid fb2 ss3) `shouldBe` False
+
+  ------------------------------------------------------------------------------
+  -- Multi sigs
+  ------------------------------------------------------------------------------
+
+  let msig1OK = MultiSig [ss1, ss2]
+  let msig2OK = MultiSig [ss1, ss2, ss3]
+  let msig3OK = MultiSig [ss2, ss3]
+  let msig4Err = MultiSig [] -- no sigs at all
+  let msig5Err = MultiSig [ss1] -- too few sigs
+  let msig6OK = MultiSig [ss1, ss2]
+  let msig7Err = MultiSig [ss1, ss3] -- pk3 is not in mpk2
 
   describe "Multi Sig operations" $ do
 
@@ -168,9 +135,6 @@ fingerprintSpec = do
     it "multi sig 2 fingerprint should match" $ do
       hexOf (computeHash mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
 
-------------------------------------------------------------------------------
--- Merkle Proof
-------------------------------------------------------------------------------
 
 daSchema0 :: DataHash
 daSchema0 = computeHash $ (ofHex "deadbeef" :: Bytes4)
@@ -209,7 +173,7 @@ msg1 :: VariableLengthByteString
 msg1 = VariableLengthByteString . stringToBuiltinByteString $ "Hello, World!"
 
 msg1Hash :: DataHash
-msg1Hash = castDigest . computeDigest $ msg1
+msg1Hash = computeHash msg1
 
 msg2 :: VariableLengthByteString
 msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft"
@@ -218,13 +182,14 @@ msg3 :: VariableLengthByteString
 msg3 = VariableLengthByteString . stringToBuiltinByteString $ "Slava Drakonu"
 
 msg3Hash :: DataHash
-msg3Hash = castDigest . computeDigest $ msg3
+msg3Hash = computeHash msg3
 
 daSpec :: Spec
 daSpec = do
   describe "simple tests for SkyDA" $ do
     -- Create an empty SkyDA, check its digest
     let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
+    let topHash0 = computeHash da0
     it "hash of empty DA" $ do
       computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
 
@@ -243,7 +208,7 @@ daSpec = do
     it "msg1 matches" $ do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
-    let topHash1 = castDigest (computeDigest da3) :: DataHash
+    let topHash1 = computeHash da3 :: DataHash
 
     it "proof1 correct" $ do
       applySkyDataProof proof1 l1d == topHash1 `shouldBe` True
@@ -269,7 +234,7 @@ daSpec = do
     it "msg3 matches" $ do
       msg3b == LiftRef (digestRef msg3) `shouldBe` True
     let l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash
-    let topHash3 = castDigest (computeDigest da11) :: DataHash
+    let topHash3 = computeHash da11 :: DataHash
     it "proof3 correct" $ do
       applySkyDataProof proof3 l3d == topHash3 `shouldBe` True
       (triePathHeight . pathTopicTriePath $ proof3) == 0 `shouldBe` True
@@ -278,7 +243,9 @@ daSpec = do
       (triePathKey . pathMessageTriePath $ proof3) == msg3i `shouldBe` True
 
     it "hashes differ" $ do
-      (castDigest (computeDigest da1) :: DataHash) == (castDigest (computeDigest da3)) `shouldBe` False
+      topHash1 == topHash3 `shouldBe` False
+      topHash1 `shouldBeHex` "f889a9fec14bad5dfd59bd560a6d7626f11f048a194f813a8b090745ed243253"
+      topHash3 `shouldBeHex` "c0bd8a731290df2fe149240c8271e56182b9d211ab8b9e5ba4ea7073af9dbc8a"
 
     it "Bounty contract should accept claim for msg1" $ do
       validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` True
@@ -313,25 +280,20 @@ daSpec = do
     it "contract should reject timeout in interval around deadline" $ do
       validateTimeout deadline txAroundDeadlineRange `shouldBe` False
 
+    ------------------------------------------------------------------------------
+    -- Bridge Contract
+    ------------------------------------------------------------------------------
+
+    -- topHash3 signed by sk1
+    -- topHash3: c0bd8a731290df2fe149240c8271e56182b9d211ab8b9e5ba4ea7073af9dbc8a
+    let topHash3Sig1 = SingleSig (pk1, signMessage sk1 (toByteString da3))
+    let topHash3Sig2 = SingleSig (pk1, signMessage sk1 (toByteString da3))
+    it "topHash3Sig1" $ do topHash3Sig1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65e857366dd21fe441630fd4442e981b255aa86a5f310aa7f655fbf51af170ca7b20df09324c8bc388d1c6ea6de06d18b0f1c90e6a7f33558f2e3425b147930008"
+    it "topHash3Sig2" $ do topHash3Sig2 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65e857366dd21fe441630fd4442e981b255aa86a5f310aa7f655fbf51af170ca7b20df09324c8bc388d1c6ea6de06d18b0f1c90e6a7f33558f2e3425b147930008"
+    return ()
 {-
-
-------------------------------------------------------------------------------
--- Bridge Contract
-------------------------------------------------------------------------------
-
-mainCommitteePK, topic1CommitteePK :: MultiSigPubKey
-mainCommitteePK = mpk1
-topic1CommitteePK = mpk2
-
--- top hash 2 signed by sk1
--- th2: 3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1
--- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
-topHash2Sig1 :: SingleSig
-topHash2Sig1 = SingleSig pk1 (hex "87E894C503E40A8CB98DEB8618DC068323092871C717D4781D56FCBBE10FCD6B1965ADE766FFDFAF8F7B2964F3ED8A6066703DD9AA68F583055ED53FBA27A90E")
-
 -- top hash 2 signed by sk2
 -- th2: 3c7dfafe47aac5454629d9280529b90b82d07ba80b89757d652bff047f0534a1
--- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
 topHash2Sig2 :: SingleSig
 topHash2Sig2 = SingleSig pk2 (hex "99E3BBBCA63ECDA27ADC6ED426A695E32AA5D7185CFC16F550834919C96F7FA17E19992E6FB2D302BE8FF71CF71907F654F25727425C0F30989B4AAC7767B003")
 
@@ -340,13 +302,11 @@ topHash2Sig = MultiSig [topHash2Sig1, topHash2Sig2]
 
 -- top hash 3 signed by sk1
 -- th3: 9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce
--- sk1: A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E
 topHash3Sig1 :: SingleSig
 topHash3Sig1 = SingleSig pk1 (hex "9286F3C3FCA4ADC044013E343089829AB9EB68C96B407B7C4D400B63B8E9B5A551C4FACB948615ADAC3C47833FD1320BEA76B09A90D7B2982D511E1C4B6A010F")
 
 -- top hash 3 signed by sk2
 -- th3: 9e0c40f42058194826884d1baf37c95bb916eebab55153461eed30e4f45042ce
--- sk2: B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F
 topHash3Sig2 :: SingleSig
 topHash3Sig2 = SingleSig pk2 (hex "A5CF5C46F3DB920896E93ECBC726EECA8F488B6ED1A3E2D7122AE0E067DC9A1A24FC8EDD22DDDD329CFFB6791D5840BD0F95BF27463711F99225B5162719E20E")
 

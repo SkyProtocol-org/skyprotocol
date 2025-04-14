@@ -14,13 +14,18 @@ import PlutusTx.List (elem, filter, length, nub)
 import PlutusTx.Prelude
 import PlutusTx.Show
 import PlutusTx.Utils
+
+import qualified Cardano.Crypto.DSIGN.Class as DSIGN
+import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SigDSIGN (..), SignKeyDSIGN (..), SignKeyDSIGNM (..), VerKeyDSIGN (..), Ed25519DSIGN)
+
 import SkyBase
+
 
 -- * Types
 
 -- A pair (pubKey, signature) of signature by a single authority
-newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Bytes64)}
-  deriving (Eq, ToByteString, FromByteString) via (Bytes64, PubKey)
+newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Signature)}
+  deriving (Eq, ToByteString, FromByteString) via (Bytes32, Bytes64)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -46,6 +51,21 @@ type DataHash = Hash BuiltinByteString
 type HashRef = DigestRef Blake2b_256
 
 newtype PubKey = PubKey {getPubKey :: Bytes32}
+  deriving newtype (Show)
+  deriving (Eq, ToByteString, FromByteString) via Bytes32
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+-- Don't use that on-chain! At least not without say much homomorphic encryption.
+newtype SecKey = SecKey {getSecKey :: Bytes32}
+  deriving (Eq, ToByteString, FromByteString) via Bytes32
+  deriving newtype (Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+newtype Signature = Signature {getSignature :: Bytes64}
+  deriving newtype (Show)
+  deriving (Eq, ToByteString, FromByteString) via Bytes64
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -232,23 +252,8 @@ instance
   where
   getDigest = getDigest . liftref
 
--- ** PubKey
-
-instance Eq PubKey where
-  (PubKey x) == (PubKey y) = x == y
-
-instance Show PubKey where
-  show (PubKey x) = "PubKey " <> show x
-
-instance ToByteString PubKey where
-  toByteString = toByteString . getPubKey
-  byteStringOut (PubKey pk) = byteStringOut pk
-
-instance FromByteString PubKey where
-  --  fromByteString = PubKey . fromByteString
-  byteStringIn isTerminal = byteStringIn isTerminal <&> PubKey
-
 -- ** PubKeyHash
+-- TODO implement isomorphism between builtin PubKeyHash and our (Digest Blake2b_256 PubKey)
 
 instance ToByteString PubKeyHash where
   toByteString = getPubKeyHash
@@ -270,6 +275,8 @@ instance (Eq a) => Eq (PlainText f a) where
 
 -- * Helpers
 
+-- ** Digests
+
 digest :: (HashFunction hf, ToByteString a) => PlainText hf a -> Digest hf a
 digest (PlainText m :: PlainText hf a) = computeDigest m
 
@@ -287,6 +294,21 @@ castDigest (Digest x) = Digest x
 
 computeHash :: (ToByteString a) => a -> DataHash
 computeHash = computeDigest . toByteString
+
+-- ** Ed25519 Signatures
+
+-- verify with PlutusTx.Builtins.verifyEd25519Signature
+-- TODO handle bad key
+-- | Sign message with given secret key.
+signMessage :: ToByteString a => SecKey -> a -> Signature
+signMessage sk msg =
+  fromByteString . toBuiltin . DSIGN.rawSerialiseSigDSIGN $
+    DSIGN.signDSIGN () (fromBuiltin . toByteString $ msg)
+      (fromJust (DSIGN.rawDeserialiseSignKeyDSIGN . fromBuiltin . toByteString $ sk) :: SignKeyDSIGN Ed25519DSIGN)
+
+-- | Derive a PK from an SK -- TODO use Maybe
+derivePubKey :: SecKey -> PubKey
+derivePubKey = fromByteString . toBuiltin . DSIGN.rawSerialiseVerKeyDSIGN . DSIGN.deriveVerKeyDSIGN @Ed25519DSIGN . fromJust . DSIGN.rawDeserialiseSignKeyDSIGN . fromBuiltin . toByteString
 
 ------------------------------------------------------------------------------
 -- Multisig Verification
@@ -311,6 +333,7 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
           let -- Filter for valid signatures from required public keys
               validSignatures = filter (\ss@(SingleSig (pubKey, sig)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
            in length validSignatures >= toInt minSigs
+
 
 -- * Meta declarations
 

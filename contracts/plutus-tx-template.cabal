@@ -60,6 +60,7 @@ library scripts
     , base                 ^>=4.18.2.1
     , binary
     , bytestring
+    , cardano-crypto-class ^>=2.2.1.0
     , composition-prelude
     , containers           ^>=0.6.7
     , crypton
@@ -131,13 +132,13 @@ test-suite tests
 
   hs-source-dirs:   test
   build-depends:
-    , base               ^>=4.18.2.1
-    , hspec              >=2.9
-    , plutus-core        ^>=1.44.0.0
-    , plutus-ledger-api  ^>=1.44.0.0
-    , plutus-tx          ^>=1.44.0.0
-    , plutus-tx-plugin   ^>=1.44.0.0
+    , base                 ^>=4.18.2.1
+    , hspec                >=2.9
+    , plutus-core          ^>=1.44.0.0
+    , plutus-ledger-api    ^>=1.44.0.0
+    , plutus-tx            ^>=1.44.0.0
+    , plutus-tx-plugin     ^>=1.44.0.0
     , QuickCheck
     , scripts
-    , text               ^>=2.0.2
+    , text                 ^>=2.0.2
   default-language: Haskell2010
