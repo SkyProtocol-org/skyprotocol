@@ -24,9 +24,11 @@ import qualified PlutusTx.Prelude as P
 import PlutusTx
 import PlutusTx.Builtins
 import PlutusTx.Builtins.Internal (BuiltinString (..))
+import PlutusTx.List (map, zip)
 import qualified PlutusTx.Show as PS
 import PlutusTx.Utils
 
+import GHC.Base ((++))
 import qualified GHC.Base as GB
 import qualified GHC.Err as GE
 import qualified GHC.Show as GS
@@ -142,13 +144,13 @@ baseSpec = do
                                   x `shouldBe` "FOO"
         Right val -> putStrLn $ "The result is: " ++ (GS.show $ PS.show val)
 
-    it "serialization 1" $ PS.show (Byte 42) `shouldBe` "Byte 42"
+    it "serialization 1" $ PS.show (Byte 42) `shouldBe` "42"
     it "serialization 2" $ do
-      PS.show (UInt16 0xf00d) `shouldBe` "UInt16 61453"
-      PS.show (toUInt16 0xbad) `shouldBe` "UInt16 2989"
+      PS.show (UInt16 0xf00d) `shouldBe` "61453"
+      PS.show (toUInt16 0xbad) `shouldBe` "2989"
       PS.show (maybeFromInt 0x11111 :: Maybe UInt16) `shouldBe` "Nothing"
     it "serialization 3" $ PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
-    it "serialization 4" $ PS.show (fromInt 0x5678901234567890 :: Bytes8) `shouldBe` "FixedLengthByteString 5678901234567890"
+    it "serialization 4" $ PS.show (fromInt 0x5678901234567890 :: Bytes8) `shouldBe` "5678901234567890"
     it "serialization 5" $ do
       let unicodeMax :: VariableLengthInteger
           unicodeMax = fromInt 0x10ffff
@@ -235,7 +237,7 @@ baseSpec = do
     testBitLogic "Bytes8" fromInt toInt (toBytes8 0xffffffffffffffff) 8 True
     it "shiftLeftWithBits" $ do
       (toBytes8 128 `shiftLeft` 56) `shouldBeHex2` "8000000000000000"
-      PS.show (shiftLeftWithBits (toBytes8 1) 63 (fromInt 0)) `shouldBe` "FixedLengthByteString 8000000000000000"
+      PS.show (shiftLeftWithBits (toBytes8 1) 63 (fromInt 0)) `shouldBe` "8000000000000000"
 
 testBitLogic :: (BitLogic a, FromInt a, Dato a, Eq a, GS.Show a, Arbitrary a) =>
   String -> (Integer -> a) -> (a -> Integer) -> a -> Integer -> Bool -> Spec

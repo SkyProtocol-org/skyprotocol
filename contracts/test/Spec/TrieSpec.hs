@@ -24,6 +24,7 @@ import qualified PlutusTx.Prelude as P
 import PlutusTx
 import PlutusTx.Builtins
 import PlutusTx.Builtins.Internal (BuiltinString (..))
+import PlutusTx.List (zip)
 import qualified PlutusTx.Show as PS
 import PlutusTx.Utils
 
@@ -102,8 +103,8 @@ spec = describe "Spec.TrieSpec" $ do
   it "list I/O 3" $ ol [(0,"a"),(1,"b")] `shouldBeHex` "000202010001610162"
   it "list I/O 4" $ ol [(0,"a"),(1,"b"),(2,"c")] `shouldBeHex` "000302020100016101000162030000000000000000000163"
   it "list I/O 5" $ ol [(4611686018427387904,"")] `shouldBeHex` "0040033e400000000000000001"
-  it "list I/O 2**62" $ PS.show (ol [(4611686018427387904,"")]) `shouldBe` "Identity (TrieTop 63 (LiftRef (Identity (Fix (TrieNodeFL Skip Byte 62 FixedLengthByteString 4000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
-  it "list I/O 2**63" $ PS.show (ol [(9223372036854775808,"")]) `shouldBe` "Identity (TrieTop 64 (LiftRef (Identity (Fix (TrieNodeFL Skip Byte 63 FixedLengthByteString 8000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
+  it "list I/O 2**62" $ PS.show (ol [(4611686018427387904,"")]) `shouldBe` "Identity (TrieTop 63 (LiftRef (Identity (Fix (TrieNodeFL Skip 62 4000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
+  it "list I/O 2**63" $ PS.show (ol [(9223372036854775808,"")]) `shouldBe` "Identity (TrieTop 64 (LiftRef (Identity (Fix (TrieNodeFL Skip 63 8000000000000000 LiftRef (Identity (Fix (TrieNodeFL Leaf \"\"))))))))"
   it "list to trie and back 1" $ testListOfList' []
   it "list to trie and back 2" $ testListOfList' [(13, "13"), (34, "34")]
   it "list to trie and back 3" $ testListOfList' initialValues
@@ -112,9 +113,9 @@ spec = describe "Spec.TrieSpec" $ do
   it "list to trie and back 2**32" $ testListOfList' [(4294967296,"")]
   it "list to trie and back 2**33" $ testListOfList' [(8589934592,"")]
   it "list to trie and back 2**62" $ testListOfList' [(4611686018427387904,"")]
-  it "list to trie and back 2**63-1" $ PS.show (roundtrip1 [(9223372036854775807,"")]) `shouldBe` "[(FixedLengthByteString 7fffffffffffffff,\"\")]"
-  it "list to trie and back 2**63" $ PS.show (roundtrip1 [(9223372036854775808,"")]) `shouldBe` "[(FixedLengthByteString 8000000000000000,\"\")]"
-  it "list to trie and back 2**63+1" $ PS.show (roundtrip1 [(9223372036854775809,"")]) `shouldBe` "[(FixedLengthByteString 8000000000000001,\"\")]"
+  it "list to trie and back 2**63-1" $ PS.show (roundtrip1 [(9223372036854775807,"")]) `shouldBe` "[(7fffffffffffffff,\"\")]"
+  it "list to trie and back 2**63" $ PS.show (roundtrip1 [(9223372036854775808,"")]) `shouldBe` "[(8000000000000000,\"\")]"
+  it "list to trie and back 2**63+1" $ PS.show (roundtrip1 [(9223372036854775809,"")]) `shouldBe` "[(8000000000000001,\"\")]"
   it "basic construction of the trie" $ do
     let testLookup l k v = runIdentity (ol l >>= lookup (fromInt k)) `shouldBe` v
     testLookup [] 3 Nothing
