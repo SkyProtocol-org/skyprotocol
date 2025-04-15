@@ -33,12 +33,6 @@
           (final: prev: {
             webkitgtk = final.webkitgtk_4_0;
             libsodium =
-              # prev.libsodium.overrideAttrs (fAttrs: pAttrs: {
-              #   fAttrs.src = fetchGit {
-              #     url = "https://github.com/IntersectMBO/libsodium";
-              #     rev = "dbb48cce5429cb6585c9034f002568964f1ce567";
-              #   };
-              # });
               with final; stdenv.mkDerivation rec {
                 pname = "libsodium";
 
@@ -73,7 +67,7 @@
               };
           })
           (final: prev: {
-            hixProject =
+            skyAtlasProject =
               final.haskell-nix.project' {
                 src = ./.;
                 compiler-nix-name = "ghc966";
@@ -105,7 +99,7 @@
           overlay
         ];
         pkgs = import nixpkgs { inherit system overlays; inherit (haskellNix) config; };
-        flake = pkgs.hixProject.flake { };
+        flake = pkgs.skyAtlasProject.flake { };
       in
       flake // {
         legacyPackages = pkgs;
