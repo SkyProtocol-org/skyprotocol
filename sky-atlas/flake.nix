@@ -14,11 +14,7 @@
 
   outputs = { self, nixpkgs, flake-utils, haskellNix, CHaP }:
     let
-      supportedSystems = [
-        "x86_64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ];
+      supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
     in
     flake-utils.lib.eachSystem supportedSystems (system:
       let
@@ -36,44 +32,45 @@
           haskellNix.overlay
           (final: prev: {
             webkitgtk = final.webkitgtk_4_0;
-            libsodium = prev.libsodium.overrideAttrs (fAttrs: pAttrs: {
-              fAttrs.src = fetchGit {
-                url = "https://github.com/IntersectMBO/libsodium";
-                rev = "dbb48cce5429cb6585c9034f002568964f1ce567";
+            libsodium =
+              # prev.libsodium.overrideAttrs (fAttrs: pAttrs: {
+              #   fAttrs.src = fetchGit {
+              #     url = "https://github.com/IntersectMBO/libsodium";
+              #     rev = "dbb48cce5429cb6585c9034f002568964f1ce567";
+              #   };
+              # });
+              with final; stdenv.mkDerivation rec {
+                pname = "libsodium";
+
+                src = fetchGit {
+                  url = "https://github.com/IntersectMBO/libsodium";
+                  rev = version;
+                };
+                version = "dbb48cce5429cb6585c9034f002568964f1ce567";
+
+                nativeBuildInputs = [ autoreconfHook ];
+
+                configureFlags = [ "--enable-static" ]
+                  # Fixes a compilation failure: "undefined reference to `__memcpy_chk'". Note
+                  # that the more natural approach of adding "stackprotector" to
+                  # `hardeningDisable` does not resolve the issue.
+                  ++ lib.optional stdenv.hostPlatform.isMinGW "CFLAGS=-fno-stack-protector";
+
+                outputs = [ "out" "dev" ];
+                separateDebugInfo = stdenv.isLinux && stdenv.hostPlatform.libc != "musl";
+
+                enableParallelBuilding = true;
+
+                doCheck = true;
+
+                meta = with lib; {
+                  description = "A modern and easy-to-use crypto library - VRF fork";
+                  homepage = "http://doc.libsodium.org/";
+                  license = licenses.isc;
+                  maintainers = [ "tdammers" "nclarke" ];
+                  platforms = platforms.all;
+                };
               };
-            });
-            #with final; stdenv.mkDerivation rec {
-            #   pname = "libsodium";
-
-            #   src = fetchGit {
-            #     url = "https://github.com/IntersectMBO/libsodium";
-            #     rev = version;
-            #   };
-            #   version = "dbb48cce5429cb6585c9034f002568964f1ce567";
-
-            #   nativeBuildInputs = [ autoreconfHook ];
-
-            #   configureFlags = [ "--enable-static" ]
-            #     # Fixes a compilation failure: "undefined reference to `__memcpy_chk'". Note
-            #     # that the more natural approach of adding "stackprotector" to
-            #     # `hardeningDisable` does not resolve the issue.
-            #     ++ lib.optional stdenv.hostPlatform.isMinGW "CFLAGS=-fno-stack-protector";
-
-            #   outputs = [ "out" "dev" ];
-            #   separateDebugInfo = stdenv.isLinux && stdenv.hostPlatform.libc != "musl";
-
-            #   enableParallelBuilding = true;
-
-            #   doCheck = true;
-
-            #   meta = with lib; {
-            #     description = "A modern and easy-to-use crypto library - VRF fork";
-            #     homepage = "http://doc.libsodium.org/";
-            #     license = licenses.isc;
-            #     maintainers = [ "tdammers" "nclarke" ];
-            #     platforms = platforms.all;
-            #   };
-            # };
           })
           (final: prev: {
             hixProject =
@@ -99,9 +96,9 @@
                 evalSystem = "x86_64-linux";
                 inputMap = { "https://chap.intersectmbo.org/" = CHaP; };
 
-                modules = with final; [{
-                  packages.postgresql-libpq-configure.components.library.libs = lib.mkForce [ [ postgresql ] ];
-                }];
+                # modules = with final; [{
+                #   packages.postgresql-libpq-configure.components.library.libs = lib.mkForce [ [ postgresql ] ];
+                # }];
 
               };
           })
@@ -115,4 +112,8 @@
         # Built by `nix build .`
         packages.default = flake.packages."sky-atlas:exe:sky-atlas";
       });
+
+  nixConfig = {
+    allow-import-from-derivation = "true";
+  };
 }

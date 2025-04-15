@@ -1,6 +1,6 @@
-cabal-version:      3.6
-name:               sky-atlas
-version:            0.1.0
+cabal-version: 3.6
+name:          sky-atlas
+version:       0.1.0
 
 common common
   default-language:   GHC2021
@@ -32,18 +32,19 @@ common plutus-ghc-options
 
   -- expose all unfoldings, so plutustx compiler can do its job
   ghc-options:
-    -fexpose-all-unfoldings -fobject-code
-    -fplugin-opt PlutusTx.Plugin:defer-errors
+    -fexpose-all-unfoldings -fobject-code -fplugin-opt
+    PlutusTx.Plugin:defer-errors
 
   -- set target plutus-core version
   ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
 
 library onchain
-  import:           common, plutus-ghc-options
-  hs-source-dirs:   onchain
+  import:          common, plutus-ghc-options
+  hs-source-dirs:  onchain
   exposed-modules:
-    -- BetRef.OnChain.BetRef
-    -- BetRef.OnChain.BetRef.Compiled
+
+  -- BetRef.OnChain.BetRef
+  -- BetRef.OnChain.BetRef.Compiled
   build-depends:
     , base
     , plutus-core
@@ -52,41 +53,41 @@ library onchain
     , plutus-tx-plugin
 
 library offchain-lib
-  import:           common
-  hs-source-dirs:   offchain
+  import:          common
+  hs-source-dirs:  offchain
   exposed-modules:
-    -- BetRef.Api.Api
-    -- BetRef.Api.BetRef
-    -- BetRef.Api.Context
-    -- BetRef.Api.Operations
-    -- BetRef.Api.Tx
+
+  -- BetRef.Api.Api
+  -- BetRef.Api.BetRef
+  -- BetRef.Api.Context
+  -- BetRef.Api.Operations
+  -- BetRef.Api.Tx
   build-depends:
-    , base
     , aeson
-    , sky-atlas:onchain
-    , atlas-cardano >= 0.12.0
-    , swagger2
+    , atlas-cardano      >=0.12.0
+    , base
+    , containers
     , servant-server
     , servant-swagger
-    , containers
+    , sky-atlas:onchain
+    , swagger2
     , text
 
 executable sky-atlas
-  import:           common
-  hs-source-dirs:   app
-  main-is:          Main.hs
-  ghc-options:
-    -O2 -threaded -rtsopts -with-rtsopts=-T
+  import:         common
+  hs-source-dirs: app
+  main-is:        Main.hs
+  ghc-options:    -O2 -threaded -rtsopts -with-rtsopts=-T
   build-depends:
     , aeson-pretty
+    , atlas-cardano           >=0.12.0
     , base
     , bytestring
-    , atlas-cardano >= 0.12.0
-    , sky-atlas:offchain-lib
+    , http-types
     , servant-server
+    , sky-atlas:offchain-lib
     , transformers
     , wai-cors
-    , http-types
     , warp
 
 test-suite tests
@@ -96,15 +97,17 @@ test-suite tests
   main-is:        Spec.hs
   hs-source-dirs: tests
   other-modules:
-    -- BetRef.Tests.PlaceBet
-    -- BetRef.Tests.TakeBetPot
+
+  -- BetRef.Tests.PlaceBet
+  -- BetRef.Tests.TakeBetPot
   build-depends:
     , base
     , containers
-    , sky-atlas:onchain
-    , sky-atlas:offchain-lib
     , extra
-    , text
-    -- , atlas-cardano
     , mtl
+    , sky-atlas:offchain-lib
+    , sky-atlas:onchain
     , tasty
+    , text
+
+-- , atlas-cardano
