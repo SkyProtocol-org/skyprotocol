@@ -25,10 +25,9 @@ source-repository-package
   location: https://github.com/geniusyield/atlas
   subdir:
     plutus/atlas-onchain-common
-    plutus
     .
-  tag: 0d96cda287d35e340079a6512e47b10dcc78dd73
-  --sha256: sha256-Ymoyi7aVpv6/rCofajriovdhoIuemGFjd+3EvHLIavI=
+  tag: 740700f44456066dd62b14291c6818f760f9a8bf
+  --sha256: sha256-UBbKHS3+8EYADByyTX/LUmLVE5dws7T8EDLLujUrLhg=
 
 -- TODO: Temporary, until proposed changes are in upstream (track https://github.com/mlabs-haskell/clb/pull/72)
 source-repository-package

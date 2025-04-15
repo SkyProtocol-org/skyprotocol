@@ -42,9 +42,6 @@ library onchain
   import:          common, plutus-ghc-options
   hs-source-dirs:  onchain
   exposed-modules:
-
-  -- BetRef.OnChain.BetRef
-  -- BetRef.OnChain.BetRef.Compiled
   build-depends:
     , base
     , plutus-core
@@ -56,22 +53,17 @@ library offchain-lib
   import:          common
   hs-source-dirs:  offchain
   exposed-modules:
-
-  -- BetRef.Api.Api
-  -- BetRef.Api.BetRef
-  -- BetRef.Api.Context
-  -- BetRef.Api.Operations
-  -- BetRef.Api.Tx
   build-depends:
-    , aeson
     , atlas-cardano      >=0.12.0
     , base
-    , containers
-    , servant-server
-    , servant-swagger
     , sky-atlas:onchain
-    , swagger2
-    , text
+
+-- , aeson
+-- , containers
+-- , servant-server
+-- , servant-swagger
+-- , swagger2
+-- , text
 
 executable sky-atlas
   import:         common
@@ -79,16 +71,17 @@ executable sky-atlas
   main-is:        Main.hs
   ghc-options:    -O2 -threaded -rtsopts -with-rtsopts=-T
   build-depends:
-    , aeson-pretty
     , atlas-cardano           >=0.12.0
     , base
-    , bytestring
-    , http-types
-    , servant-server
     , sky-atlas:offchain-lib
-    , transformers
-    , wai-cors
-    , warp
+
+-- , aeson-pretty
+-- , bytestring
+-- , http-types
+-- , servant-server
+-- , transformers
+-- , wai-cors
+-- , warp
 
 test-suite tests
   import:         common
@@ -102,12 +95,11 @@ test-suite tests
   -- BetRef.Tests.TakeBetPot
   build-depends:
     , base
-    , containers
-    , extra
-    , mtl
     , sky-atlas:offchain-lib
     , sky-atlas:onchain
-    , tasty
-    , text
 
--- , atlas-cardano
+-- , containers
+-- , extra
+-- , mtl
+-- , tasty
+-- , text
