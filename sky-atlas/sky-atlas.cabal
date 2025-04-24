@@ -7,16 +7,26 @@ common common
   default-extensions:
     DataKinds
     DeriveAnyClass
+    DeriveFunctor
+    DeriveGeneric
     DerivingStrategies
     DerivingVia
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
     GADTs
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    KindSignatures
     LambdaCase
+    MultiParamTypeClasses
     MultiWayIf
     OverloadedStrings
     RecordWildCards
     RoleAnnotations
+    ScopedTypeVariables
+    TypeApplications
     TypeFamilies
-    UndecidableInstances
     ViewPatterns
 
   ghc-options:        -Wall -Wincomplete-uni-patterns -Wunused-packages
@@ -38,25 +48,55 @@ common plutus-ghc-options
   -- set target plutus-core version
   ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
 
-library onchain
-  import:          common, plutus-ghc-options
-  hs-source-dirs:  onchain
+library common
+  import:             common, plutus-ghc-options
+  hs-source-dirs:     common
+  default-extensions: NoImplicitPrelude
   exposed-modules:
+    Crypto
+    DA
+    Trie
+    Types
+
+  build-depends:
+    , base
+    , cardano-crypto-class
+    , hex-text
+    , plutus-ledger-api
+    , plutus-tx
+    , text
+
+library onchain
+  import:             common, plutus-ghc-options
+  hs-source-dirs:     onchain
+  default-extensions:
+    NoImplicitPrelude
+    Strict
+
+  exposed-modules:
+    Contract
+    Contract.Bounty
+    Contract.SkyBridge
+    Contract.SkyMintingPolicy
+
   build-depends:
     , base
     , plutus-core
     , plutus-ledger-api
     , plutus-tx
-    , plutus-tx-plugin
+    , sky-atlas:common
+
+-- if !(impl(ghcjs) || os(ghcjs))
+--   build-depends: plutus-tx-plugin
 
 library offchain-lib
   import:          common
   hs-source-dirs:  offchain
   exposed-modules:
   build-depends:
-    , atlas-cardano      >=0.12.0
+    , atlas-cardano     >=0.12.0
     , base
-    , sky-atlas:onchain
+    , sky-atlas:common
 
 -- , aeson
 -- , containers
@@ -70,10 +110,10 @@ executable sky-atlas
   hs-source-dirs: app
   main-is:        Main.hs
   ghc-options:    -O2 -threaded -rtsopts -with-rtsopts=-T
-  build-depends:
-    , atlas-cardano           >=0.12.0
-    , base
-    , sky-atlas:offchain-lib
+  build-depends:  base
+
+-- , atlas-cardano  >=0.12.0
+-- , sky-atlas:offchain-lib
 
 -- , aeson-pretty
 -- , bytestring
@@ -90,16 +130,8 @@ test-suite tests
   main-is:        Spec.hs
   hs-source-dirs: tests
   other-modules:
-
-  -- BetRef.Tests.PlaceBet
-  -- BetRef.Tests.TakeBetPot
   build-depends:
     , base
+    , Hspec
     , sky-atlas:offchain-lib
     , sky-atlas:onchain
-
--- , containers
--- , extra
--- , mtl
--- , tasty
--- , text
