@@ -84,6 +84,7 @@ library onchain
     , plutus-core
     , plutus-ledger-api
     , plutus-tx
+    , plutus-tx-plugin
     , sky-atlas:common
 
 -- if !(impl(ghcjs) || os(ghcjs))
@@ -132,6 +133,6 @@ test-suite tests
   other-modules:
   build-depends:
     , base
-    , Hspec
     , sky-atlas:offchain-lib
     , sky-atlas:onchain
+    , tasty

@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Contract.Bounty where
 
@@ -59,8 +60,10 @@ instance FromByteString DecodedClientParams where
 instance ToByteString DecodedClientParams where
   byteStringOut = byteStringOut . getDecodedClientParams
 
--- PlutusTx.makeLift ''ClientParams
--- PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
+-- FIX it seems that plutus doesn't like HKT at all
+PlutusTx.unstableMakeIsData ''Digest
+PlutusTx.unstableMakeIsData ''FixedLengthByteString
+PlutusTx.unstableMakeIsData ''DecodedClientParams
 
 ------------------------------------------------------------------------------
 -- Redeemers for client contract
@@ -74,9 +77,8 @@ instance FromByteString ClientRedeemer where
       Left proof -> ClaimBounty proof
       Right () -> Timeout
 
--- PlutusTx.makeLift ''ClientRedeemer
--- PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0)]
--- PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('Timeout, 1)]
+-- FIX it seems that plutus doesn't like HKT at all
+-- PlutusTx.unstableMakeIsData ''ClientRedeemer
 
 ------------------------------------------------------------------------------
 -- Client contract validator
@@ -96,241 +98,13 @@ validateClaimBounty
       `after` txValidRange
       &&
       -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-
-      -- The bounty's message hash is in the DA
-      -- The bounty's message hash is in the DA
-
-      -- The bounty's message hash is in the DA
       daTopHash
       == applySkyDataProof proof messageHash
       &&
       -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-      -- topic ID matches
-
-      -- topic ID matches
-      -- topic ID matches
-
-      -- topic ID matches
       topicId
       == triePathKey pathTopicTriePath
       &&
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-      -- heights are 0
-
-      -- heights are 0
-      -- heights are 0
-
       -- heights are 0
       triePathHeight pathTopicTriePath
       == 0

@@ -1,6 +1,6 @@
 module Crypto where
 
-import qualified Cardano.Crypto.DSIGN.Class as DSIGN
+import Cardano.Crypto.DSIGN.Class qualified as DSIGN
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
@@ -294,8 +294,10 @@ computeHash = computeDigest . toByteString
 -- | Sign message with given secret key.
 signMessage :: (ToByteString a) => SecKey -> a -> Signature
 signMessage sk msg =
-  fromByteString . toBuiltin . DSIGN.rawSerialiseSigDSIGN $
-    DSIGN.signDSIGN
+  fromByteString
+    . toBuiltin
+    . DSIGN.rawSerialiseSigDSIGN
+    $ DSIGN.signDSIGN
       ()
       (fromBuiltin . toByteString $ msg)
       (fromJust (DSIGN.rawDeserialiseSignKeyDSIGN . fromBuiltin . toByteString $ sk) :: SignKeyDSIGN Ed25519DSIGN)
