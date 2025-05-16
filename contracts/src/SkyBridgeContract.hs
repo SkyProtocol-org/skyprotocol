@@ -1,50 +1,54 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImportQualifiedPost        #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE Strict                     #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE ViewPatterns               #-}
-{-# OPTIONS_GHC -fno-full-laziness #-}
-{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
-{-# OPTIONS_GHC -fno-spec-constr #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
-{-# OPTIONS_GHC -fno-unbox-small-strict-fields #-}
-{-# OPTIONS_GHC -fno-unbox-strict-fields #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module SkyBridgeContract where
 
 import GHC.Generics (Generic)
-
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1 (Lovelace, POSIXTime, PubKeyHash)
 import PlutusLedgerApi.V1.Address (toPubKeyHash)
 import PlutusLedgerApi.V1.Interval (contains)
-import PlutusLedgerApi.V1.Value (lovelaceValueOf, valueOf, flattenValue,
-                                 assetClassValueOf, AssetClass (..))
-import PlutusLedgerApi.V2 (CurrencySymbol, Value (..), Datum (..),
-                           OutputDatum (..), ScriptContext (..),
-                           TokenName (..), TxInfo (..), TxOut (..),
-                           txOutDatum, TxInInfo, TxInfo,
-                           from, to, txInInfoResolved)
-import PlutusLedgerApi.V2.Contexts (getContinuingOutputs, findDatum)
+import PlutusLedgerApi.V1.Value
+  ( AssetClass (..),
+    assetClassValueOf,
+    flattenValue,
+    lovelaceValueOf,
+    valueOf,
+  )
+import PlutusLedgerApi.V2
+  ( CurrencySymbol,
+    Datum (..),
+    OutputDatum (..),
+    ScriptContext (..),
+    TokenName (..),
+    TxInInfo,
+    TxInfo (..),
+    TxOut (..),
+    Value (..),
+    from,
+    to,
+    txInInfoResolved,
+    txOutDatum,
+  )
+import PlutusLedgerApi.V2.Contexts (findDatum, getContinuingOutputs)
 import PlutusTx
 import PlutusTx.AsData qualified as PlutusTx
 import PlutusTx.Blueprint
+import PlutusTx.Builtins
+  ( BuiltinByteString,
+    appendByteString,
+    blake2b_256,
+    equalsByteString,
+    lessThanInteger,
+    verifyEd25519Signature,
+  )
+import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show qualified as PlutusTx
+import SkyBase
+import SkyCrypto
+import SkyDA
 import PlutusTx.Builtins (BuiltinByteString, equalsByteString, lessThanInteger,
                           verifyEd25519Signature, appendByteString, blake2b_256)
 
@@ -131,7 +135,7 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
 ------------------------------------------------------------------------------
 
 -- The currency symbol is the unique identifier of the NFT currency (= hash of minting script)
-data BridgeParams = BridgeParams
+newtype BridgeParams = BridgeParams
   { bridgeNFTCurrencySymbol :: CurrencySymbol
   }
   deriving stock (Generic)
@@ -153,6 +157,9 @@ data BridgeRedeemer = UpdateBridge
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
+instance FromByteString BridgeRedeemer where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 UpdateBridge
+
 PlutusTx.makeLift ''BridgeRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
@@ -172,9 +179,9 @@ findInputByCurrencySymbol targetSymbol inputs =
 -- Function to get a Datum from a TxOut, handling both inline data and hashed data
 getDatumFromTxOut :: TxOut -> ScriptContext -> Maybe Datum
 getDatumFromTxOut txOut ctx = case txOutDatum txOut of
-    OutputDatumHash dh -> findDatum dh (scriptContextTxInfo ctx)  -- Lookup the datum using the hash
-    OutputDatum datum -> Just datum  -- Inline datum is directly available
-    NoOutputDatum -> Nothing  -- No datum attached
+  OutputDatumHash dh -> findDatum dh (scriptContextTxInfo ctx) -- Lookup the datum using the hash
+  OutputDatum datum -> Just datum -- Inline datum is directly available
+  NoOutputDatum -> Nothing -- No datum attached
 
 -- Deserialize a serialized bridge NFT datum
 getBridgeNFTDatum :: Datum -> Maybe BridgeNFTDatum
@@ -183,14 +190,14 @@ getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
 -- Given a script context, find the bridge NFT UTXO
 getBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
 getBridgeNFTDatumFromContext currencySymbol scriptContext = do
-    -- Find the input by currency symbol
-    inputInfo <- findInputByCurrencySymbol currencySymbol (txInfoInputs (scriptContextTxInfo scriptContext))
-    -- Get the transaction output from the input info
-    let txOut = txInInfoResolved inputInfo  -- This retrieves the TxOut from TxInInfo
-    -- Get the datum from the transaction output
-    datum <- getDatumFromTxOut txOut scriptContext
-    -- Get the BridgeNFTDatum from the datum
-    getBridgeNFTDatum datum
+  -- Find the input by currency symbol
+  inputInfo <- findInputByCurrencySymbol currencySymbol (txInfoInputs (scriptContextTxInfo scriptContext))
+  -- Get the transaction output from the input info
+  let txOut = txInInfoResolved inputInfo -- This retrieves the TxOut from TxInInfo
+  -- Get the datum from the transaction output
+  datum <- getDatumFromTxOut txOut scriptContext
+  -- Get the BridgeNFTDatum from the datum
+  getBridgeNFTDatum datum
 
 -- Given a transaction output extract its serialized bridge NFT datum
 getBridgeNFTDatumFromTxOut :: TxOut -> ScriptContext -> Maybe BridgeNFTDatum
@@ -204,14 +211,14 @@ getBridgeNFTDatumFromTxOut ownOutput ctx = do
 -- XXX copypasta for reference inputs, could probably be unified with getBridgeNFTDatumFromContext
 getRefBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
 getRefBridgeNFTDatumFromContext currencySymbol scriptContext = do
-    -- Find the input by currency symbol
-    inputInfo <- findInputByCurrencySymbol currencySymbol (txInfoReferenceInputs (scriptContextTxInfo scriptContext))
-    -- Get the transaction output from the input info
-    let txOut = txInInfoResolved inputInfo  -- This retrieves the TxOut from TxInInfo
-    -- Get the datum from the transaction output
-    datum <- getDatumFromTxOut txOut scriptContext
-    -- Get the BridgeNFTDatum from the datum
-    getBridgeNFTDatum datum
+  -- Find the input by currency symbol
+  inputInfo <- findInputByCurrencySymbol currencySymbol (txInfoReferenceInputs (scriptContextTxInfo scriptContext))
+  -- Get the transaction output from the input info
+  let txOut = txInInfoResolved inputInfo -- This retrieves the TxOut from TxInInfo
+  -- Get the datum from the transaction output
+  datum <- getDatumFromTxOut txOut scriptContext
+  -- Get the BridgeNFTDatum from the datum
+  getBridgeNFTDatum datum
 
 ------------------------------------------------------------------------------
 -- Bridge Contract
@@ -219,13 +226,13 @@ getRefBridgeNFTDatumFromContext currencySymbol scriptContext = do
 
 -- Validates bridge transactions
 bridgeTypedValidator ::
-    BridgeParams ->
-    () ->
-    BridgeRedeemer ->
-    ScriptContext ->
-    Bool
+  BridgeParams ->
+  () ->
+  BridgeRedeemer ->
+  ScriptContext ->
+  Bool
 bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
-    PlutusTx.and conditions
+  PlutusTx.and conditions
   where
     conditions :: [Bool]
     conditions = case redeemer of
@@ -241,8 +248,8 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext txInfo _) =
 
     ownOutput :: TxOut
     ownOutput = case getContinuingOutputs ctx of
-        [o] -> o
-        _   -> PlutusTx.traceError "expected exactly one output"
+      [o] -> o
+      _ -> PlutusTx.traceError "expected exactly one output"
 
     oldBridgeNFTDatum :: BridgeNFTDatum
     (Just oldBridgeNFTDatum) = getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx
@@ -333,8 +340,8 @@ bridgeUntypedValidator params datum redeemer ctx =
         )
 
 bridgeValidatorScript ::
-    BridgeParams ->
-    CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
+  BridgeParams ->
+  CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
 bridgeValidatorScript params =
-    $$(PlutusTx.compile [||bridgeUntypedValidator||])
-        `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
+  $$(PlutusTx.compile [||bridgeUntypedValidator||])
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
