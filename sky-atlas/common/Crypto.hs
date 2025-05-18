@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Crypto where
 
 import Cardano.Crypto.DSIGN.Class qualified as DSIGN
@@ -5,6 +7,7 @@ import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
+import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Prelude
@@ -15,20 +18,20 @@ import Types
 
 -- A pair (pubKey, signature) of signature by a single authority
 newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Signature)}
-  deriving (Eq, ToByteString, FromByteString) via (Bytes32, Bytes64)
+  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (Bytes32, Bytes64)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Signatures produced by data operators for top hash
 newtype MultiSig = MultiSig [SingleSig]
-  deriving (Eq, ToByteString, FromByteString) via [SingleSig]
+  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via [SingleSig]
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- List of pubkeys that must sign and minimum number of them that must sign
 newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
   -- data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
-  deriving (Eq, ToByteString, FromByteString) via ([PubKey], UInt16)
+  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via ([PubKey], UInt16)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -42,13 +45,14 @@ type HashRef = DigestRef Blake2b_256
 
 newtype PubKey = PubKey {getPubKey :: Bytes32}
   deriving newtype (Show)
-  deriving (Eq, ToByteString, FromByteString) via Bytes32
+  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via Bytes32
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Don't use that on-chain! At least not without say much homomorphic encryption.
+-- TODO: move that to a separate file, too, that is incompatible with on-chain
 newtype SecKey = SecKey {getSecKey :: Bytes32}
-  deriving (Eq, ToByteString, FromByteString) via Bytes32
+  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via Bytes32
   deriving newtype (Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -62,13 +66,14 @@ newtype Signature = Signature {getSignature :: Bytes64}
 newtype Digest hf a = Digest {digestByteString :: FixedLengthByteString hf}
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+  deriving (Eq, ToInt, FromInt, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via FixedLengthByteString hf
 
 -- Static intent to transform with a hash or encryption function f
 newtype PlainText f a = PlainText a
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-data Blake2b_256 -- static knowledge of hash function
+data Blake2b_256 = Blake2b_256 -- static knowledge of hash function
 
 data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue :: x}
   deriving stock (Generic)
@@ -112,26 +117,6 @@ instance
 
 instance
   (HashFunction hf) =>
-  Eq (Digest hf a)
-  where
-  (Digest x) == (Digest y) = x == y
-
-instance
-  (HashFunction hf) =>
-  ToByteString (Digest hf a)
-  where
-  toByteString (Digest (FixedLengthByteString b)) = b
-  byteStringOut (Digest b) = byteStringOut b
-
-instance
-  (HashFunction hf) =>
-  FromByteString (Digest hf a)
-  where
-  --  fromByteString = fromByteStringIn
-  byteStringIn isTerminal = byteStringIn isTerminal <&> Digest
-
-instance
-  (HashFunction hf) =>
   Dato (Digest hf a)
 
 instance
@@ -162,6 +147,24 @@ instance
 
 instance
   (HashFunction hf) =>
+  LiftToData (Digest hf)
+  where
+  liftToBuiltinData = toBuiltinData
+
+instance
+  (HashFunction hf) =>
+  LiftFromData (Digest hf)
+  where
+  liftFromBuiltinData = fromBuiltinData
+
+instance
+  (HashFunction hf) =>
+  LiftUnsafeFromData (Digest hf)
+  where
+  liftUnsafeFromBuiltinData = unsafeFromBuiltinData
+
+instance
+  (HashFunction hf) =>
   LiftDato (Digest hf)
 
 -- ** Blake2b_256
@@ -187,9 +190,10 @@ instance (HashFunction hf) => ToByteString (DigestRef hf x) where
   toByteString = toByteString . digestRefDigest
   byteStringOut = byteStringOut . digestRefDigest
 
--- instance (HashFunction hf) => FromByteString (DigestRef hf x) where
---  fromByteString = lookupDigest . fromByteString
---  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigest
+instance (HashFunction hf) => FromByteString (DigestRef hf x) where
+  fromByteString = lookupDigestRef . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigestRef
+
 instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
   showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
 
@@ -211,6 +215,31 @@ instance
   where
   liftToByteString = toByteString . digestRefDigest
   liftByteStringOut = byteStringOut . digestRefDigest
+
+instance
+  (HashFunction hf) =>
+  LiftFromByteString (DigestRef hf)
+  where
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
+
+instance
+  (HashFunction hf) =>
+  LiftToData (DigestRef hf)
+  where
+  liftToBuiltinData = toBuiltinData . digestRefDigest
+
+instance
+  (HashFunction hf) =>
+  LiftFromData (DigestRef hf)
+  where
+  liftFromBuiltinData b = fromBuiltinData b >>= return . \ d -> DigestRef d $ lookupDigest d
+
+instance
+  (HashFunction hf) =>
+  LiftUnsafeFromData (DigestRef hf)
+  where
+  liftUnsafeFromBuiltinData = unsafeFromBuiltinData -. \ d -> DigestRef d $ lookupDigest d
 
 instance
   (HashFunction hf) =>
@@ -280,6 +309,9 @@ digestRef x = DigestRef (computeDigest x) x
 lookupDigest :: (HashFunction hf) => Digest hf a -> a
 lookupDigest = traceError "Cannot get a value from its digest"
 
+lookupDigestRef :: (HashFunction hf) => Digest hf a -> DigestRef hf a
+lookupDigestRef d = DigestRef d $ lookupDigest d
+
 castDigest :: Digest hf a -> Digest hf b
 castDigest (Digest x) = Digest x
 
@@ -327,13 +359,14 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
         then False -- Duplicates found, return False
         else
           let -- Filter for valid signatures from required public keys
-              validSignatures = filter (\ss@(SingleSig (pubKey, sig)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
+              validSignatures = filter (\ss@(SingleSig (pubKey, _)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
            in length validSignatures >= toInt minSigs
 
 -- * Meta declarations
 
 {-
-PlutusTx.makeLift ''FixedLengthByteString
+PlutusTx.unstableMakeIsData ''Blake2b_256
+PlutusTx.unstableMakeIsData ''Digest
 PlutusTx.makeIsDataSchemaIndexed ''FixedLengthByteString [('FixedLengthByteString, 0)]
 PlutusTx.makeLift ''Digest
 PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]

@@ -1,15 +1,19 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Trie where
 
 import Control.Monad (Monad, (>=>))
 import Crypto
 import Data.Function ((&))
+import PlutusTx
+-- import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Functor
 import PlutusTx.Prelude
+-- import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show
 import Types
 
@@ -25,7 +29,7 @@ type Trie r h k c = TrieTop (TrieNodeRef r h k c)
 -- | TrieTop can be seen as a simplified TrieZip where k=0, m=0
 -- Or should we just be using an actual TrieZip???
 newtype TrieTop t = TrieTop_ (Integer, t)
-  deriving (Eq) via (Integer, t)
+  deriving (Eq, ToData, FromData, UnsafeFromData) via (Integer, t)
 
 -- | 'Integer' height of the largest key in the Trie, -1 if empty; 't' top node in the Trie
 pattern TrieTop :: Integer -> t -> TrieTop t
@@ -42,22 +46,6 @@ type TrieNodeRef r h k c = LiftRef r (TrieNode r h k c)
 type TrieNode r h k c = Fix (TrieNodeFL r h k c)
 
 newtype TrieNodeFL r h k c t = TrieNodeFL {tfl :: TrieNodeF h k c (LiftRef r t)}
-
--- deriving (Eq, FromByteString, ToByteString) via (TrieNodeF h k c (LiftRef r t))
-
-deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, Eq c, Eq (LiftRef r t)) => Eq (TrieNodeFL r h k c t)
-
-deriving via
-  (TrieNodeF h k c (LiftRef r t))
-  instance
-    (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, FromByteString (LiftRef r t)) =>
-    FromByteString (TrieNodeFL r h k c t)
-
-deriving via
-  (TrieNodeF h k c (LiftRef r t))
-  instance
-    (TrieHeightKey h k, ToByteString c, ToByteString (LiftRef r t)) =>
-    ToByteString (TrieNodeFL r h k c t)
 
 data TrieNodeF h k c t
   = Empty
@@ -100,11 +88,11 @@ data TriePath h k d = (TrieHeightKey h k) => TriePath
     --         This node and descendants cover keys from k*2**h to k*2**h+2**h-1 included.
     triePathKey :: k,
     -- | bits of a mask indicating which of the bits of k1 are skipped.
-    _triePathSkipMask :: k,
+    triePathSkipMask :: k,
     -- | the list s1 of data items from the *other* branches
     --       (no data for skip nodes), such that the first item corresponds
     --       to the first (low-order) bits of k1.
-    _triePathOthers :: [d]
+    triePathOthers :: [d]
   }
 
 type TrieProof h k hf = TriePath h k (DataDigest hf)
@@ -148,10 +136,12 @@ class
 -- ** TrieTop
 
 -- for blockchain serialization purposes, we assume height+1 will fit in a UInt16
--- instance
---  (Eq t) =>
---  Eq (TrieTop t) where
---  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
+{-
+instance
+  (Eq t) =>
+  Eq (TrieTop t) where
+  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
+-}
 instance (ToByteString t) => ToByteString (TrieTop t) where
   byteStringOut (TrieTop h t) = byteStringOut (toUInt16 $ h + 1, t)
 
@@ -171,7 +161,30 @@ instance Functor TrieTop where
 instance (Show t) => Show (TrieTop t) where
   showsPrec prec (TrieTop h t) = showApp prec "TrieTop" [showArg h, showArg t]
 
+-- $(PlutusTx.Show.deriveShow ''TrieTop)
+
 -- ** TrieNodeF
+
+-- $(PlutusTx.Show.deriveShow ''TrieNodeF)
+-- $(PlutusTx.makeLift ''TrieNodeF)
+-- $(PlutusTx.makeIsDataSchemaIndexed ''TrieNodeF [('Empty, 0),('Leaf, 1),('Branch, 2),('Skip, 3)])
+
+instance ConvertTo (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) where
+  convertTo (Left (Left ())) = Empty
+  convertTo (Left (Right c)) = Leaf c
+  convertTo (Right (Left (l, r))) = Branch l r
+  convertTo (Right (Right (h, k, c))) = Skip h k c
+
+instance ConvertFrom (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) where
+  convertFrom Empty =  Left (Left ())
+  convertFrom (Leaf c) = Left (Right c)
+  convertFrom (Branch l r) = Right (Left (l, r))
+  convertFrom (Skip h k c) = Right (Right (h, k, c))
+
+deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, ToData c, ToData t) => ToData (TrieNodeF h k c t)
+deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, FromData c, FromData t) => FromData (TrieNodeF h k c t)
+deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) => UnsafeFromData (TrieNodeF h k c t)
+
 
 instance (TrieHeightKey h k, Eq c, Eq t) => Eq (TrieNodeF h k c t) where
   Empty == Empty = True
@@ -228,7 +241,43 @@ instance Functor (TrieNodeF h k c) where
   fmap f (Branch l r) = Branch (f l) (f r)
   fmap f (Skip h k t) = Skip h k (f t)
 
+{-
+instance
+  (TrieHeightKey h k, ToData c, ToData t) =>
+  ToData (TrieNodeF h k c t)
+  where
+instance
+  (TrieHeightKey h k, FromData c, FromData t) =>
+  FromData (TrieNodeF h k c t)
+  where
+instance
+  (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) =>
+  UnsafeFromData (TrieNodeF h k c t)
+  where
+-}{-
+instance
+  (TrieHeightKey h k, ToData c, ToData t) =>
+  ToData (TrieNodeF h k c t)
+  where
+  toBuiltinData Empty = Constr 0 ()
+  byteStringOut (Leaf c) = byteStringOut (Byte 1, c)
+  byteStringOut (Branch l r) = byteStringOut (Byte 2, l, r)
+  byteStringOut (Skip h k c) = byteStringOut (Byte 3, h, k, c)
+-}
+
 -- ** TrieNodeFL
+
+deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, Eq c, Eq (LiftRef r t)) => Eq (TrieNodeFL r h k c t)
+
+deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, FromByteString (LiftRef r t)) => FromByteString (TrieNodeFL r h k c t)
+
+deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, ToByteString c, ToByteString (LiftRef r t)) => ToByteString (TrieNodeFL r h k c t)
+
+deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, ToData c, ToData (LiftRef r t)) => ToData (TrieNodeFL r h k c t)
+
+deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData (LiftRef r t)) => UnsafeFromData (TrieNodeFL r h k c t)
+
+deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, FromData c, FromData (LiftRef r t)) => FromData (TrieNodeFL r h k c t)
 
 -- instance
 --  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
@@ -271,6 +320,24 @@ instance
   liftByteStringIn = byteStringIn
 
 instance
+  (LiftToData r, TrieHeightKey h k, ToData c) =>
+  LiftToData (TrieNodeFL r h k c)
+  where
+  liftToBuiltinData = toBuiltinData
+
+instance
+  (LiftUnsafeFromData r, TrieHeightKey h k, UnsafeFromData c) =>
+  LiftUnsafeFromData (TrieNodeFL r h k c)
+  where
+  liftUnsafeFromBuiltinData = unsafeFromBuiltinData
+
+instance
+  (LiftFromData r, TrieHeightKey h k, FromData c) =>
+  LiftFromData (TrieNodeFL r h k c)
+  where
+  liftFromBuiltinData = fromBuiltinData
+
+instance
   (TrieHeightKey h k, Dato c, LiftDato r) =>
   LiftDato (TrieNodeFL r h k c)
 
@@ -305,10 +372,30 @@ instance (Functor pathF) => Functor (Zip pathF focus) where
 -- ** TriePath
 
 instance
+  TrieHeightKey h k =>
+  ConvertTo (Integer, k, k, [d]) (TriePath h k d) where
+  convertTo = uncurry4 TriePath
+
+instance
+  TrieHeightKey h k =>
+  ConvertFrom (Integer, k, k, [d]) (TriePath h k d) where
+  convertFrom (TriePath h k m ds) = (h, k, m, ds)
+
+instance
   (TrieHeightKey h k, Eq d) =>
   Eq (TriePath h k d)
   where
   TriePath h k m d == TriePath h' k' m' d' = h == h' && k == k' && m == m' && d == d'
+
+deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h k, ToByteString d) => ToByteString (TriePath h k d)
+
+deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h k, FromByteString d) => FromByteString (TriePath h k d)
+
+deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h k, ToData d) => ToData (TriePath h k d)
+
+deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h k, FromData d) => FromData (TriePath h k d)
+
+deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h k, UnsafeFromData d) => UnsafeFromData (TriePath h k d)
 
 instance
   (TrieHeightKey h k, Show d) =>
@@ -316,18 +403,6 @@ instance
   where
   showsPrec prec (TriePath h k m d) =
     showApp prec "TriePath" [showArg h, showArg k, showArg m, showArg d]
-
-instance
-  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString d) =>
-  FromByteString (TriePath h k d)
-  where
-  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry4 TriePath
-
-instance
-  (TrieHeightKey h k, ToByteString d) =>
-  ToByteString (TriePath h k d)
-  where
-  byteStringOut (TriePath h k m ds) = byteStringOut (h, k, m, ds)
 
 instance
   (TrieHeightKey h k, Dato d) =>
@@ -349,6 +424,26 @@ instance
   RightStep o == RightStep o' = o == o'
   SkipStep h k == SkipStep _h' k' = h == h && k == k'
   _ == _ = False
+
+instance ConvertTo (Either (Either o o) (h, k)) (TrieStep h k o) where
+  convertTo (Left (Left r)) = LeftStep r
+  convertTo (Left (Right l)) = RightStep l
+  convertTo (Right (h, k)) = SkipStep h k
+
+instance ConvertFrom (Either (Either o o) (h, k)) (TrieStep h k o) where
+  convertFrom (LeftStep r) = Left (Left r)
+  convertFrom (RightStep l) = Left (Right l)
+  convertFrom (SkipStep h k) = Right (h, k)
+
+deriving via As (Either (Either o o) (h, k)) (TrieStep h k o)
+  instance (TrieHeightKey h k, ToData o) =>
+  ToData (TrieStep h k o)
+deriving via As (Either (Either o o) (h, k)) (TrieStep h k o)
+  instance (TrieHeightKey h k, FromData o) =>
+  FromData (TrieStep h k o)
+deriving via As (Either (Either o o) (h, k)) (TrieStep h k o)
+  instance (TrieHeightKey h k, UnsafeFromData o) =>
+  UnsafeFromData (TrieStep h k o)
 
 instance
   (TrieHeightKey h k, Show t) =>
@@ -388,6 +483,9 @@ instance
 instance
   (TrieHeightKey h k, Dato t) =>
   Dato (TrieStep h k t)
+
+-- $(PlutusTx.makeLift ''TrieStep)
+-- $(PlutusTx.makeIsDataSchemaIndexed ''TrieStep [('LeftStep, 0),('RightStep, 1),('SkipStep, 2)])
 
 -- ** Zippers
 

@@ -1,3 +1,7 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Use newtype instead of data" #-}
@@ -14,9 +18,11 @@ import GHC.Base qualified as GB
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
+import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Prelude
+import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show
 import Text.Hex (decodeHex, encodeHex)
 
@@ -30,7 +36,7 @@ data Proxy a = Proxy
 (-.) :: (a -> b) -> (b -> c) -> a -> c
 (-.) = flip (.)
 
--- | Type used as a phantom type to indicate a static length of something
+--- | Type used as a phantom type to indicate a static length of something
 data Length = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9 | L10 | L16 | L32 | L64
 
 -- | ByteString of statically known length
@@ -38,21 +44,12 @@ newtype FixedLengthByteString len
   = FixedLengthByteString {getFixedLengthByteString :: BuiltinByteString}
   deriving anyclass (HasBlueprintDefinition)
   deriving newtype (Show)
+  deriving (Eq, ToInt, ToData) via BuiltinByteString
 
 -- | Smart constructor for FixedLengthByteString.
 -- Intended to use with TypeApplications, e.g. 'makeFixedLengthByteString @L1 bs'
-makeFixedLengthByteString :: forall len. (StaticLength len) => BuiltinByteString -> FixedLengthByteString len
-makeFixedLengthByteString = FixedLengthByteString
-
--- NB: To fit on-chain on Cardano (or affordably on any L1,
--- and thus on any L2 that gets verified by a L2),
--- a VariableLengthByteString has to be of length <= 65535 (in practice smaller, more like 8192)
--- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
-newtype VariableLengthByteString = VariableLengthByteString BuiltinByteString
-  deriving (Eq, ToInt, FromInt, ToByteString, FromByteString, BitLogic) via BuiltinByteString
-  deriving stock (Generic)
-  deriving newtype (Show)
-  deriving anyclass (HasBlueprintDefinition)
+{-makeFixedLengthByteString :: forall len. (StaticLength len) => BuiltinByteString -> FixedLengthByteString len
+makeFixedLengthByteString = FixedLengthByteString-}
 
 -- | Byte
 newtype Byte = Byte {getByte :: Integer}
@@ -74,8 +71,8 @@ newtype FixedLengthInteger len = FixedLengthInteger {getFixedLengthInteger :: In
 
 -- | Smart constructor for FixedLengthInteger.
 -- Intended to use with TypeApplications, e.g. 'makeFixedLengthInteger @L1 i'
-makeFixedLengthInteger :: forall len. (StaticLength len) => Integer -> FixedLengthInteger len
-makeFixedLengthInteger = FixedLengthInteger
+{-makeFixedLengthInteger :: forall len. (StaticLength len) => Integer -> FixedLengthInteger len
+makeFixedLengthInteger = FixedLengthInteger-}
 
 -- Make it a newtype VariableLengthInteger = VariableLengthInteger { getVli :: (Integer, Integer) } ???
 
@@ -127,7 +124,22 @@ type UInt64 = FixedLengthInteger 'L8
 
 type UInt256 = FixedLengthInteger 'L32
 
+-- | Wrapper for Isomorphic derivation
+-- See https://www.tweag.io/blog/2020-04-23-deriving-isomorphically/
+newtype As a b = As { getAs :: b }
+
+
 -- * Classes
+
+-- | two types are Isomorphic
+-- convertTo . convertFrom == id @b
+-- convertFrom . convertTo == id @a
+-- See https://www.tweag.io/blog/2020-04-23-deriving-isomorphically/
+class (ConvertTo a b, ConvertFrom a b) => Isomorphic a b where
+class ConvertTo a b where
+  convertTo :: a -> b
+class ConvertFrom a b where
+  convertFrom :: b -> a
 
 -- | Partial types
 class Partial a where
@@ -208,11 +220,11 @@ class BitLogic a where
   shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
 
 class
-  (ToByteString d, ToByteString d, Show d, Eq d) =>
+  (ToByteString d, FromByteString d, ToData d, FromData d, UnsafeFromData d, Show d, Eq d) =>
   Dato d
 
 class
-  (LiftToByteString r, LiftToByteString r, LiftShow r, LiftEq r) =>
+  (LiftToByteString r, LiftFromByteString r, LiftToData r, LiftFromData r, LiftUnsafeFromData r, LiftShow r, LiftEq r) => -- XXX, LiftHasBlueprintSchema r
   LiftDato r
 
 class LiftEq r where
@@ -231,6 +243,18 @@ class LiftFromByteString r where
   liftFromByteString :: (FromByteString a) => BuiltinByteString -> r a
   liftFromByteString = fromByteStringIn_ liftByteStringIn
   liftByteStringIn :: (FromByteString a) => IsTerminal -> ByteStringReader (r a)
+
+class LiftToData r where
+  liftToBuiltinData :: ToData a => r a -> BuiltinData
+
+class LiftUnsafeFromData r where
+  liftUnsafeFromBuiltinData :: UnsafeFromData a => BuiltinData -> r a
+
+class LiftFromData r where
+  liftFromBuiltinData :: FromData a => BuiltinData -> Maybe (r a)
+
+class LiftHasBlueprintSchema r where
+  liftSchema :: (HasBlueprintSchema a referencedTypes) => (Proxy (r a, a), Schema referencedTypes)
 
 class
   (Monad e, Dato a) =>
@@ -305,12 +329,6 @@ instance StaticLength L64 where
 
 -- ** FixedLengthByteString
 
-instance
-  (StaticLength len) =>
-  Eq (FixedLengthByteString len)
-  where
-  (FixedLengthByteString a) == (FixedLengthByteString b) = a == b
-
 -- instance
 --   (StaticLength len) =>
 --   Show (FixedLengthByteString len)
@@ -324,11 +342,11 @@ instance
   where
   isElement (FixedLengthByteString b) = lengthOfByteString b == staticLength (Proxy @len)
 
-instance
+{-instance
   (StaticLength len) =>
   ToInt (FixedLengthByteString len)
   where
-  toInt (FixedLengthByteString b) = toInt b
+  toInt (FixedLengthByteString b) = toInt b-}
 
 instance
   (StaticLength len) =>
@@ -410,16 +428,32 @@ instance
 
 instance
   (StaticLength len) =>
+  HasBlueprintSchema (FixedLengthByteString len) referencedTypes where
+  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
+
+instance
+  (StaticLength len) =>
+  FromData (FixedLengthByteString len) where
+  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+
+instance
+  (StaticLength len) =>
+  UnsafeFromData (FixedLengthByteString len) where
+  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
+
+instance
+  (StaticLength len) =>
   Dato (FixedLengthByteString len)
 
--- ** VariableLengthByteString
-
-instance Partial VariableLengthByteString where
-  isElement (VariableLengthByteString b) = lengthOfByteString b <= 65535
-
-instance Dato VariableLengthByteString
-
 -- ** BuiltinByteString
+
+-- NB: To fit on-chain on Cardano (or affordably on any L1,
+-- and thus on any L2 that gets verified by a L2),
+-- a BuiltinByteString has to be of length <= 65535 (in practice smaller, more like 8192)
+-- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
+
+instance Partial BuiltinByteString where
+  isElement b = lengthOfByteString b <= 65535
 
 instance ToInt BuiltinByteString where
   toInt = fromByteString
@@ -472,7 +506,17 @@ instance FromByteString BuiltinString where
   fromByteString = decodeUtf8 -- XXX
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
+instance ToData BuiltinString where
+  toBuiltinData = toBuiltinData . toByteString
+
+instance FromData BuiltinString where
+  fromBuiltinData d = fromBuiltinData d >>= return . fromByteString
+
+instance UnsafeFromData BuiltinString where
+  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
+
 instance Dato BuiltinString
+
 
 -- ** Byte
 
@@ -512,6 +556,18 @@ instance BitLogic Byte where
   shiftRight b i = Byte $ indexByteString (shiftByteString (toByteString b) $ -i) 0
   shiftLeft b i = Byte $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (Byte a) l (Byte b) = Byte $ (a `shiftLeft` l) + b
+
+instance ToData Byte where
+  toBuiltinData = toBuiltinData . getByte
+
+instance FromData Byte where
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
+
+instance UnsafeFromData Byte where
+  unsafeFromBuiltinData = toByte . unsafeFromBuiltinData
+
+instance HasBlueprintSchema Byte referencedTypes where
+  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 instance Dato Byte
 
@@ -554,7 +610,19 @@ instance BitLogic UInt16 where
   shiftLeft b i = UInt16 $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (UInt16 a) l (UInt16 b) = UInt16 $ (a `shiftLeft` l) + b
 
+instance ToData UInt16 where
+  toBuiltinData = toBuiltinData . getUInt16
+
+instance FromData UInt16 where
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
+
+instance UnsafeFromData UInt16 where
+  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
+
 instance Dato UInt16
+
+instance HasBlueprintSchema UInt16 referencedTypes where
+  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** FixedLengthInteger
 
@@ -624,7 +692,27 @@ instance
 
 instance
   (StaticLength len) =>
+  ToData (FixedLengthInteger len) where
+  toBuiltinData = toBuiltinData . getFixedLengthInteger
+
+instance
+  (StaticLength len) =>
+  FromData (FixedLengthInteger len) where
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
+
+instance
+  (StaticLength len) =>
+  UnsafeFromData (FixedLengthInteger len) where
+  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
+
+instance
+  (StaticLength len) =>
   Dato (FixedLengthInteger len)
+
+instance
+  (StaticLength len) =>
+  HasBlueprintSchema (FixedLengthInteger len) referencedTypes where
+  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** VariableLengthInteger
 
@@ -659,29 +747,32 @@ instance BitLogic VariableLengthInteger where
   isBitSet n i = isBitSet n (toByteString i)
   lowBitsMask l = VariableLengthInteger l $ lowBitsMask l
   logicalOr a b =
-    let v =
-          logicalOr
-            (VariableLengthByteString $ toByteString a)
-            (VariableLengthByteString $ toByteString b)
+    let v = logicalOr (toByteString a) (toByteString b)
      in VariableLengthInteger (bitLength v) $ toInt v
   logicalAnd a b =
-    let v =
-          logicalAnd
-            (VariableLengthByteString $ toByteString a)
-            (VariableLengthByteString $ toByteString b)
+    let v = logicalAnd (toByteString a) (toByteString b)
      in VariableLengthInteger (bitLength v) $ toInt v
   logicalXor a b =
-    let v =
-          logicalXor
-            (VariableLengthByteString $ toByteString a)
-            (VariableLengthByteString $ toByteString b)
+    let v = logicalXor (toByteString a) (toByteString b)
      in VariableLengthInteger (bitLength v) $ toInt v
   shiftRight (VariableLengthInteger l b) i = VariableLengthInteger (l - i `max` 0) $ shiftRight b i
   shiftLeft (VariableLengthInteger l b) i = VariableLengthInteger (l + i) $ shiftLeft b i
   shiftLeftWithBits (VariableLengthInteger la a) l vb@(VariableLengthInteger _ b) =
     if la == 0 then vb else VariableLengthInteger (la + l) $ (a `shiftLeft` l) + b
 
+instance ToData VariableLengthInteger where
+  toBuiltinData = toBuiltinData . vliInteger
+
+instance FromData VariableLengthInteger where
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
+
+instance UnsafeFromData VariableLengthInteger where
+  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
+
 instance Dato VariableLengthInteger
+
+instance HasBlueprintSchema VariableLengthInteger referencedTypes where
+  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** Integer
 
@@ -697,7 +788,7 @@ instance ToByteString Integer where
 
 instance FromByteString Integer where
   fromByteString = byteStringToInteger BigEndian
-  byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @VariableLengthByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @BuiltinByteString
 
 instance BitLogic Integer where
   bitLength n
@@ -724,21 +815,9 @@ instance BitLogic Integer where
               else down ms j r h
   isBitSet i n = let e = exponential 2 i in n `remainder` (e + e) >= e
   lowBitsMask l = exponential 2 l - 1
-  logicalOr a b =
-    toInt
-      $ logicalOr
-        (VariableLengthByteString $ toByteString a)
-        (VariableLengthByteString $ toByteString b)
-  logicalAnd a b =
-    toInt
-      $ logicalAnd
-        (VariableLengthByteString $ toByteString a)
-        (VariableLengthByteString $ toByteString b)
-  logicalXor a b =
-    toInt
-      $ logicalXor
-        (VariableLengthByteString $ toByteString a)
-        (VariableLengthByteString $ toByteString b)
+  logicalOr a b = toInt $ logicalOr (toByteString a) (toByteString b)
+  logicalAnd a b = toInt $ logicalAnd (toByteString a) (toByteString b)
+  logicalXor a b = toInt $ logicalXor (toByteString a) (toByteString b)
   shiftRight b i = b `quotient` exponential 2 i
   shiftLeft b i = b * exponential 2 i
   shiftLeftWithBits a l b = (a `shiftLeft` l) + b
@@ -848,6 +927,10 @@ instance
       byteStringIn isTerminal >>= \b ->
         return (a, b)
 
+instance
+  (Dato a, Dato b) =>
+  Dato (a, b)
+
 -- *** (,,) or builtin Triplets
 
 instance
@@ -874,6 +957,10 @@ instance
       byteStringIn NonTerminal >>= \b ->
         byteStringIn isTerminal >>= \c ->
           return (a, b, c)
+
+instance
+  (Dato a, Dato b, Dato c) =>
+  Dato (a, b, c)
 
 -- *** (,,,) or builtin Quadruplets
 
@@ -903,6 +990,10 @@ instance
         byteStringIn NonTerminal >>= \c ->
           byteStringIn isTerminal >>= \d ->
             return (a, b, c, d)
+
+instance
+  (Dato a, Dato b, Dato c, Dato d) =>
+  Dato (a, b, c, d)
 
 -- *** (,,,,) or builtin Quintuplets
 
@@ -935,6 +1026,36 @@ instance
           byteStringIn NonTerminal >>= \d ->
             byteStringIn isTerminal >>= \e ->
               return (a, b, c, d, e)
+
+instance
+  (ToData a, ToData b, ToData c, ToData d, ToData e) =>
+  ToData (a, b, c, d, e) where
+  toBuiltinData (a, b, c, d, e) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e]
+
+instance
+  (FromData a, FromData b, FromData c, FromData d, FromData e) =>
+  FromData (a, b, c, d, e) where
+  fromBuiltinData x = fromBuiltinData x >>= \case
+    [aa, bb, cc, dd, ee] -> do
+      a <- fromBuiltinData aa
+      b <- fromBuiltinData bb
+      c <- fromBuiltinData cc
+      d <- fromBuiltinData dd
+      e <- fromBuiltinData ee
+      return (a, b, c, d, e)
+    _ -> failNow
+
+instance
+  (UnsafeFromData a, UnsafeFromData b, UnsafeFromData c, UnsafeFromData d, UnsafeFromData e) =>
+  UnsafeFromData (a, b, c, d, e) where
+  unsafeFromBuiltinData x =
+    case unsafeFromBuiltinData x of
+      [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
+      _ -> failNow
+
+instance
+  (Dato a, Dato b, Dato c, Dato d, Dato e) =>
+  Dato (a, b, c, d, e)
 
 -- *** (,,,,,) or builtin Sextuplets
 
@@ -969,6 +1090,38 @@ instance
             byteStringIn NonTerminal >>= \e ->
               byteStringIn isTerminal >>= \f ->
                 return (a, b, c, d, e, f)
+
+instance
+  (ToData a, ToData b, ToData c, ToData d, ToData e, ToData f) =>
+  ToData (a, b, c, d, e, f) where
+  toBuiltinData (a, b, c, d, e, f) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e, toBuiltinData f]
+
+instance
+  (FromData a, FromData b, FromData c, FromData d, FromData e, FromData f) =>
+  FromData (a, b, c, d, e, f) where
+  fromBuiltinData x = fromBuiltinData x >>= \case
+    [aa, bb, cc, dd, ee, ff] -> do
+      a <- fromBuiltinData aa
+      b <- fromBuiltinData bb
+      c <- fromBuiltinData cc
+      d <- fromBuiltinData dd
+      e <- fromBuiltinData ee
+      f <- fromBuiltinData ff
+      return (a, b, c, d, e, f)
+    _ -> failNow
+
+instance
+  (UnsafeFromData a, UnsafeFromData b, UnsafeFromData c, UnsafeFromData d, UnsafeFromData e, UnsafeFromData f) =>
+  UnsafeFromData (a, b, c, d, e, f) where
+  unsafeFromBuiltinData x =
+    case unsafeFromBuiltinData x of
+      [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
+      _ -> failNow
+
+instance
+  (Dato a, Dato b, Dato c, Dato d, Dato e, Dato f) =>
+  Dato (a, b, c, d, e, f)
+
 
 -- ** Lists
 
@@ -1030,6 +1183,18 @@ instance LiftFromByteString Identity where
   liftFromByteString = fromByteString
   liftByteStringIn = byteStringIn
 
+instance LiftToData Identity where
+  liftToBuiltinData = toBuiltinData . runIdentity
+
+instance LiftFromData Identity where
+  liftFromBuiltinData = fmap Identity . fromBuiltinData
+
+instance LiftUnsafeFromData Identity where
+  liftUnsafeFromBuiltinData = Identity . unsafeFromBuiltinData
+
+--instance LiftHasBlueprintSchema Identity where
+--  liftSchema = (Proxy @a, schema @a)
+
 instance LiftDato Identity
 
 instance LiftPreWrapping Identity Identity where
@@ -1068,6 +1233,21 @@ instance
   byteStringOut = liftByteStringOut . getFix
 
 instance
+  (LiftToData f) =>
+  ToData (Fix f) where
+  toBuiltinData = liftToBuiltinData . getFix
+
+instance
+  (LiftFromData f) =>
+  FromData (Fix f) where
+  fromBuiltinData d = liftFromBuiltinData d >>= return . Fix
+
+instance
+  (LiftUnsafeFromData f) =>
+  UnsafeFromData (Fix f) where
+  unsafeFromBuiltinData = liftUnsafeFromBuiltinData -. Fix
+
+instance
   (LiftDato r) =>
   Dato (Fix r)
 
@@ -1088,28 +1268,6 @@ instance
   encodeList = liftEncodeList . map out
   decodeList = liftDecodeList <&> map In
 -}
-
--- ** Dato
-
-instance
-  (Dato a, Dato b) =>
-  Dato (a, b)
-
-instance
-  (Dato a, Dato b, Dato c) =>
-  Dato (a, b, c)
-
-instance
-  (Dato a, Dato b, Dato c, Dato d) =>
-  Dato (a, b, c, d)
-
-instance
-  (Dato a, Dato b, Dato c, Dato d, Dato e) =>
-  Dato (a, b, c, d, e)
-
-instance
-  (Dato a, Dato b, Dato c, Dato d, Dato e, Dato f) =>
-  Dato (a, b, c, d, e, f)
 
 -- ** ByteStringCursor
 
@@ -1159,6 +1317,24 @@ instance
   showsPrec prec (LiftRef ra) = showApp prec "LiftRef" [liftShowsPrec 11 ra]
 
 instance
+  (LiftToData r, ToData a) =>
+  ToData (LiftRef r a)
+  where
+  toBuiltinData = liftToBuiltinData . liftref
+
+instance
+  (LiftUnsafeFromData r, UnsafeFromData a) =>
+  UnsafeFromData (LiftRef r a)
+  where
+  unsafeFromBuiltinData = LiftRef . liftUnsafeFromBuiltinData
+
+instance
+  (LiftFromData r, FromData a) =>
+  FromData (LiftRef r a)
+  where
+  fromBuiltinData d = liftFromBuiltinData d >>= return . LiftRef
+
+instance
   (LiftDato r, Dato a) =>
   Dato (LiftRef r a)
 
@@ -1192,6 +1368,24 @@ instance
   Wrapping e (LiftRef r) a
   where
   unwrap = liftUnwrap . liftref
+
+-- * As
+instance (ConvertFrom a b, Eq a) => Eq (As a b) where
+  As x == As y = convertFrom @a @b x == convertFrom @a @b y
+
+instance (ConvertFrom a b, ToByteString a) => ToByteString (As a b) where
+  toByteString = toByteString . convertFrom @a @b . getAs
+  byteStringOut = byteStringOut . convertFrom @a @b . getAs
+instance (ConvertFrom a b, ToData a) => ToData (As a b) where
+  toBuiltinData = toBuiltinData . convertFrom @a @b . getAs
+
+instance (ConvertTo a b, FromByteString a) => FromByteString (As a b) where
+  fromByteString = As . convertTo @a @b . fromByteString
+  byteStringIn x = byteStringIn x >>= return . As . convertTo @a @b
+instance (ConvertTo a b, FromData a) => FromData (As a b) where
+  fromBuiltinData x = fromBuiltinData x >>= return . As . convertTo @a @b
+instance (ConvertTo a b, UnsafeFromData a) => UnsafeFromData (As a b) where
+  unsafeFromBuiltinData = As . convertTo @a @b . unsafeFromBuiltinData
 
 -- * Helpers
 

@@ -5,6 +5,7 @@ version:       0.1.0
 common common
   default-language:   GHC2021
   default-extensions:
+    BlockArguments
     DataKinds
     DeriveAnyClass
     DeriveFunctor

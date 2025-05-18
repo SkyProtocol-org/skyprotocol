@@ -61,9 +61,8 @@ instance ToByteString DecodedClientParams where
   byteStringOut = byteStringOut . getDecodedClientParams
 
 -- FIX it seems that plutus doesn't like HKT at all
-PlutusTx.unstableMakeIsData ''Digest
-PlutusTx.unstableMakeIsData ''FixedLengthByteString
-PlutusTx.unstableMakeIsData ''DecodedClientParams
+--PlutusTx.unstableMakeIsData ''FixedLengthByteString
+--PlutusTx.unstableMakeIsData ''DecodedClientParams
 
 ------------------------------------------------------------------------------
 -- Redeemers for client contract

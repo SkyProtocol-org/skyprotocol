@@ -27,6 +27,7 @@ source-repository-package
     plutus/atlas-onchain-common
     .
   tag: 4b52a258f6a6df7aba4cd1518077b201649a3c64
+  --sha256: sha256-sz0HUksdfBTo8Z2hDsnB3gGpvNK3Az8JUzdhVFt/OPQ=
   --sha256: sha256-UBbKHS3+8EYADByyTX/LUmLVE5dws7T8EDLLujUrLhg=
 
 -- TODO: Temporary, until proposed changes are in upstream (track https://github.com/mlabs-haskell/clb/pull/72)
