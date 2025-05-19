@@ -134,6 +134,7 @@ test-suite tests
   other-modules:
   build-depends:
     , base
+    , hspec
     , sky-atlas:offchain-lib
     , sky-atlas:onchain
     , tasty
