@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -224,7 +225,7 @@ class
   Dato d
 
 class
-  (LiftToByteString r, LiftFromByteString r, LiftToData r, LiftFromData r, LiftUnsafeFromData r, LiftShow r, LiftEq r) => -- XXX, LiftHasBlueprintSchema r
+  (LiftToByteString r, LiftFromByteString r, LiftToData r, LiftFromData r, LiftUnsafeFromData r, LiftShow r, LiftEq r) => -- LiftHasBlueprintSchema r
   LiftDato r
 
 class LiftEq r where
@@ -254,7 +255,7 @@ class LiftFromData r where
   liftFromBuiltinData :: FromData a => BuiltinData -> Maybe (r a)
 
 class LiftHasBlueprintSchema r where
-  liftSchema :: (HasBlueprintSchema a referencedTypes) => (Proxy (r a, a), Schema referencedTypes)
+  liftSchema :: (HasBlueprintSchema a referencedTypes) => (Proxy (r a), Schema referencedTypes)
 
 class
   (Monad e, Dato a) =>
@@ -1192,8 +1193,9 @@ instance LiftFromData Identity where
 instance LiftUnsafeFromData Identity where
   liftUnsafeFromBuiltinData = Identity . unsafeFromBuiltinData
 
+-- XXX - figure out how and where to bind "a"...
 --instance LiftHasBlueprintSchema Identity where
---  liftSchema = (Proxy @a, schema @a)
+--  liftSchema = (Proxy @(Identity a), schema @a)
 
 instance LiftDato Identity
 
@@ -1268,6 +1270,22 @@ instance
   encodeList = liftEncodeList . map out
   decodeList = liftDecodeList <&> map In
 -}
+
+instance (LiftHasBlueprintSchema r) =>
+  HasBlueprintSchema (Fix r) referencedTypes where
+  schema = case liftSchema @r of (Proxy :: Proxy (r (Fix r)), sch) -> sch
+
+
+
+
+
+
+
+
+
+
+
+
 
 -- ** ByteStringCursor
 
@@ -1368,6 +1386,10 @@ instance
   Wrapping e (LiftRef r) a
   where
   unwrap = liftUnwrap . liftref
+
+instance (LiftHasBlueprintSchema r, HasBlueprintSchema a referencedTypes) =>
+  HasBlueprintSchema (LiftRef r a) referencedTypes where
+  schema = case liftSchema @r of (Proxy :: Proxy (r a), sch :: Schema referencedTypes) -> sch
 
 -- * As
 instance (ConvertFrom a b, Eq a) => Eq (As a b) where
