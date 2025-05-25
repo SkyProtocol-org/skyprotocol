@@ -666,7 +666,7 @@ instance
                                 oldBranch <-
                                   if oldBranchLength > 0
                                     then
-                                      --                              if oldBranchLength == 0 then traceError "FOO" else -- XXX
+                                      -- if oldBranchLength == 0 then traceError "FOO" else -- XXX
                                       let hh = fromInt (oldBranchLength - 1)
                                           bb = bits `logicalAnd` lowBitsMask oldBranchLength
                                        in stepUp (SkipStep hh bb) child

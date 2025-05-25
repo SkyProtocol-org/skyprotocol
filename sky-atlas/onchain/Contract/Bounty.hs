@@ -15,7 +15,7 @@ import PlutusLedgerApi.V1
     PubKeyHash (..),
     addressCredential,
   )
-import PlutusLedgerApi.V1.Interval (Interval, after, before)
+import PlutusLedgerApi.V1.Interval (Interval, to, before, contains)
 import PlutusLedgerApi.V2
   ( CurrencySymbol,
     ScriptContext (..),
@@ -93,22 +93,21 @@ validateClaimBounty
   proof@SkyDataPath {..}
   daTopHash =
     -- Check if the current slot is within the deadline
-    bountyDeadline
-      `after` txValidRange
-      &&
-      -- The bounty's message hash is in the DA
-      daTopHash
-      == applySkyDataProof proof messageHash
-      &&
-      -- topic ID matches
-      topicId
-      == triePathKey pathTopicTriePath
-      &&
-      -- heights are 0
-      triePathHeight pathTopicTriePath
-      == 0
-      && triePathHeight pathMessageTriePath
-      == 0
+    to bountyDeadline `contains` txValidRange
+    &&
+    -- The bounty's message hash is in the DA
+    daTopHash
+    == applySkyDataProof proof messageHash
+    &&
+    -- topic ID matches
+    topicId
+    == triePathKey pathTopicTriePath
+    &&
+    -- heights are 0 (lead top top from leafs)
+    triePathHeight pathTopicTriePath
+    == 0
+    && triePathHeight pathMessageTriePath
+    == 0
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =
