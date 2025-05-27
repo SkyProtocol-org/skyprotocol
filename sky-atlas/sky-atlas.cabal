@@ -60,6 +60,7 @@ library common
     Types
 
   build-depends:
+    , aeson
     , base
     , cardano-crypto-class
     , hex-text
@@ -109,12 +110,7 @@ library offchain-lib
     , text
     , wai
     , warp
-
--- , aeson
--- , containers
--- , servant-swagger
--- , swagger2
--- , text
+    , log-base
 
 executable sky-atlas
   import:         common
