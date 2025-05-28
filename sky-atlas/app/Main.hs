@@ -4,6 +4,7 @@ import API (AppEnv (..), startApp)
 import Common
 import Control.Monad.IO.Class
 import Control.Monad.Identity
+import Data.IORef (newIORef)
 import Data.Yaml.Config (loadYamlSettings, requireEnv)
 import Log
 import Log.Backend.StandardOutput
@@ -21,9 +22,11 @@ main = do
 
       daData = runIdentity $ initDa daSchema committee :: SkyDa HashRef
 
+  dataRef <- newIORef daData
+
   withStdOutLogger $ \logger -> do
     runLogT "main" logger defaultLogLevel $ do
       logInfo_ "Initialized logger"
-      let appEnv = AppEnv {appConfig = config, daData = daData, logger = logger}
+      let appEnv = AppEnv {appConfig = config, daData = dataRef, logger = logger}
       logInfo_ "Starting server"
       liftIO $ startApp appEnv

@@ -1,7 +1,7 @@
--- NOTE: This module should only be imported separately wherever it is needed!!!
--- This module contains neccessary instances for the SkyDA types for the offchain part of the app
 {-# OPTIONS_GHC -Wno-orphans #-}
 
+-- NOTE: This module should only be imported separately wherever it is needed!!!
+-- This module contains neccessary instances for the SkyDA types for the offchain part of the app
 module Common.OffChain where
 
 import Common
@@ -13,12 +13,13 @@ import Prelude
 instance ToJSON BuiltinByteString where
   toJSON _bs = undefined
 
+-- TODO and for this as well
 instance FromJSON BuiltinByteString where
   parseJSON = undefined
 
-deriving via BuiltinByteString instance (ToJSON Bytes8)
+deriving via BuiltinByteString instance (ToJSON (FixedLengthByteString len))
 
-deriving via BuiltinByteString instance (FromJSON Bytes8)
+deriving via BuiltinByteString instance (FromJSON (FixedLengthByteString len))
 
 instance ToJSON TopicId where
   toJSON (TopicId tId) = object ["topic_id" .= tId]

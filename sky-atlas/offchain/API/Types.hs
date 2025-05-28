@@ -4,6 +4,7 @@ import Common
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Aeson
+import Data.IORef (IORef)
 import GHC.Generics (Generic)
 import Log
 import Servant
@@ -18,7 +19,7 @@ data AppConfig = AppConfig
 
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
-    daData :: SkyDa HashRef,
+    daData :: IORef (SkyDa HashRef),
     logger :: Logger
   }
 
