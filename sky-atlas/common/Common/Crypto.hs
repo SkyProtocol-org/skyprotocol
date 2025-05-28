@@ -1,9 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Crypto where
+module Common.Crypto where
 
 import Cardano.Crypto.DSIGN.Class qualified as DSIGN
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
+import Common.Types
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
@@ -12,7 +13,6 @@ import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Prelude
 import PlutusTx.Show
-import Types
 
 -- * Types
 
@@ -233,13 +233,13 @@ instance
   (HashFunction hf) =>
   LiftFromData (DigestRef hf)
   where
-  liftFromBuiltinData b = fromBuiltinData b >>= return . \ d -> DigestRef d $ lookupDigest d
+  liftFromBuiltinData b = fromBuiltinData b >>= return . \d -> DigestRef d $ lookupDigest d
 
 instance
   (HashFunction hf) =>
   LiftUnsafeFromData (DigestRef hf)
   where
-  liftUnsafeFromBuiltinData = unsafeFromBuiltinData -. \ d -> DigestRef d $ lookupDigest d
+  liftUnsafeFromBuiltinData = unsafeFromBuiltinData -. \d -> DigestRef d $ lookupDigest d
 
 instance
   (HashFunction hf) =>

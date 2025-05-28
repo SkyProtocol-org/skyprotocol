@@ -3,19 +3,21 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Trie where
+module Common.Trie where
 
+import Common.Crypto
+-- import PlutusTx.Blueprint
+
+-- import PlutusTx.Prelude qualified as PlutusTx
+
+import Common.Types
 import Control.Monad (Monad, (>=>))
-import Crypto
 import Data.Function ((&))
 import PlutusTx
--- import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Functor
 import PlutusTx.Prelude
--- import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show
-import Types
 
 -- * Types
 
@@ -166,7 +168,9 @@ instance (Show t) => Show (TrieTop t) where
 -- ** TrieNodeF
 
 -- $(PlutusTx.Show.deriveShow ''TrieNodeF)
+
 -- $(PlutusTx.makeLift ''TrieNodeF)
+
 -- $(PlutusTx.makeIsDataSchemaIndexed ''TrieNodeF [('Empty, 0),('Leaf, 1),('Branch, 2),('Skip, 3)])
 
 instance ConvertTo (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) where
@@ -176,15 +180,16 @@ instance ConvertTo (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h
   convertTo (Right (Right (h, k, c))) = Skip h k c
 
 instance ConvertFrom (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) where
-  convertFrom Empty =  Left (Left ())
+  convertFrom Empty = Left (Left ())
   convertFrom (Leaf c) = Left (Right c)
   convertFrom (Branch l r) = Right (Left (l, r))
   convertFrom (Skip h k c) = Right (Right (h, k, c))
 
 deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, ToData c, ToData t) => ToData (TrieNodeF h k c t)
-deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, FromData c, FromData t) => FromData (TrieNodeF h k c t)
-deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) => UnsafeFromData (TrieNodeF h k c t)
 
+deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, FromData c, FromData t) => FromData (TrieNodeF h k c t)
+
+deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) => UnsafeFromData (TrieNodeF h k c t)
 
 instance (TrieHeightKey h k, Eq c, Eq t) => Eq (TrieNodeF h k c t) where
   Empty == Empty = True
@@ -254,7 +259,8 @@ instance
   (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) =>
   UnsafeFromData (TrieNodeF h k c t)
   where
--}{-
+-}
+{-
 instance
   (TrieHeightKey h k, ToData c, ToData t) =>
   ToData (TrieNodeF h k c t)
@@ -372,13 +378,15 @@ instance (Functor pathF) => Functor (Zip pathF focus) where
 -- ** TriePath
 
 instance
-  TrieHeightKey h k =>
-  ConvertTo (Integer, k, k, [d]) (TriePath h k d) where
+  (TrieHeightKey h k) =>
+  ConvertTo (Integer, k, k, [d]) (TriePath h k d)
+  where
   convertTo = uncurry4 TriePath
 
 instance
-  TrieHeightKey h k =>
-  ConvertFrom (Integer, k, k, [d]) (TriePath h k d) where
+  (TrieHeightKey h k) =>
+  ConvertFrom (Integer, k, k, [d]) (TriePath h k d)
+  where
   convertFrom (TriePath h k m ds) = (h, k, m, ds)
 
 instance
@@ -435,15 +443,23 @@ instance ConvertFrom (Either (Either o o) (h, k)) (TrieStep h k o) where
   convertFrom (RightStep l) = Left (Right l)
   convertFrom (SkipStep h k) = Right (h, k)
 
-deriving via As (Either (Either o o) (h, k)) (TrieStep h k o)
-  instance (TrieHeightKey h k, ToData o) =>
-  ToData (TrieStep h k o)
-deriving via As (Either (Either o o) (h, k)) (TrieStep h k o)
-  instance (TrieHeightKey h k, FromData o) =>
-  FromData (TrieStep h k o)
-deriving via As (Either (Either o o) (h, k)) (TrieStep h k o)
-  instance (TrieHeightKey h k, UnsafeFromData o) =>
-  UnsafeFromData (TrieStep h k o)
+deriving via
+  As (Either (Either o o) (h, k)) (TrieStep h k o)
+  instance
+    (TrieHeightKey h k, ToData o) =>
+    ToData (TrieStep h k o)
+
+deriving via
+  As (Either (Either o o) (h, k)) (TrieStep h k o)
+  instance
+    (TrieHeightKey h k, FromData o) =>
+    FromData (TrieStep h k o)
+
+deriving via
+  As (Either (Either o o) (h, k)) (TrieStep h k o)
+  instance
+    (TrieHeightKey h k, UnsafeFromData o) =>
+    UnsafeFromData (TrieStep h k o)
 
 instance
   (TrieHeightKey h k, Show t) =>
@@ -485,6 +501,7 @@ instance
   Dato (TrieStep h k t)
 
 -- $(PlutusTx.makeLift ''TrieStep)
+
 -- $(PlutusTx.makeIsDataSchemaIndexed ''TrieStep [('LeftStep, 0),('RightStep, 1),('SkipStep, 2)])
 
 -- ** Zippers

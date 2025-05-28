@@ -4,8 +4,7 @@
 
 module Contract.SkyBridge where
 
-import Crypto
-import DA
+import Common
 import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value
@@ -29,7 +28,6 @@ import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
-import Types
 
 ------------------------------------------------------------------------------
 -- Datum Stored in Bridge NFT

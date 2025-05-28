@@ -4,9 +4,8 @@
 
 module Contract.Bounty where
 
+import Common
 import Contract.SkyBridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
-import Crypto
-import DA
 import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1
@@ -15,7 +14,7 @@ import PlutusLedgerApi.V1
     PubKeyHash (..),
     addressCredential,
   )
-import PlutusLedgerApi.V1.Interval (Interval, to, before, contains)
+import PlutusLedgerApi.V1.Interval (Interval, before, contains, to)
 import PlutusLedgerApi.V2
   ( CurrencySymbol,
     ScriptContext (..),
@@ -26,8 +25,6 @@ import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
-import Trie
-import Types
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for client contract
@@ -61,8 +58,8 @@ instance ToByteString DecodedClientParams where
   byteStringOut = byteStringOut . getDecodedClientParams
 
 -- FIX it seems that plutus doesn't like HKT at all
---PlutusTx.unstableMakeIsData ''FixedLengthByteString
---PlutusTx.unstableMakeIsData ''DecodedClientParams
+-- PlutusTx.unstableMakeIsData ''FixedLengthByteString
+-- PlutusTx.unstableMakeIsData ''DecodedClientParams
 
 ------------------------------------------------------------------------------
 -- Redeemers for client contract
@@ -93,21 +90,22 @@ validateClaimBounty
   proof@SkyDataPath {..}
   daTopHash =
     -- Check if the current slot is within the deadline
-    to bountyDeadline `contains` txValidRange
-    &&
-    -- The bounty's message hash is in the DA
-    daTopHash
-    == applySkyDataProof proof messageHash
-    &&
-    -- topic ID matches
-    topicId
-    == triePathKey pathTopicTriePath
-    &&
-    -- heights are 0 (lead top top from leafs)
-    triePathHeight pathTopicTriePath
-    == 0
-    && triePathHeight pathMessageTriePath
-    == 0
+    to bountyDeadline
+      `contains` txValidRange
+      &&
+      -- The bounty's message hash is in the DA
+      daTopHash
+      == applySkyDataProof proof messageHash
+      &&
+      -- topic ID matches
+      topicId
+      == triePathKey pathTopicTriePath
+      &&
+      -- heights are 0 (lead top top from leafs)
+      triePathHeight pathTopicTriePath
+      == 0
+      && triePathHeight pathMessageTriePath
+      == 0
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =

@@ -2,10 +2,12 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module DA where
+module Common.DA where
 
+import Common.Crypto
+import Common.Trie
+import Common.Types
 import Control.Monad (Monad)
-import Crypto
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
@@ -13,8 +15,6 @@ import PlutusTx
 import PlutusTx.Functor
 import PlutusTx.Prelude
 import PlutusTx.Show
-import Trie
-import Types
 
 ------------------------------------------------------------------------------
 -- Core Data Types
@@ -26,30 +26,36 @@ type SkyDa r = (LiftRef r (DaMetaData r), LiftRef r (DaData r))
 
 newtype DaMetaData r = DaMetaData_ {getDaMetaData :: (DataHash, LiftRef r Committee)}
   deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData, Dato) via (DataHash, LiftRef r Committee)
-pattern DaMetaData :: forall r . DataHash -> LiftRef r Committee -> DaMetaData r
+
+pattern DaMetaData :: forall r. DataHash -> LiftRef r Committee -> DaMetaData r
 pattern DaMetaData {daSchema, daCommittee} = DaMetaData_ (daSchema, daCommittee)
+
 {-# COMPLETE DaMetaData #-}
 
 type DaData r = TopicTrie r
 
-type TopicTrie r = Trie64 r (TopicEntry r)
+type TopicTrie r = Trie r Byte TopicId (TopicEntry r)
 
 type TopicEntry r = (LiftRef r (TopicMetaData r), LiftRef r (MessageTrie r))
 
 newtype TopicMetaData r = TopicMetaData_ (DataHash, LiftRef r Committee)
   deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData, Dato) via (DataHash, LiftRef r Committee)
-pattern TopicMetaData :: forall r . DataHash -> LiftRef r Committee -> TopicMetaData r
+
+pattern TopicMetaData :: forall r. DataHash -> LiftRef r Committee -> TopicMetaData r
 pattern TopicMetaData {topicSchema, topicCommittee} = TopicMetaData_ (topicSchema, topicCommittee)
+
 {-# COMPLETE TopicMetaData #-}
 
-type MessageTrie r = Trie64 r (MessageEntry r)
+type MessageTrie r = Trie r Byte MessageId (MessageEntry r)
 
 type MessageEntry r = (LiftRef r (MessageMetaData r), LiftRef r (MessageData r))
 
 newtype MessageMetaData (r :: Type -> Type) = MessageMetaData_ (PubKey, POSIXTime)
   deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (PubKey, POSIXTime)
+
 pattern MessageMetaData :: PubKey -> POSIXTime -> MessageMetaData r
 pattern MessageMetaData {messagePoster, messageTime} = MessageMetaData_ (messagePoster, messageTime)
+
 {-# COMPLETE MessageMetaData #-}
 
 type MessageData (r :: Type -> Type) = BuiltinByteString
@@ -57,20 +63,86 @@ type MessageData (r :: Type -> Type) = BuiltinByteString
 -- so we can publish it piecemeal on the chain and/or use ZK Proofs about it.
 type Committee = MultiSigPubKey
 
-type TopicId = Bytes8
+newtype TopicId = TopicId {getTopicId :: Bytes8}
+  deriving
+    ( ToInt,
+      FromInt,
+      UnsafeFromData,
+      ToData,
+      FromData,
+      Show,
+      Dato,
+      BitLogic,
+      FromByteString,
+      ToByteString,
+      Eq
+    )
+    via Bytes8
 
-type MessageId = Bytes8
+instance TrieKey TopicId
+
+instance TrieHeightKey Byte TopicId
+
+newtype MessageId = MessageId {getMessageId :: Bytes8}
+  deriving
+    ( ToInt,
+      FromInt,
+      UnsafeFromData,
+      ToData,
+      FromData,
+      Show,
+      Dato,
+      BitLogic,
+      FromByteString,
+      ToByteString,
+      Eq
+    )
+    via Bytes8
+
+instance TrieKey MessageId
+
+instance TrieHeightKey Byte MessageId
 
 type Trie64 r c = Trie r Byte Bytes8 c
 
 type Trie64NodeRef r c = TrieNodeRef r Byte Bytes8 c
 
+type TrieTopicNodeRef r c = TrieNodeRef r Byte TopicId c
+
+type TrieMessageNodeRef r c = TrieNodeRef r Byte MessageId c
+
 type Trie64Path t = TriePath Byte Bytes8 t
 
-newtype SkyDataPath (r :: Type -> Type) = SkyDataPath_ (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
-pattern SkyDataPath :: forall r . LiftRef r (DaMetaData r) -> Trie64Path (Trie64NodeRef r (TopicEntry r)) -> LiftRef r (TopicMetaData r) -> Trie64Path (Trie64NodeRef r (MessageEntry r)) -> LiftRef r (MessageMetaData r) -> SkyDataPath r
+type TrieTopicPath t = TriePath Byte TopicId t
+
+type TrieMessagePath t = TriePath Byte MessageId t
+
+newtype SkyDataPath (r :: Type -> Type)
+  = SkyDataPath_
+      ( LiftRef r (DaMetaData r),
+        TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)),
+        LiftRef r (TopicMetaData r),
+        TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)),
+        LiftRef r (MessageMetaData r)
+      )
+  deriving
+    ( Eq,
+      ToByteString,
+      FromByteString,
+      ToData,
+      FromData,
+      UnsafeFromData
+    )
+    via ( LiftRef r (DaMetaData r),
+          TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)),
+          LiftRef r (TopicMetaData r),
+          TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)),
+          LiftRef r (MessageMetaData r)
+        )
+
+pattern SkyDataPath :: forall r. LiftRef r (DaMetaData r) -> TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)) -> LiftRef r (TopicMetaData r) -> TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)) -> LiftRef r (MessageMetaData r) -> SkyDataPath r
 pattern SkyDataPath {pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData} = SkyDataPath_ (pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData)
+
 {-# COMPLETE SkyDataPath #-}
 
 type SkyDataProof hf = SkyDataPath (Digest hf)
@@ -96,9 +168,10 @@ instance (LiftShow r) => Show (DaMetaData r) where
 
 -- ** SkyDataPath
 
-instance ConvertTo (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r)) (SkyDataPath r) where
+instance ConvertTo (LiftRef r (DaMetaData r), TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r)) (SkyDataPath r) where
   convertTo = uncurry5 SkyDataPath
-instance ConvertFrom (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r)) (SkyDataPath r) where
+
+instance ConvertFrom (LiftRef r (DaMetaData r), TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r)) (SkyDataPath r) where
   convertFrom (SkyDataPath a b c d e) = (a, b, c, d, e)
 
 instance (LiftShow r) => Show (SkyDataPath r) where
@@ -123,7 +196,7 @@ tupleOfMessageMetaData MessageMetaData {..} = (messagePoster, messageTime)
 tupleOfTopicMetaData :: TopicMetaData r -> (DataHash, LiftRef r Committee)
 tupleOfTopicMetaData TopicMetaData {..} = (topicSchema, topicCommittee)
 
-tupleOfSkyDataPath :: SkyDataPath r -> (LiftRef r (DaMetaData r), Trie64Path (Trie64NodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), Trie64Path (Trie64NodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
+tupleOfSkyDataPath :: SkyDataPath r -> (LiftRef r (DaMetaData r), TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)), LiftRef r (TopicMetaData r), TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)), LiftRef r (MessageMetaData r))
 tupleOfSkyDataPath SkyDataPath {..} = (pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData)
 
 -- TODO: generate a new Committee from PoS instead of just copying the PoA committee
@@ -133,7 +206,6 @@ generateCommittee (m, _) = unwrap m <&> committeeOfDaMetaData
 
 committeeOfDaMetaData :: DaMetaData r -> LiftRef r Committee
 committeeOfDaMetaData (DaMetaData _ c) = c
-
 
 -- TODO: add authentication, payment, etc., if not in this function, in one that wraps around it.
 insertTopic ::
@@ -250,10 +322,9 @@ updateDaCommittee newCommittee (rDaMetaData, rTopicTrie) = do
 -- * Meta Declarations
 
 {-
-$(PlutusTx.makeLift ''SkyDataPath)
-$(PlutusTx.makeIsDataSchemaIndexed ''SkyDataPath [('SkyDataPath, 0)])
+\$(PlutusTx.makeLift ''SkyDataPath)
+\$(PlutusTx.makeIsDataSchemaIndexed ''SkyDataPath [('SkyDataPath, 0)])
 -}
 
-foo :: LiftFromByteString r => BuiltinByteString -> (DaMetaData r, TopicMetaData r, MessageMetaData r, TopicEntry r, MessageEntry r)
+foo :: (LiftFromByteString r) => BuiltinByteString -> (DaMetaData r, TopicMetaData r, MessageMetaData r, TopicEntry r, MessageEntry r)
 foo x = (fromByteString x, fromByteString x, fromByteString x, fromByteString x, fromByteString x)
-

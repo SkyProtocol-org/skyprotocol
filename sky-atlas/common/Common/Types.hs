@@ -1,13 +1,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 {-# HLINT ignore "Use newtype instead of data" #-}
 
-module Types where
+module Common.Types where
 
 import Control.Monad (Monad, (>=>))
 import Data.Bifunctor (first)
@@ -49,6 +49,7 @@ newtype FixedLengthByteString len
 
 -- | Smart constructor for FixedLengthByteString.
 -- Intended to use with TypeApplications, e.g. 'makeFixedLengthByteString @L1 bs'
+
 {-makeFixedLengthByteString :: forall len. (StaticLength len) => BuiltinByteString -> FixedLengthByteString len
 makeFixedLengthByteString = FixedLengthByteString-}
 
@@ -72,6 +73,7 @@ newtype FixedLengthInteger len = FixedLengthInteger {getFixedLengthInteger :: In
 
 -- | Smart constructor for FixedLengthInteger.
 -- Intended to use with TypeApplications, e.g. 'makeFixedLengthInteger @L1 i'
+
 {-makeFixedLengthInteger :: forall len. (StaticLength len) => Integer -> FixedLengthInteger len
 makeFixedLengthInteger = FixedLengthInteger-}
 
@@ -127,8 +129,7 @@ type UInt256 = FixedLengthInteger 'L32
 
 -- | Wrapper for Isomorphic derivation
 -- See https://www.tweag.io/blog/2020-04-23-deriving-isomorphically/
-newtype As a b = As { getAs :: b }
-
+newtype As a b = As {getAs :: b}
 
 -- * Classes
 
@@ -136,9 +137,11 @@ newtype As a b = As { getAs :: b }
 -- convertTo . convertFrom == id @b
 -- convertFrom . convertTo == id @a
 -- See https://www.tweag.io/blog/2020-04-23-deriving-isomorphically/
-class (ConvertTo a b, ConvertFrom a b) => Isomorphic a b where
+class (ConvertTo a b, ConvertFrom a b) => Isomorphic a b
+
 class ConvertTo a b where
   convertTo :: a -> b
+
 class ConvertFrom a b where
   convertFrom :: b -> a
 
@@ -246,13 +249,13 @@ class LiftFromByteString r where
   liftByteStringIn :: (FromByteString a) => IsTerminal -> ByteStringReader (r a)
 
 class LiftToData r where
-  liftToBuiltinData :: ToData a => r a -> BuiltinData
+  liftToBuiltinData :: (ToData a) => r a -> BuiltinData
 
 class LiftUnsafeFromData r where
-  liftUnsafeFromBuiltinData :: UnsafeFromData a => BuiltinData -> r a
+  liftUnsafeFromBuiltinData :: (UnsafeFromData a) => BuiltinData -> r a
 
 class LiftFromData r where
-  liftFromBuiltinData :: FromData a => BuiltinData -> Maybe (r a)
+  liftFromBuiltinData :: (FromData a) => BuiltinData -> Maybe (r a)
 
 class LiftHasBlueprintSchema r where
   liftSchema :: (HasBlueprintSchema a referencedTypes) => (Proxy (r a), Schema referencedTypes)
@@ -429,17 +432,20 @@ instance
 
 instance
   (StaticLength len) =>
-  HasBlueprintSchema (FixedLengthByteString len) referencedTypes where
+  HasBlueprintSchema (FixedLengthByteString len) referencedTypes
+  where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
 instance
   (StaticLength len) =>
-  FromData (FixedLengthByteString len) where
+  FromData (FixedLengthByteString len)
+  where
   fromBuiltinData d = fromBuiltinData d <&> fromByteString
 
 instance
   (StaticLength len) =>
-  UnsafeFromData (FixedLengthByteString len) where
+  UnsafeFromData (FixedLengthByteString len)
+  where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 instance
@@ -517,7 +523,6 @@ instance UnsafeFromData BuiltinString where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 instance Dato BuiltinString
-
 
 -- ** Byte
 
@@ -693,17 +698,20 @@ instance
 
 instance
   (StaticLength len) =>
-  ToData (FixedLengthInteger len) where
+  ToData (FixedLengthInteger len)
+  where
   toBuiltinData = toBuiltinData . getFixedLengthInteger
 
 instance
   (StaticLength len) =>
-  FromData (FixedLengthInteger len) where
+  FromData (FixedLengthInteger len)
+  where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
 
 instance
   (StaticLength len) =>
-  UnsafeFromData (FixedLengthInteger len) where
+  UnsafeFromData (FixedLengthInteger len)
+  where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
 instance
@@ -712,7 +720,8 @@ instance
 
 instance
   (StaticLength len) =>
-  HasBlueprintSchema (FixedLengthInteger len) referencedTypes where
+  HasBlueprintSchema (FixedLengthInteger len) referencedTypes
+  where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** VariableLengthInteger
@@ -1030,25 +1039,29 @@ instance
 
 instance
   (ToData a, ToData b, ToData c, ToData d, ToData e) =>
-  ToData (a, b, c, d, e) where
+  ToData (a, b, c, d, e)
+  where
   toBuiltinData (a, b, c, d, e) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e]
 
 instance
   (FromData a, FromData b, FromData c, FromData d, FromData e) =>
-  FromData (a, b, c, d, e) where
-  fromBuiltinData x = fromBuiltinData x >>= \case
-    [aa, bb, cc, dd, ee] -> do
-      a <- fromBuiltinData aa
-      b <- fromBuiltinData bb
-      c <- fromBuiltinData cc
-      d <- fromBuiltinData dd
-      e <- fromBuiltinData ee
-      return (a, b, c, d, e)
-    _ -> failNow
+  FromData (a, b, c, d, e)
+  where
+  fromBuiltinData x =
+    fromBuiltinData x >>= \case
+      [aa, bb, cc, dd, ee] -> do
+        a <- fromBuiltinData aa
+        b <- fromBuiltinData bb
+        c <- fromBuiltinData cc
+        d <- fromBuiltinData dd
+        e <- fromBuiltinData ee
+        return (a, b, c, d, e)
+      _ -> failNow
 
 instance
   (UnsafeFromData a, UnsafeFromData b, UnsafeFromData c, UnsafeFromData d, UnsafeFromData e) =>
-  UnsafeFromData (a, b, c, d, e) where
+  UnsafeFromData (a, b, c, d, e)
+  where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
@@ -1094,26 +1107,30 @@ instance
 
 instance
   (ToData a, ToData b, ToData c, ToData d, ToData e, ToData f) =>
-  ToData (a, b, c, d, e, f) where
+  ToData (a, b, c, d, e, f)
+  where
   toBuiltinData (a, b, c, d, e, f) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e, toBuiltinData f]
 
 instance
   (FromData a, FromData b, FromData c, FromData d, FromData e, FromData f) =>
-  FromData (a, b, c, d, e, f) where
-  fromBuiltinData x = fromBuiltinData x >>= \case
-    [aa, bb, cc, dd, ee, ff] -> do
-      a <- fromBuiltinData aa
-      b <- fromBuiltinData bb
-      c <- fromBuiltinData cc
-      d <- fromBuiltinData dd
-      e <- fromBuiltinData ee
-      f <- fromBuiltinData ff
-      return (a, b, c, d, e, f)
-    _ -> failNow
+  FromData (a, b, c, d, e, f)
+  where
+  fromBuiltinData x =
+    fromBuiltinData x >>= \case
+      [aa, bb, cc, dd, ee, ff] -> do
+        a <- fromBuiltinData aa
+        b <- fromBuiltinData bb
+        c <- fromBuiltinData cc
+        d <- fromBuiltinData dd
+        e <- fromBuiltinData ee
+        f <- fromBuiltinData ff
+        return (a, b, c, d, e, f)
+      _ -> failNow
 
 instance
   (UnsafeFromData a, UnsafeFromData b, UnsafeFromData c, UnsafeFromData d, UnsafeFromData e, UnsafeFromData f) =>
-  UnsafeFromData (a, b, c, d, e, f) where
+  UnsafeFromData (a, b, c, d, e, f)
+  where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
@@ -1122,7 +1139,6 @@ instance
 instance
   (Dato a, Dato b, Dato c, Dato d, Dato e, Dato f) =>
   Dato (a, b, c, d, e, f)
-
 
 -- ** Lists
 
@@ -1194,7 +1210,7 @@ instance LiftUnsafeFromData Identity where
   liftUnsafeFromBuiltinData = Identity . unsafeFromBuiltinData
 
 -- XXX - figure out how and where to bind "a"...
---instance LiftHasBlueprintSchema Identity where
+-- instance LiftHasBlueprintSchema Identity where
 --  liftSchema = (Proxy @(Identity a), schema @a)
 
 instance LiftDato Identity
@@ -1236,17 +1252,20 @@ instance
 
 instance
   (LiftToData f) =>
-  ToData (Fix f) where
+  ToData (Fix f)
+  where
   toBuiltinData = liftToBuiltinData . getFix
 
 instance
   (LiftFromData f) =>
-  FromData (Fix f) where
+  FromData (Fix f)
+  where
   fromBuiltinData d = liftFromBuiltinData d >>= return . Fix
 
 instance
   (LiftUnsafeFromData f) =>
-  UnsafeFromData (Fix f) where
+  UnsafeFromData (Fix f)
+  where
   unsafeFromBuiltinData = liftUnsafeFromBuiltinData -. Fix
 
 instance
@@ -1271,21 +1290,11 @@ instance
   decodeList = liftDecodeList <&> map In
 -}
 
-instance (LiftHasBlueprintSchema r) =>
-  HasBlueprintSchema (Fix r) referencedTypes where
+instance
+  (LiftHasBlueprintSchema r) =>
+  HasBlueprintSchema (Fix r) referencedTypes
+  where
   schema = case liftSchema @r of (Proxy :: Proxy (r (Fix r)), sch) -> sch
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- ** ByteStringCursor
 
@@ -1387,25 +1396,31 @@ instance
   where
   unwrap = liftUnwrap . liftref
 
-instance (LiftHasBlueprintSchema r, HasBlueprintSchema a referencedTypes) =>
-  HasBlueprintSchema (LiftRef r a) referencedTypes where
+instance
+  (LiftHasBlueprintSchema r, HasBlueprintSchema a referencedTypes) =>
+  HasBlueprintSchema (LiftRef r a) referencedTypes
+  where
   schema = case liftSchema @r of (Proxy :: Proxy (r a), sch :: Schema referencedTypes) -> sch
 
 -- * As
+
 instance (ConvertFrom a b, Eq a) => Eq (As a b) where
   As x == As y = convertFrom @a @b x == convertFrom @a @b y
 
 instance (ConvertFrom a b, ToByteString a) => ToByteString (As a b) where
   toByteString = toByteString . convertFrom @a @b . getAs
   byteStringOut = byteStringOut . convertFrom @a @b . getAs
+
 instance (ConvertFrom a b, ToData a) => ToData (As a b) where
   toBuiltinData = toBuiltinData . convertFrom @a @b . getAs
 
 instance (ConvertTo a b, FromByteString a) => FromByteString (As a b) where
   fromByteString = As . convertTo @a @b . fromByteString
   byteStringIn x = byteStringIn x >>= return . As . convertTo @a @b
+
 instance (ConvertTo a b, FromData a) => FromData (As a b) where
   fromBuiltinData x = fromBuiltinData x >>= return . As . convertTo @a @b
+
 instance (ConvertTo a b, UnsafeFromData a) => UnsafeFromData (As a b) where
   unsafeFromBuiltinData = As . convertTo @a @b . unsafeFromBuiltinData
 
