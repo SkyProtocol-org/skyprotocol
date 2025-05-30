@@ -153,10 +153,6 @@ instance
   where
   byteStringIn isTerminal = byteStringIn isTerminal <&> \(hp1 :: UInt16, t) -> TrieTop (toInt hp1 - 1) t
 
-instance
-  (Dato t) =>
-  Dato (TrieTop t)
-
 instance Functor TrieTop where
   fmap f (TrieTop h t) = TrieTop h (f t)
 
@@ -212,10 +208,6 @@ instance
   byteStringOut (Leaf c) = byteStringOut (Byte 1, c)
   byteStringOut (Branch l r) = byteStringOut (Byte 2, l, r)
   byteStringOut (Skip h k c) = byteStringOut (Byte 3, h, k, c)
-
-instance
-  (TrieHeightKey h k, Dato c, Dato t) =>
-  Dato (TrieNodeF h k c t)
 
 instance
   (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, FromByteString t) =>
@@ -296,10 +288,6 @@ instance
   showsPrec prec (TrieNodeFL x) = showApp prec "TrieNodeFL" [showArg x]
 
 instance
-  (TrieHeightKey h k, Dato c, LiftDato r, Dato t) =>
-  Dato (TrieNodeFL r h k c t)
-
-instance
   (TrieHeightKey h k, Eq c, LiftEq r) =>
   LiftEq (TrieNodeFL r h k c)
   where
@@ -342,10 +330,6 @@ instance
   LiftFromData (TrieNodeFL r h k c)
   where
   liftFromBuiltinData = fromBuiltinData
-
-instance
-  (TrieHeightKey h k, Dato c, LiftDato r) =>
-  LiftDato (TrieNodeFL r h k c)
 
 -- instance
 --  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, LiftFromByteString r, FromByteString t) =>
@@ -411,10 +395,6 @@ instance
   where
   showsPrec prec (TriePath h k m d) =
     showApp prec "TriePath" [showArg h, showArg k, showArg m, showArg d]
-
-instance
-  (TrieHeightKey h k, Dato d) =>
-  Dato (TriePath h k d)
 
 instance
   (TrieHeightKey h k) =>
@@ -495,10 +475,6 @@ instance
               then
                 byteStringIn isTerminal <&> uncurry SkipStep
               else byteStringReaderFail
-
-instance
-  (TrieHeightKey h k, Dato t) =>
-  Dato (TrieStep h k t)
 
 -- $(PlutusTx.makeLift ''TrieStep)
 

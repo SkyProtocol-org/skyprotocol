@@ -105,8 +105,6 @@ instance Show SingleSig where
 instance Show MultiSigPubKey where
   showsPrec prec (MultiSigPubKey ln) = showApp prec "MultiSigPubKey" [showArg ln]
 
-instance Dato MultiSigPubKey
-
 -- ** Digest
 
 instance
@@ -114,10 +112,6 @@ instance
   Show (Digest hf a)
   where
   show (Digest x) = "Digest " <> show x
-
-instance
-  (HashFunction hf) =>
-  Dato (Digest hf a)
 
 instance
   (HashFunction hf) =>
@@ -162,10 +156,6 @@ instance
   LiftUnsafeFromData (Digest hf)
   where
   liftUnsafeFromBuiltinData = unsafeFromBuiltinData
-
-instance
-  (HashFunction hf) =>
-  LiftDato (Digest hf)
 
 -- ** Blake2b_256
 
@@ -249,10 +239,6 @@ instance
 
 instance
   (HashFunction hf) =>
-  LiftDato (DigestRef hf)
-
-instance
-  (HashFunction hf) =>
   LiftPreWrapping Identity (DigestRef hf)
   where
   liftWrap = wrap
@@ -262,6 +248,9 @@ instance
   LiftWrapping Identity (DigestRef hf)
   where
   liftUnwrap = unwrap
+
+-- instance (HashFunction hf, MonadReader r m) => LiftWrapping m (DigestRef hf) where
+--   liftUnwrap = unwrap
 
 -- ** LiftRef
 

@@ -67,11 +67,13 @@ library common
     , base
     , bytestring
     , cardano-crypto-class
-    , servant
     , hex-text
+    , mtl
     , plutus-ledger-api
     , plutus-tx
+    , servant
     , text
+    , transformers
 
 library onchain
   import:             common, plutus-ghc-options
@@ -153,10 +155,11 @@ test-suite tests
   hs-source-dirs: tests
   other-modules:
     Common.CryptoSpec
-    Common.TypesSpec
     Common.DaSpec
     Common.TrieSpec
+    Common.TypesSpec
     OffChain.API
+
   build-depends:
     , base
     , hspec
@@ -168,8 +171,8 @@ test-suite tests
     , servant-client
     , servant-client-core
     , servant-server
+    , sky-atlas:common
     , sky-atlas:offchain
     , sky-atlas:onchain
-    , sky-atlas:common
     , tasty
     , text

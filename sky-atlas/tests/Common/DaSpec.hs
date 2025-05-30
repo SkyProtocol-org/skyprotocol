@@ -1,27 +1,28 @@
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE PartialTypeSignatures #-}
---module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
+{-# LANGUAGE NoImplicitPrelude #-}
+
+-- module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
 module Common.DaSpec where
 
-import PlutusTx.Prelude -- hiding (Applicative, Functor, fmap, pure, (<*>))
-import PlutusTx
-import PlutusTx.Builtins (toBuiltin, fromBuiltin, BuiltinByteString)
-import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
-import PlutusLedgerApi.V1.Crypto (PubKeyHash(..))
-import PlutusLedgerApi.V1.Interval (Interval(..), strictLowerBound, strictUpperBound)
-import PlutusLedgerApi.V1.Time (POSIXTime(..))
-import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
-import Data.Functor.Identity (Identity (..))
-import Test.Hspec
+-- hiding (Applicative, Functor, fmap, pure, (<*>))
 
-import Common.Types
 import Common.Crypto
-import Common.Trie
 import Common.DA
+import Common.Trie
+import Common.Types
 import Common.TypesSpec
-
-import Contract.SkyBridge
 import Contract.Bounty
+import Contract.SkyBridge
+import Data.Functor.Identity (Identity (..))
+import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
+import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
+import PlutusLedgerApi.V1.Time (POSIXTime (..))
+import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
+import PlutusTx
+import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
+import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
+import PlutusTx.Prelude
+import Test.Hspec
 
 ------------------------------------------------------------------------------
 -- Single sigs
@@ -44,7 +45,6 @@ mpk2 = MultiSigPubKey ([pk1, pk2], toUInt16 2) -- Require 2 of the 2 pks to sign
 
 signatureSpec :: Spec
 signatureSpec = do
-
   let fb1 = ofHex "CAFE" :: FixedLengthByteString L2
   let fb2 = ofHex "BABE" :: FixedLengthByteString L2
 
@@ -91,9 +91,7 @@ signatureSpec = do
   let msig6OK = MultiSig [ss1, ss2]
   let msig7Err = MultiSig [ss1, ss3] -- pk3 is not in mpk2
   let msig8Err = MultiSig [ss1, ss1] -- repeated pk
-
   describe "Multi Sig operations" $ do
-
     it "multi sig 1 should be valid" $ do
       (multiSigValid mpk1 fb1 msig1OK) `shouldBe` True
 
@@ -130,16 +128,14 @@ signatureSpec = do
 
 fingerprintSpec :: Spec
 fingerprintSpec = do
+  it "multi sig 1 serialization should match" $ do
+    hexOf mpk1 `shouldBe` "00033363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf6542fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca730002"
 
-    it "multi sig 1 serialization should match" $ do
-      hexOf mpk1 `shouldBe` "00033363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf6542fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca730002"
+  it "multi sig 1 fingerprint should match" $ do
+    hexOf (computeHash mpk1) `shouldBe` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
 
-    it "multi sig 1 fingerprint should match" $ do
-      hexOf (computeHash mpk1) `shouldBe` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
-
-    it "multi sig 2 fingerprint should match" $ do
-      hexOf (computeHash mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
-
+  it "multi sig 2 fingerprint should match" $ do
+    hexOf (computeHash mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
 
 daSchema0 :: DataHash
 daSchema0 = computeHash $ (ofHex "deadbeef" :: Bytes4)
@@ -160,16 +156,22 @@ deadline :: POSIXTime
 deadline = 1000180800000 -- Sep 11th 2001
 
 txBeforeDeadlineRange :: Interval POSIXTime
-txBeforeDeadlineRange = Interval (strictLowerBound 999316800000) -- Sep 1st 2001
-                          (strictUpperBound 1000008000000) -- Sep 9th 2001
+txBeforeDeadlineRange =
+  Interval
+    (strictLowerBound 999316800000) -- Sep 1st 2001
+    (strictUpperBound 1000008000000) -- Sep 9th 2001
 
 txAfterDeadlineRange :: Interval POSIXTime
-txAfterDeadlineRange = Interval (strictLowerBound 1000267200000) -- Sep 12th 2001
-                          (strictUpperBound 1000872000000) -- Sep 19th 2001
+txAfterDeadlineRange =
+  Interval
+    (strictLowerBound 1000267200000) -- Sep 12th 2001
+    (strictUpperBound 1000872000000) -- Sep 19th 2001
 
 txAroundDeadlineRange :: Interval POSIXTime
-txAroundDeadlineRange = Interval (strictLowerBound 1000008000000) -- Sep 9th 2001
-                          (strictUpperBound 1000872000000) -- Sep 19th 2001
+txAroundDeadlineRange =
+  Interval
+    (strictLowerBound 1000008000000) -- Sep 9th 2001
+    (strictUpperBound 1000872000000) -- Sep 19th 2001
 
 msgMeta1 :: MessageMetaData HashRef
 msgMeta1 = MessageMetaData pk1 timestamp1
@@ -194,28 +196,30 @@ daSpec = do
   describe "simple tests for SkyDA" $ do
     -- Create an empty SkyDA, check its digest
     let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
-    let rootHash0 = castDigest . getDigest . snd $ da0
+    let rootHash0 = castDigest . getDigest . skyTopicTrie $ da0
     let topHash0 = computeHash da0
     it "hash of empty DA" $ do
       computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
 
     -- Check that proofs come in empty
-    let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0
-          :: Maybe (_, SkyDataProof Blake2b_256)
+    let maybeProof0 =
+          runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0 ::
+            Maybe (_, SkyDataProof Blake2b_256)
     it "No proof for (0,0) in empty Da" $ do
       maybeProof0 `shouldBeHex` "00"
 
     let (Just topic0, da1) = runIdentity $ insertTopic topicSchema0 da0
     let (Just msg1i, da2) = runIdentity $ insertMessage pk1 timestamp1 msg1 topic0 da1
     let (Just msg2i, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
-    let Just (msg1b , proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3
-          :: Maybe (_, SkyDataProof Blake2b_256)
+    let Just (msg1b, proof1) =
+          runIdentity $ getSkyDataProof (topic0, msg1i) da3 ::
+            Maybe (_, SkyDataProof Blake2b_256)
     let rMessageData1 = runIdentity $ wrap msg1 :: LiftRef HashRef (MessageData HashRef)
     it "msg1 matches" $ do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
     let topHash1 = computeHash da3 :: DataHash
-    let rootHash1 = castDigest . getDigest . snd $ da3
+    let rootHash1 = castDigest . getDigest . skyTopicTrie $ da3
 
     it "proof1 correct" $ do
       applySkyDataProof proof1 l1d == topHash1 `shouldBe` True
@@ -235,8 +239,9 @@ daSpec = do
     -- da20 has different committee as top hash 2 but same root hash
     let da10 = runIdentity $ updateDaCommittee mpk1 da11
 
-    let Just (msg3b , proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11
-          :: Maybe (_, SkyDataProof Blake2b_256)
+    let Just (msg3b, proof3) =
+          runIdentity $ getSkyDataProof (topic1, msg3i) da11 ::
+            Maybe (_, SkyDataProof Blake2b_256)
     let rMessageData1 = runIdentity $ wrap msg3 :: LiftRef HashRef (MessageData HashRef)
     it "msg3 matches" $ do
       msg3b == LiftRef (digestRef msg3) `shouldBe` True

@@ -223,13 +223,9 @@ class BitLogic a where
   shiftLeftWithBits :: a -> Integer -> a -> a
   shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
 
-class
-  (ToByteString d, FromByteString d, ToData d, FromData d, UnsafeFromData d, Show d, Eq d) =>
-  Dato d
+type Dato d = (ToByteString d, FromByteString d, ToData d, FromData d, UnsafeFromData d, Show d, Eq d)
 
-class
-  (LiftToByteString r, LiftFromByteString r, LiftToData r, LiftFromData r, LiftUnsafeFromData r, LiftShow r, LiftEq r) => -- LiftHasBlueprintSchema r
-  LiftDato r
+type LiftDato r = (LiftToByteString r, LiftFromByteString r, LiftToData r, LiftFromData r, LiftUnsafeFromData r, LiftShow r, LiftEq r)
 
 class LiftEq r where
   liftEq :: (Eq a) => r a -> r a -> Bool
@@ -448,10 +444,6 @@ instance
   where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
-instance
-  (StaticLength len) =>
-  Dato (FixedLengthByteString len)
-
 -- ** BuiltinByteString
 
 -- NB: To fit on-chain on Cardano (or affordably on any L1,
@@ -501,8 +493,6 @@ instance BitLogic BuiltinByteString where
   shiftRight b i = shiftByteString b $ -i
   shiftLeft b = shiftByteString (toByteString b)
 
-instance Dato BuiltinByteString
-
 -- ** BuiltinString
 
 instance ToByteString BuiltinString where
@@ -521,8 +511,6 @@ instance FromData BuiltinString where
 
 instance UnsafeFromData BuiltinString where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
-
-instance Dato BuiltinString
 
 -- ** Byte
 
@@ -575,8 +563,6 @@ instance UnsafeFromData Byte where
 instance HasBlueprintSchema Byte referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
-instance Dato Byte
-
 -- ** UInt16
 
 instance Partial UInt16 where
@@ -624,8 +610,6 @@ instance FromData UInt16 where
 
 instance UnsafeFromData UInt16 where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
-
-instance Dato UInt16
 
 instance HasBlueprintSchema UInt16 referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
@@ -716,10 +700,6 @@ instance
 
 instance
   (StaticLength len) =>
-  Dato (FixedLengthInteger len)
-
-instance
-  (StaticLength len) =>
   HasBlueprintSchema (FixedLengthInteger len) referencedTypes
   where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
@@ -779,8 +759,6 @@ instance FromData VariableLengthInteger where
 instance UnsafeFromData VariableLengthInteger where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance Dato VariableLengthInteger
-
 instance HasBlueprintSchema VariableLengthInteger referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
@@ -832,8 +810,6 @@ instance BitLogic Integer where
   shiftLeft b i = b * exponential 2 i
   shiftLeftWithBits a l b = (a `shiftLeft` l) + b
 
-instance Dato Integer
-
 -- ** POSIXTime
 
 instance Show POSIXTime where
@@ -869,8 +845,6 @@ instance FromByteString () where
   -- XXX  {-# INLINEABLE fromByteString #-}
   -- XXX  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   byteStringIn _ = return ()
-
-instance Dato ()
 
 -- ** Sums and Tuples
 
@@ -937,10 +911,6 @@ instance
       byteStringIn isTerminal >>= \b ->
         return (a, b)
 
-instance
-  (Dato a, Dato b) =>
-  Dato (a, b)
-
 -- *** (,,) or builtin Triplets
 
 instance
@@ -967,10 +937,6 @@ instance
       byteStringIn NonTerminal >>= \b ->
         byteStringIn isTerminal >>= \c ->
           return (a, b, c)
-
-instance
-  (Dato a, Dato b, Dato c) =>
-  Dato (a, b, c)
 
 -- *** (,,,) or builtin Quadruplets
 
@@ -1000,10 +966,6 @@ instance
         byteStringIn NonTerminal >>= \c ->
           byteStringIn isTerminal >>= \d ->
             return (a, b, c, d)
-
-instance
-  (Dato a, Dato b, Dato c, Dato d) =>
-  Dato (a, b, c, d)
 
 -- *** (,,,,) or builtin Quintuplets
 
@@ -1066,10 +1028,6 @@ instance
     case unsafeFromBuiltinData x of
       [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
       _ -> failNow
-
-instance
-  (Dato a, Dato b, Dato c, Dato d, Dato e) =>
-  Dato (a, b, c, d, e)
 
 -- *** (,,,,,) or builtin Sextuplets
 
@@ -1135,10 +1093,6 @@ instance
     case unsafeFromBuiltinData x of
       [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
       _ -> failNow
-
-instance
-  (Dato a, Dato b, Dato c, Dato d, Dato e, Dato f) =>
-  Dato (a, b, c, d, e, f)
 
 -- ** Lists
 
@@ -1213,8 +1167,6 @@ instance LiftUnsafeFromData Identity where
 -- instance LiftHasBlueprintSchema Identity where
 --  liftSchema = (Proxy @(Identity a), schema @a)
 
-instance LiftDato Identity
-
 instance LiftPreWrapping Identity Identity where
   liftWrap = wrap
 
@@ -1267,10 +1219,6 @@ instance
   UnsafeFromData (Fix f)
   where
   unsafeFromBuiltinData = liftUnsafeFromBuiltinData -. Fix
-
-instance
-  (LiftDato r) =>
-  Dato (Fix r)
 
 instance
   (LiftFromByteString f) =>
@@ -1360,10 +1308,6 @@ instance
   FromData (LiftRef r a)
   where
   fromBuiltinData d = liftFromBuiltinData d >>= return . LiftRef
-
-instance
-  (LiftDato r, Dato a) =>
-  Dato (LiftRef r a)
 
 instance
   (Functor r) =>
