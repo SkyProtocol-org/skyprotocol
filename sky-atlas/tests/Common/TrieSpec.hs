@@ -21,14 +21,14 @@ import qualified Common.Trie as TT
 import Common.DA
 import Common.TypesSpec
 
-import Data.Bits (unsafeShiftL)
+-- import Data.Bits (unsafeShiftL)
 import Data.Functor.Identity (Identity (..))
-import Data.String (String, IsString, fromString)
-import Data.Text (pack, unpack)
+-- import Data.String (String, IsString, fromString)
+-- import Data.Text (pack, unpack)
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
-import Control.Exception
-import Prelude (Int, putStrLn)
+-- import Control.Exception
+-- import Prelude (Int, putStrLn)
 
 import PlutusTx.Prelude
 import qualified PlutusTx.Prelude as P

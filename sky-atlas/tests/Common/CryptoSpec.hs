@@ -12,7 +12,7 @@
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 {-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
 
-module Spec.CryptoSpec where
+module Common.CryptoSpec where
 
 import Common.Types
 import Common.Crypto

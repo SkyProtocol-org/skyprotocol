@@ -156,8 +156,13 @@ test-suite tests
     , hspec
     , http-client
     , http-client-tls
+    , plutus-tx
+    , QuickCheck
     , servant-client
     , servant-client-core
     , sky-atlas:offchain
     , sky-atlas:onchain
+    , sky-atlas:common
     , tasty
+    , text
+

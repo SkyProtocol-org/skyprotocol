@@ -11,38 +11,35 @@
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 {-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-
-module Spec.TypesSpec where
+module Common.TypesSpec where
 
 import Common.Types
 import Common.Crypto
-import Common.Trie
-
 
 import PlutusTx.Prelude
 import qualified PlutusTx.Prelude as P
-import PlutusTx
+-- import PlutusTx
 import PlutusTx.Builtins
-import PlutusTx.Builtins.Internal (BuiltinString (..))
-import PlutusTx.List (map, zip)
+-- import PlutusTx.Builtins.Internal (BuiltinString (..))
+-- import PlutusTx.List (map, zip)
 import qualified PlutusTx.Show as PS
-import PlutusTx.Utils
+-- import PlutusTx.Utils
 
-import GHC.Base ((++))
 import qualified GHC.Base as GB
-import qualified GHC.Err as GE
+-- import qualified GHC.Err as GE
 import qualified GHC.Show as GS
-import qualified Debug.Trace as DT
+-- import qualified Debug.Trace as DT
 
-import Data.Bits (unsafeShiftL)
-import Data.Functor.Identity (Identity (..))
-import Data.String (String, IsString, fromString)
-import Data.Text (pack, unpack)
+-- import Data.Bits (unsafeShiftL)
+-- import Data.Functor.Identity (Identity (..))
+import Data.String (String) -- , IsString, fromString)
+-- import Data.Text (pack, unpack)
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
 import Control.Exception
-import Prelude (Int, putStrLn)
+-- import Prelude (Int, putStrLn)
 
 -- * Helpers
 shouldBeHex :: (ToByteString a) => a -> GB.String -> Expectation
@@ -56,8 +53,11 @@ a `shouldBeHex2` h = do
   a == b `shouldBe` True
   hexOf b `shouldBe` h
 
+genUInt :: Integer -> Gen Integer
 genUInt len = choose (0, (exponential 256 len) - 1)
-genByteString len = genUInt len >>= return . integerToByteString LittleEndian len
+
+genByteString :: Integer -> Gen BuiltinByteString
+genByteString n = genUInt n >>= return . integerToByteString LittleEndian n
 
 toBytes4 :: Integer -> Bytes4
 toBytes4 = fromInt
@@ -84,10 +84,6 @@ instance
   show = GS.show . PS.show
 
 instance
-  Arbitrary VariableLengthInteger where
-  arbitrary = choose (0, 31) >>= genUInt >>= return . fromInt
-
-instance
   (StaticLength len) =>
   Arbitrary (FixedLengthByteString len) where
   arbitrary = genByteString (staticLength $ Proxy @len) >>= return . FixedLengthByteString
@@ -108,10 +104,6 @@ instance
 instance
   Arbitrary BuiltinByteString where
   arbitrary = choose (0, 31) >>= genByteString
-
-instance
-  Arbitrary VariableLengthByteString where
-  arbitrary = arbitrary >>= return . VariableLengthByteString
 
 instance GS.Show Bytes4 where show = GS.show . PS.show
 instance GS.Show UInt64 where show = GS.show . PS.show
@@ -141,10 +133,10 @@ typesSpec = do
       --result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
       result <- try (evaluate (toInt . toByte $ 257)) :: GB.IO (Either ErrorCall Integer)
       case result of
-        Left (ErrorCall x)  -> do -- putStrLn $ "The exception is: " ++ x
+        Left (ErrorCall x)  -> do -- putStrLn $ "The exception is: " GB.++ x
                                   trace "FOOOOOO" $ -- dropped on the ground! :-(
                                     x `shouldBe` "PlutusTx.Builtins.Internal.error" -- unhappily uninformative
-        Right val -> do -- putStrLn $ "The result is: " ++ (GS.show $ PS.show val)
+        Right val -> do -- putStrLn $ "The result is: " GB.++ (GS.show $ PS.show val)
           val `shouldBe` 257
           True `shouldBe` False -- wrong to reach this
 
@@ -156,10 +148,10 @@ typesSpec = do
     it "serialization 3" $ PS.show (toUInt32 0x10ffff) `shouldBe` "FixedLengthInteger @L4 1114111"
     it "serialization 4" $ PS.show (fromInt 0x5678901234567890 :: Bytes8) `shouldBe` "5678901234567890"
     it "serialization 5" $ do
-      let unicodeMax :: VariableLengthInteger
-          unicodeMax = fromInt 0x10ffff
-      unicodeMax == VariableLengthInteger 20 1114111 `shouldBe` True
-      PS.show unicodeMax `shouldBe` "toVariableLengthInteger 1114111"
+      let unicodeMax :: Integer
+          unicodeMax = 0x10ffff
+      unicodeMax == 1114111 `shouldBe` True
+      PS.show unicodeMax `shouldBe` "1114111"
       (unicodeMax,33 :: Integer) `shouldBeHex2` "000310ffff21"
     it "serialization 7" $
       -- | Plutus doesn't quote not readably output its build
@@ -247,9 +239,9 @@ testBitLogic :: (BitLogic a, FromInt a, Dato a, Eq a, GS.Show a, Arbitrary a) =>
   String -> (Integer -> a) -> (a -> Integer) -> a -> Integer -> Bool -> Spec
 testBitLogic typ i t allBits len isUnsigned =
   let nBits = len * 8
-      bM = t $ lowBitsMask nBits
+      -- bM = t $ lowBitsMask nBits
       maxi = i $ (exponential 256 len) - 1
-      genA = genUInt len
+      -- genA = genUInt len
       m1 = t maxi `quotient` 255
       rep b = i $ b * m1 -- or we could add a method using replicateByte for ByteString's
       r17 = rep 17
@@ -258,7 +250,7 @@ testBitLogic typ i t allBits len isUnsigned =
       aXor x y = t $ (i x) `logicalXor` (i y)
       aLowestBitClear n = lowestBitClear (i n)
       ebf len height bits = t $ extractBitField len height (i bits)
-      itt x = it $ typ ++ " " ++ x
+      itt x = it $ typ GB.++ " " GB.++ x
   in
   do -- it "Checking BitLogic" $ do
     itt "bitLength" $ do
