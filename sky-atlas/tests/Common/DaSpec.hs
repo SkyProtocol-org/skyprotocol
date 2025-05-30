@@ -20,8 +20,8 @@ import Common.Trie
 import Common.DA
 import Common.TypesSpec
 
-import Onchain.Contract.SkyBridge
-import Onchain.Contract.Bounty
+import Contract.SkyBridge
+import Contract.Bounty
 
 ------------------------------------------------------------------------------
 -- Single sigs
@@ -174,17 +174,17 @@ txAroundDeadlineRange = Interval (strictLowerBound 1000008000000) -- Sep 9th 200
 msgMeta1 :: MessageMetaData HashRef
 msgMeta1 = MessageMetaData pk1 timestamp1
 
-msg1 :: VariableLengthByteString
-msg1 = VariableLengthByteString . stringToBuiltinByteString $ "Hello, World!"
+msg1 :: BuiltinByteString
+msg1 = stringToBuiltinByteString $ "Hello, World!"
 
 msg1Hash :: DataHash
 msg1Hash = computeHash msg1
 
-msg2 :: VariableLengthByteString
-msg2 = VariableLengthByteString . stringToBuiltinByteString $ "Taxation is Theft"
+msg2 :: BuiltinByteString
+msg2 = stringToBuiltinByteString $ "Taxation is Theft"
 
-msg3 :: VariableLengthByteString
-msg3 = VariableLengthByteString . stringToBuiltinByteString $ "Slava Drakonu"
+msg3 :: BuiltinByteString
+msg3 = stringToBuiltinByteString $ "Slava Drakonu"
 
 msg3Hash :: DataHash
 msg3Hash = computeHash msg3

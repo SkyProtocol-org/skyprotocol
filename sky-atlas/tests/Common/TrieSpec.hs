@@ -12,7 +12,7 @@
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 {-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
 
-module Common.TrieSpec (spec) where
+module Common.TrieSpec (trieSpec) where
 
 import Common.Types
 import Common.Crypto
@@ -31,13 +31,13 @@ import Test.QuickCheck hiding ((.&.))
 -- import Prelude (Int, putStrLn)
 
 import PlutusTx.Prelude
-import qualified PlutusTx.Prelude as P
-import PlutusTx
-import PlutusTx.Builtins
-import PlutusTx.Builtins.Internal (BuiltinString (..))
-import PlutusTx.List (zip)
+-- import qualified PlutusTx.Prelude as P
+-- import PlutusTx
+-- import PlutusTx.Builtins
+-- import PlutusTx.Builtins.Internal (BuiltinString (..))
+-- import PlutusTx.List (zip)
 import qualified PlutusTx.Show as PS
-import PlutusTx.Utils
+-- import PlutusTx.Utils
 
 import qualified Debug.Trace as DT
 import qualified GHC.Show as GS
@@ -59,8 +59,8 @@ type TR = TrieNodeRef HashRef Integer Integer BuiltinString
 initialValues :: FromInt a => [(a,BuiltinString)]
 initialValues = [(fromInt 13, "13"), (fromInt 34, "34"), (fromInt 1597, "1597")]
 
-spec :: Spec
-spec = describe "Spec.TrieSpec" $ do
+trieSpec :: Spec
+trieSpec = describe "Spec.TrieSpec" $ do
 
   it "empty Trie" $ do
     let e0 = Empty :: TrieNodeF Byte Bytes8 (MessageEntry HashRef) (TrieNodeRef HashRef Byte Bytes8 (MessageEntry HashRef))
@@ -77,7 +77,7 @@ spec = describe "Spec.TrieSpec" $ do
     trie0 == e3 `shouldBe` True
 
   let rF :: TrieNodeF Byte Bytes8 BuiltinString SR -> SR = LiftRef . Identity . Fix . TrieNodeFL
-  let fR :: SR -> TrieNodeF Byte Bytes8 BuiltinString SR = tfl . getFix . runIdentity . liftref
+  -- let fR :: SR -> TrieNodeF Byte Bytes8 BuiltinString SR = tfl . getFix . runIdentity . liftref
   let tp :: Integer -> Integer -> Integer -> [SR] -> TriePath Byte Bytes8 SR
       tp h k m d = TriePath h (fromInt k) (fromInt m) d
   let sd :: TrieStep Byte Bytes8 SR -> TriePath Byte Bytes8 SR -> Identity (TriePath Byte Bytes8 SR) = stepDown
@@ -105,7 +105,7 @@ spec = describe "Spec.TrieSpec" $ do
   let ol l = (ofList . rekey $ l) :: Identity S
   let lo (t :: S) = TT.listOf t :: Identity [(Bytes8, BuiltinString)]
   let olt l = ofList l :: Identity T
-  let lot (t :: T) = TT.listOf t :: Identity [(Integer, BuiltinString)]
+  -- let lot (t :: T) = TT.listOf t :: Identity [(Integer, BuiltinString)]
   let roundtrip1 l1 = runIdentity (ol l1 >>= lo)
   let testListOfList l1 l2 = roundtrip1 l1 `shouldBe` rekey l2
   let testListOfList' l1 = testListOfList l1 l1
