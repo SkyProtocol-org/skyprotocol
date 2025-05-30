@@ -65,6 +65,7 @@ library common
   build-depends:
     , aeson
     , base
+    , bytestring
     , cardano-crypto-class
     , hex-text
     , plutus-ledger-api
@@ -157,6 +158,6 @@ test-suite tests
     , http-client-tls
     , servant-client
     , servant-client-core
-    , sky-atlas:offchain-lib
+    , sky-atlas:offchain
     , sky-atlas:onchain
     , tasty
