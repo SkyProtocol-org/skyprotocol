@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE StrictData         #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StrictData #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- NOTE: This module should only be imported separately wherever it is needed!!!
@@ -10,9 +10,11 @@ module Common.OffChain where
 import Common
 import Data.Aeson
 -- import PlutusTx.Prelude (BuiltinByteString)
-import PlutusTx.Builtins.Internal (BuiltinByteString(..))
-import Prelude
+
 import Data.ByteString qualified as BS
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import Servant.API (FromHttpApiData (..), ToHttpApiData (..))
+import Prelude
 
 byteStringToBuiltinByteString :: BS.ByteString -> BuiltinByteString
 byteStringToBuiltinByteString = BuiltinByteString
@@ -40,8 +42,20 @@ instance ToJSON TopicId where
 instance FromJSON TopicId where
   parseJSON = withObject "TopicId" $ \v -> TopicId <$> v .: "topic_id"
 
+instance FromHttpApiData TopicId where
+  parseUrlPiece = undefined
+
+instance ToHttpApiData TopicId where
+  toUrlPiece = undefined
+
 instance ToJSON MessageId where
   toJSON (MessageId mId) = object ["message_id" .= mId]
 
 instance FromJSON MessageId where
   parseJSON = withObject "MessageId" $ \v -> MessageId <$> v .: "message_id"
+
+instance FromHttpApiData MessageId where
+  parseUrlPiece = undefined
+
+instance ToHttpApiData MessageId where
+  toUrlPiece = undefined

@@ -1,10 +1,12 @@
-module Spec (apiSpec) where
+module OffChain.API (apiSpec) where
 
-import Test.Hspec
-import Servant.Client
-import Network.HTTP.Client (newManager, defaultManagerSettings)
 import API (api)
+import Common.OffChain ()
 import Control.Monad.IO.Class (liftIO)
+import Network.HTTP.Client (defaultManagerSettings, newManager)
+import Servant
+import Servant.Client
+import Test.Hspec
 
 apiSpec :: Spec
 apiSpec = describe "API Tests" $ do

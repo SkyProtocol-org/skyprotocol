@@ -16,13 +16,13 @@ import Servant
 
 type HealthAPI = "health" :> Get '[JSON] Text
 
-type API = HealthAPI :<|> BridgeAPI -- :<|> TopicAPI
+type API = HealthAPI :<|> BridgeAPI :<|> TopicAPI
 
 api :: Proxy API
 api = Proxy
 
 server :: ServerT API AppM
-server = healthServer :<|> bridgeServer -- :<|> topicServer
+server = healthServer :<|> bridgeServer :<|> topicServer
 
 healthServer :: ServerT HealthAPI AppM
 healthServer = do

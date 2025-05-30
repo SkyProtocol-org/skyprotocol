@@ -30,14 +30,15 @@ topicServer = createTopic :<|> readTopic :<|> updateTopic
           liftIO $ writeIORef daRef newDa
           pure tId
     readTopic tId mId = do
-      daRef <- asks daData
-      (_skyMeta, rTopicTrie) <- liftIO $ readIORef daRef
-      maybeTopic <- C.lookup tId =<< unwrap rTopicTrie
-      case maybeTopic of
-        Nothing -> throwError $ APIError "Can't find topic"
-        Just (_tMeta, messageTrie) -> do
-          maybeMessage <- C.lookup mId =<< unwrap messageTrie
-          case maybeMessage of
-            Nothing -> throwError $ APIError "Can't find message"
-            Just (_mMeta, mData) -> unwrap mData
+      -- daRef <- asks daData
+      -- (_skyMeta, rTopicTrie) <- liftIO $ readIORef daRef
+      -- maybeTopic <- C.lookup tId =<< unwrap rTopicTrie
+      -- case maybeTopic of
+      --   Nothing -> throwError $ APIError "Can't find topic"
+      --   Just (_tMeta, messageTrie) -> do
+      --     maybeMessage <- C.lookup mId =<< unwrap messageTrie
+      --     case maybeMessage of
+      --       Nothing -> throwError $ APIError "Can't find message"
+      --       Just (_mMeta, mData) -> unwrap mData
+      undefined
     updateTopic _ = throwError $ APIError "Unimplemented"

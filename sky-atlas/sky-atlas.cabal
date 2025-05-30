@@ -67,6 +67,7 @@ library common
     , base
     , bytestring
     , cardano-crypto-class
+    , servant
     , hex-text
     , plutus-ledger-api
     , plutus-tx
@@ -151,6 +152,11 @@ test-suite tests
   main-is:        Spec.hs
   hs-source-dirs: tests
   other-modules:
+    Common.CryptoSpec
+    Common.TypesSpec
+    Common.DaSpec
+    Common.TrieSpec
+    OffChain.API
   build-depends:
     , base
     , hspec
@@ -161,6 +167,7 @@ test-suite tests
     , QuickCheck
     , servant-client
     , servant-client-core
+    , servant-server
     , sky-atlas:offchain
     , sky-atlas:onchain
     , sky-atlas:common
