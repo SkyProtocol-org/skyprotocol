@@ -212,10 +212,13 @@ typesSpec = do
         lbcin = [-1,-2,-5,-100,-1153]
         lbcon = [-1,0,2,0,7]
         lbbyte = [0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,8]
-    it "lowestBitClear 1" $ do
+    it "lowestBitClear 1.2" $ do
       map (lowestBitClear :: Integer -> Integer) lbci `shouldBe` lbco
+    it "lowestBitClear 1.4" $ do
       map (lowestBitClear :: Integer -> Integer) lbcin `shouldBe` lbcon
+    it "lowestBitClear 1.6" $ do
       map (lowestBitClear . toUInt64 :: Integer -> Integer) lbci `shouldBe` lbco
+    it "lowestBitClear 1.8" $ do
       map (lowestBitClear . toBytes4 :: Integer -> Integer) lbci `shouldBe` lbco
     it "lowestBitClear 2" $ do
       map (lowestBitClear . toByte :: Integer -> Integer) [0..255] `shouldBe` lbbyte
@@ -249,7 +252,7 @@ testBitLogic typ i t allBits len isUnsigned =
       aOr x y = t $ (i x) `logicalOr` (i y)
       aXor x y = t $ (i x) `logicalXor` (i y)
       aLowestBitClear n = lowestBitClear (i n)
-      ebf len height bits = t $ extractBitField len height (i bits)
+      ebf l height bits = t $ extractBitField l height (i bits)
       itt x = it $ typ GB.++ " " GB.++ x
   in
   do -- it "Checking BitLogic" $ do

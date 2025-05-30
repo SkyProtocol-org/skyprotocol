@@ -786,18 +786,18 @@ instance BitLogic Integer where
         let findLen l m = if n < m then l else findLen (l + l) (m * m)
             len = findLen 4 4294967296
          in bitLength $ integerToByteString BigEndian len n
-  lowestBitClear n = lowestBitSet (-n - 1)
+  lowestBitClear b = lowestBitSet (-b - 1)
     where
-      lowestBitSet b = if b == 0 then -1 else up n 1 2 []
-      up b i m ms =
-        let (q, r) = b `divMod` m -- m = 2**i, ms list of previous powers of two
+      lowestBitSet n = if n == 0 then -1 else up n 1 2 []
+      up n i m ms =
+        let (q, r) = n `divMod` m -- m = 2**i, ms list of previous powers of two
          in if r == 0
               then up q (i + i) (m * m) (m : ms)
               else down ms i r (i - 1)
       down [] _ _ h = h -- powers of two, power index, remainder, bits skipped so far
-      down (m : ms) i b h =
+      down (m : ms) i n h =
         let j = i `divide` 2
-            (q, r) = b `divMod` m
+            (q, r) = n `divMod` m
          in if r == 0
               then down ms j q (h + j)
               else down ms j r h
