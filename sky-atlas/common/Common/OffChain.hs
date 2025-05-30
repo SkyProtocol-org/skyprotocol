@@ -9,32 +9,17 @@ module Common.OffChain where
 
 import Common
 import Data.Aeson
--- import PlutusTx.Prelude (BuiltinByteString)
-
-import Data.ByteString qualified as BS
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import Data.Bifunctor (bimap)
+import Data.Text as T
 import Servant.API (FromHttpApiData (..), ToHttpApiData (..))
+import Text.Read (readEither)
 import Prelude
 
-byteStringToBuiltinByteString :: BS.ByteString -> BuiltinByteString
-byteStringToBuiltinByteString = BuiltinByteString
+instance ToJSON Bytes8 where
+  toJSON (FixedLengthByteString s) = toJSON $ toInt s
 
-builtinByteStringToByteString :: BuiltinByteString -> BS.ByteString
-builtinByteStringToByteString (BuiltinByteString b) = b
-
--- TODO figure something out for this
-instance ToJSON BuiltinByteString where
-  -- toJSON = toJSON . builtinByteStringToByteString
-  toJSON = undefined
-
--- TODO and for this as well
-instance FromJSON BuiltinByteString where
-  -- parseJSON x = parseJSON x >>= return . byteStringToBuiltinByteString
-  parseJSON = undefined
-
-deriving via BuiltinByteString instance ToJSON (FixedLengthByteString len)
-
-deriving via BuiltinByteString instance FromJSON (FixedLengthByteString len)
+instance FromJSON Bytes8 where
+  parseJSON a = fromInt <$> parseJSON a
 
 instance ToJSON TopicId where
   toJSON (TopicId tId) = object ["topic_id" .= tId]
@@ -42,11 +27,11 @@ instance ToJSON TopicId where
 instance FromJSON TopicId where
   parseJSON = withObject "TopicId" $ \v -> TopicId <$> v .: "topic_id"
 
-instance FromHttpApiData TopicId where
-  parseUrlPiece = undefined
-
 instance ToHttpApiData TopicId where
-  toUrlPiece = undefined
+  toUrlPiece (TopicId tId) = pack . show $ toInt tId
+
+instance FromHttpApiData TopicId where
+  parseUrlPiece tId = bimap pack (TopicId . fromInt) $ readEither (unpack tId)
 
 instance ToJSON MessageId where
   toJSON (MessageId mId) = object ["message_id" .= mId]
@@ -54,8 +39,8 @@ instance ToJSON MessageId where
 instance FromJSON MessageId where
   parseJSON = withObject "MessageId" $ \v -> MessageId <$> v .: "message_id"
 
-instance FromHttpApiData MessageId where
-  parseUrlPiece = undefined
-
 instance ToHttpApiData MessageId where
-  toUrlPiece = undefined
+  toUrlPiece (MessageId mId) = pack . show $ toInt mId
+
+instance FromHttpApiData MessageId where
+  parseUrlPiece mId = bimap pack (MessageId . fromInt) $ readEither (unpack mId)
