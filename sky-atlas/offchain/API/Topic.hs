@@ -1,10 +1,8 @@
 module API.Topic (TopicAPI, topicServer) where
 
 import API.Types
-import Common.Crypto (computeHash)
-import Common.DA
+import Common as C
 import Common.OffChain ()
-import Common.Types (Bytes4, ofHex)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Identity (runIdentity)
 import Control.Monad.Reader (asks)
@@ -33,6 +31,13 @@ topicServer = createTopic :<|> readTopic :<|> updateTopic
           pure tId
     readTopic tId mId = do
       daRef <- asks daData
-      da <- liftIO $ readIORef daRef
-      throwError $ APIError "Unimplemented"
+      (_skyMeta, rTopicTrie) <- liftIO $ readIORef daRef
+      maybeTopic <- C.lookup tId =<< unwrap rTopicTrie
+      case maybeTopic of
+        Nothing -> throwError $ APIError "Can't find topic"
+        Just (_tMeta, messageTrie) -> do
+          maybeMessage <- C.lookup mId =<< unwrap messageTrie
+          case maybeMessage of
+            Nothing -> throwError $ APIError "Can't find message"
+            Just (_mMeta, mData) -> unwrap mData
     updateTopic _ = throwError $ APIError "Unimplemented"
