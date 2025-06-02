@@ -118,6 +118,7 @@ library offchain
     , mtl
     , servant
     , servant-server
+    , plutus-tx
     , sky-atlas:common
     , text
     , wai

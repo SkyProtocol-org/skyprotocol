@@ -24,3 +24,17 @@ data AppEnv = AppEnv
   }
 
 type AppM = ReaderT AppEnv (LogT (ExceptT APIError Handler))
+
+instance (Dato a) => PreWrapping AppM HashRef a where
+  wrap :: Dato a => a -> AppM (HashRef a)
+  wrap = pure . digestRef
+
+instance LiftPreWrapping AppM HashRef where
+  liftWrap = wrap
+
+instance (Dato a) => Wrapping AppM HashRef a where
+  unwrap :: Dato a => HashRef a -> AppM a
+  unwrap DigestRef {..} = pure digestRefValue
+
+instance LiftWrapping AppM HashRef where
+  liftUnwrap = unwrap

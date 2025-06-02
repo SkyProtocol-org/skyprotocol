@@ -2,6 +2,7 @@ module API.Topic (TopicAPI, topicServer) where
 
 import API.Types
 import Common as C
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Common.OffChain ()
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Identity (runIdentity)
@@ -9,11 +10,12 @@ import Control.Monad.Reader (asks)
 import Data.IORef (readIORef, writeIORef)
 import Data.Text
 import Servant
+import qualified Data.ByteString as BS
 
 type TopicAPI =
   "topic"
     :> ( "create" :> Post '[JSON] TopicId
-           :<|> "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[JSON] Text
+           :<|> "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
            :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
        )
 
@@ -30,15 +32,15 @@ topicServer = createTopic :<|> readTopic :<|> updateTopic
           liftIO $ writeIORef daRef newDa
           pure tId
     readTopic tId mId = do
-      -- daRef <- asks daData
-      -- SkyDA {..} <- liftIO $ readIORef daRef
-      -- maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
-      -- case maybeTopic of
-      --   Nothing -> throwError $ APIError "Can't find topic"
-      --   Just (_tMeta, messageTrie) -> do
-      --     maybeMessage <- C.lookup mId =<< unwrap messageTrie
-      --     case maybeMessage of
-      --       Nothing -> throwError $ APIError "Can't find message"
-      --       Just (_mMeta, mData) -> pure "Not yet implemented" -- unwrap mData
-      undefined
+      daRef <- asks daData
+      SkyDA {..} <- liftIO $ readIORef daRef
+      maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
+      case maybeTopic of
+        Nothing -> throwError $ APIError "Can't find topic"
+        Just (_tMeta, messageTrie) -> do
+          maybeMessage <- C.lookup mId =<< unwrap messageTrie
+          case maybeMessage of
+            Nothing -> throwError $ APIError "Can't find message"
+            Just (_mMeta, mData) -> builtinByteStringToByteString <$> unwrap mData 
     updateTopic _ = throwError $ APIError "Unimplemented"
+    builtinByteStringToByteString (BuiltinByteString b) = b

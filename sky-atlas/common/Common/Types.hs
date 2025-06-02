@@ -26,6 +26,7 @@ import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
 import PlutusTx.Show
 import Text.Hex (decodeHex, encodeHex)
+import Control.Monad.Reader (MonadReader)
 
 -- * Types
 

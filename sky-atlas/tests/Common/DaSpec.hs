@@ -14,12 +14,8 @@ import Common.TypesSpec
 import Contract.Bounty
 import Contract.SkyBridge
 import Data.Functor.Identity (Identity (..))
-import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
-import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusTx
-import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusTx.Prelude
 import Test.Hspec
@@ -177,16 +173,16 @@ msgMeta1 :: MessageMetaData HashRef
 msgMeta1 = MessageMetaData pk1 timestamp1
 
 msg1 :: BuiltinByteString
-msg1 = stringToBuiltinByteString $ "Hello, World!"
+msg1 = stringToBuiltinByteString "Hello, World!"
 
 msg1Hash :: DataHash
 msg1Hash = computeHash msg1
 
 msg2 :: BuiltinByteString
-msg2 = stringToBuiltinByteString $ "Taxation is Theft"
+msg2 = stringToBuiltinByteString "Taxation is Theft"
 
 msg3 :: BuiltinByteString
-msg3 = stringToBuiltinByteString $ "Slava Drakonu"
+msg3 = stringToBuiltinByteString "Slava Drakonu"
 
 msg3Hash :: DataHash
 msg3Hash = computeHash msg3
