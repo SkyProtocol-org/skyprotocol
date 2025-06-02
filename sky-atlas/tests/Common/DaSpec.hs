@@ -11,8 +11,6 @@ import Common.DA
 import Common.Trie
 import Common.Types
 import Common.TypesSpec
-import Contract.Bounty
-import Contract.SkyBridge
 import Data.Functor.Identity (Identity (..))
 import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
@@ -192,7 +190,7 @@ daSpec = do
   describe "simple tests for SkyDA" $ do
     -- Create an empty SkyDA, check its digest
     let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
-    let rootHash0 = castDigest . getDigest . skyTopicTrie $ da0
+    let rootHash0 = castDigest . getDigest . skyTopicTrie $ da0 :: DataHash
     let topHash0 = computeHash da0
     it "hash of empty DA" $ do
       computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
@@ -215,7 +213,7 @@ daSpec = do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
     let topHash1 = computeHash da3 :: DataHash
-    let rootHash1 = castDigest . getDigest . skyTopicTrie $ da3
+    let rootHash1 = castDigest . getDigest . skyTopicTrie $ da3 :: DataHash
 
     it "proof1 correct" $ do
       applySkyDataProof proof1 l1d == topHash1 `shouldBe` True
@@ -224,16 +222,9 @@ daSpec = do
       (triePathHeight . pathMessageTriePath $ proof1) == 0 `shouldBe` True
       (triePathKey . pathMessageTriePath $ proof1) == msg1i `shouldBe` True
 
-    ------------------------------------------------------------------------------
-    -- Test Bounty Contract
-    ------------------------------------------------------------------------------
-
-    -- da10 has same committee as da3 but different root hash
+    -- Additional DA tests can be added here
     let (Just topic1, da10) = runIdentity $ insertTopic topicSchema0 da3
     let (Just msg3i, da11) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
-
-    -- da20 has different committee as top hash 2 but same root hash
-    let da10 = runIdentity $ updateDaCommittee mpk1 da11
 
     let Just (msg3b, proof3) =
           runIdentity $ getSkyDataProof (topic1, msg3i) da11 ::
@@ -254,76 +245,3 @@ daSpec = do
       topHash1 == topHash3 `shouldBe` False
       topHash1 `shouldBeHex` "f889a9fec14bad5dfd59bd560a6d7626f11f048a194f813a8b090745ed243253"
       topHash3 `shouldBeHex` "c0bd8a731290df2fe149240c8271e56182b9d211ab8b9e5ba4ea7073af9dbc8a"
-
-    it "Bounty contract should accept claim for msg1" $ do
-      validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` True
-
-    it "Bounty contract should accept claim for msg3" $ do
-      validateClaimBounty deadline txBeforeDeadlineRange msg3Hash topic1 proof3 topHash3 `shouldBe` True
-
-    it "contract should not accept claim for wrong topic" $ do
-      validateClaimBounty deadline txBeforeDeadlineRange msg3Hash topic0 proof3 topHash3 `shouldBe` False
-
-    it "contract should not accept claim for wrong data" $ do
-      validateClaimBounty deadline txBeforeDeadlineRange msg3Hash topic1 proof1 topHash1 `shouldBe` False
-
-    it "contract should not accept claim after deadline" $ do
-      validateClaimBounty deadline txAfterDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` False
-
-    it "contract should not accept claim in interval around deadline" $ do
-      validateClaimBounty deadline txAroundDeadlineRange msg1Hash topic0 proof1 topHash1 `shouldBe` False
-
-    it "contract should not accept claim with wrong proof" $ do
-      validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof3 topHash1 `shouldBe` False
-
-    it "contract should not accept claim with wrong top hash" $ do
-      validateClaimBounty deadline txBeforeDeadlineRange msg1Hash topic0 proof1 topHash3 `shouldBe` False
-
-    it "Bounty contract should accept timeout after deadline" $ do
-      validateTimeout deadline txAfterDeadlineRange `shouldBe` True
-
-    it "contract should reject timeout before deadline" $ do
-      validateTimeout deadline txBeforeDeadlineRange `shouldBe` False
-
-    it "contract should reject timeout in interval around deadline" $ do
-      validateTimeout deadline txAroundDeadlineRange `shouldBe` False
-
-    ------------------------------------------------------------------------------
-    -- Bridge Contract
-    ------------------------------------------------------------------------------
-
-    -- topHash1 signed by sk1
-    let topHash1Sig1 = SingleSig (pk1, signMessage sk1 topHash1)
-    let topHash1Sig2 = SingleSig (pk2, signMessage sk2 topHash1)
-    let topHash1Sig = MultiSig [topHash1Sig1, topHash1Sig2]
-    it "topHash1Sig1" $ do topHash1Sig1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65dc65685ad60efab880662412c3811612693e0d9d0ede937d388c45ee3319ed30be8952eded08cf2aa0f7879b16019dc64e0565c22e11fc120820e995689b5504"
-    it "topHash1Sig2" $ do topHash1Sig2 `shouldBeHex` "42fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329aea16cd1a605054aa23eb05acec102f549d3a7b64ef43a56d4f352bb82d2e0a1c983a3e76017161f6b5583baad04aa20e4af3b3f9dda2361668e4a4c66e16e4a00"
-    it "topHash1Sig1 valid" $ do
-      (singleSigValid topHash1 topHash1Sig1) `shouldBe` True
-    it "topHash1Sig2 valid" $ do
-      (singleSigValid topHash1 topHash1Sig2) `shouldBe` True
-    it "topHash1Sig valid" $ do
-      (multiSigValid mpk1 topHash1 topHash1Sig) `shouldBe` True
-    let topHash3Sig1 = SingleSig (pk1, signMessage sk1 topHash3)
-    let topHash3Sig2 = SingleSig (pk2, signMessage sk2 topHash3)
-    let topHash3Sig = MultiSig [topHash3Sig1, topHash3Sig2]
-    it "topHash3Sig1" $ do topHash3Sig1 `shouldBeHex` "3363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf65686847497dd0d4f0cdbdb7ebc76dfb960079de1b9de9ccd292a3c46390df88b4b2e2600af7afcf4139f5a50ab8764e79c9e8abfb25b1859f50ece312d62daa03"
-    it "topHash3Sig2" $ do topHash3Sig2 `shouldBeHex` "42fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae85462c6be83569014f935a4764fdc70ec942e7380fdc9ebdb786afaaf0285b730a83977aa15c17443d54ac01a43325b81e1dac802098a476de46444cf666a706"
-    it "topHash3Sig2 valid" $ do
-      (singleSigValid topHash3 topHash3Sig1) `shouldBe` True
-    it "topHash3Sig2 valid" $ do
-      (singleSigValid topHash3 topHash3Sig2) `shouldBe` True
-    it "topHash3Sig valid" $ do
-      (multiSigValid committee0 topHash3 topHash3Sig) `shouldBe` True
-    it "bridge accepts transition from topHash0 to topHash1" $ do
-      bridgeTypedValidatorCore daSchema0 committee0 rootHash0 topHash1 topHash1Sig topHash0 `shouldBe` True
-    it "bridge accepts transition from topHash1 to topHash3" $ do
-      bridgeTypedValidatorCore daSchema0 committee0 rootHash1 topHash3 topHash3Sig topHash1 `shouldBe` True
-    it "bridge rejects transition from topHash0 to topHash1 with wrong committee" $ do
-      bridgeTypedValidatorCore daSchema0 mpk1 rootHash0 topHash1 topHash1Sig topHash0 `shouldBe` False
-    it "bridge rejects transition from topHash1 to topHash3 with wrong root hash" $ do
-      bridgeTypedValidatorCore daSchema0 committee0 rootHash0 topHash3 topHash3Sig topHash1 `shouldBe` False
-    it "bridge rejects transition from topHash1 to topHash3 with wrong signature" $ do
-      bridgeTypedValidatorCore daSchema0 committee0 rootHash1 topHash3 topHash1Sig topHash1 `shouldBe` False
-    it "bridge rejects transition from topHash1 to topHash3 with old topHash" $ do
-      bridgeTypedValidatorCore daSchema0 committee0 rootHash1 topHash3 topHash3Sig topHash0 `shouldBe` False

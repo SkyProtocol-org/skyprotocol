@@ -43,6 +43,7 @@ import Test.QuickCheck hiding ((.&.))
 import Control.Exception
 import Prelude (Int, putStrLn)
 
+cryptoSpec :: Spec
 cryptoSpec = do
   describe "SkyCrypto" $ do
     it "simple tries" $ do

@@ -65,7 +65,6 @@ library common
   build-depends:
     , aeson
     , base
-    , bytestring
     , cardano-crypto-class
     , hex-text
     , mtl
@@ -73,7 +72,6 @@ library common
     , plutus-tx
     , servant
     , text
-    , transformers
 
 library onchain
   import:             common, plutus-ghc-options
@@ -93,11 +91,10 @@ library onchain
     , plutus-core
     , plutus-ledger-api
     , plutus-tx
-    , plutus-tx-plugin
     , sky-atlas:common
 
--- if !(impl(ghcjs) || os(ghcjs))
---   build-depends: plutus-tx-plugin
+  if !(impl(ghcjs) || os(ghcjs))
+    build-depends: plutus-tx-plugin
 
 library offchain
   import:          common
@@ -113,15 +110,12 @@ library offchain
     , atlas-cardano     >=0.12.0
     , base
     , bytestring
-    , containers
     , log-base
     , mtl
     , plutus-tx
-    , servant
     , servant-server
     , sky-atlas:common
     , text
-    , wai
     , warp
     , yaml
 
@@ -133,38 +127,62 @@ executable sky-atlas
   build-depends:
     , base
     , log-base
-    , mtl
     , sky-atlas:common
     , sky-atlas:offchain
-    , yaml
 
-test-suite tests
+test-suite common-tests
   import:         common
   ghc-options:    -threaded -rtsopts
   type:           exitcode-stdio-1.0
-  main-is:        Spec.hs
+  main-is:        CommonSpec.hs
   hs-source-dirs: tests
   other-modules:
     Common.CryptoSpec
     Common.DaSpec
     Common.TrieSpec
     Common.TypesSpec
+
+  build-depends:
+    , base
+    , hspec
+    , plutus-ledger-api
+    , plutus-tx
+    , QuickCheck
+    , sky-atlas:common
+    , text
+
+test-suite offchain-tests
+  import:         common
+  ghc-options:    -threaded -rtsopts
+  type:           exitcode-stdio-1.0
+  main-is:        OffChainSpec.hs
+  hs-source-dirs: tests
+  other-modules:
     OffChain.API
 
   build-depends:
     , base
     , hspec
     , http-client
-    , http-client-tls
     , log-base
-    , plutus-ledger-api
-    , plutus-tx
-    , QuickCheck
     , servant-client
-    , servant-client-core
     , servant-server
     , sky-atlas:common
     , sky-atlas:offchain
+
+test-suite onchain-tests
+  import:         common, plutus-ghc-options
+  ghc-options:    -threaded -rtsopts
+  type:           exitcode-stdio-1.0
+  main-is:        OnChainSpec.hs
+  hs-source-dirs: tests
+  other-modules:
+    OnChain.ContractSpec
+
+  build-depends:
+    , base
+    , hspec
+    , plutus-ledger-api
+    , plutus-tx
+    , sky-atlas:common
     , sky-atlas:onchain
-    , tasty
-    , text
