@@ -1,6 +1,6 @@
 module Main where
 
-import API (testEnv, startApp)
+import API (startApp, testEnv)
 import Control.Monad.IO.Class
 import Log
 import Log.Backend.StandardOutput

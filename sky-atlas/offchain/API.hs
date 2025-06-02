@@ -6,23 +6,22 @@ module API (API, api, server, startApp, testEnv, AppEnv (..), AppConfig (..), AP
 import API.Bridge
 import API.Topic
 import API.Types
+import Common (Bytes4, HashRef, MultiSigPubKey (..), SkyDa, UInt16 (..), computeHash, derivePubKey, initDa, ofHex)
 import Control.Monad.Except (runExceptT)
+import Control.Monad.Identity
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy.Char8 qualified as BS
+import Data.IORef
 import Data.Text (Text)
 import Data.Yaml.Config (loadYamlSettings, requireEnv)
+import Log
 import Network.Wai.Handler.Warp (run)
 import Servant
-import Common (Bytes4, SkyDa, HashRef, computeHash, ofHex, derivePubKey, MultiSigPubKey (..), initDa, UInt16 (..))
-import Control.Monad.Identity
-import Data.IORef
-import Log
 
 type HealthAPI = "health" :> Get '[JSON] Text
 
 healthServer :: ServerT HealthAPI AppM
-healthServer = do
-  pure "OK"
+healthServer = pure "OK"
 
 type API = HealthAPI :<|> BridgeAPI :<|> TopicAPI
 
@@ -57,4 +56,4 @@ testEnv logger = do
       daData = runIdentity $ initDa daSchema committee :: SkyDa HashRef
 
   dataRef <- newIORef daData
-  pure $ AppEnv { appConfig = config, daData = dataRef, ..}
+  pure $ AppEnv {appConfig = config, daData = dataRef, ..}

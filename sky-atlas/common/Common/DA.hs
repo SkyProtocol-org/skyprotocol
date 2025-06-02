@@ -22,11 +22,13 @@ import PlutusTx.Show
 
 -- * Types
 
-data SkyDa r = SkyDA
+data SkyDa r = SkyDa
   { skyMetaData :: LiftRef r (DaMetaData r),
     skyTopicTrie :: LiftRef r (TopicTrie r)
   }
-  deriving (ToByteString)
+
+instance (LiftDato r) => ToByteString (SkyDa r) where
+  byteStringOut SkyDa {..} isTerminal s = byteStringOut skyMetaData NonTerminal $ byteStringOut skyTopicTrie isTerminal s
 
 newtype DaMetaData r
   = DaMetaDataOfTuple {tupleOfDaMetaData :: (DataHash, LiftRef r Committee)}
@@ -188,7 +190,7 @@ instance TrieHeightKey Byte Bytes8
 -- TODO: generate a new Committee from PoS instead of just copying the PoA committee
 -- Maybe it should depend on a seed based on the topicId and more.
 generateCommittee :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) => SkyDa r -> e (LiftRef r Committee)
-generateCommittee SkyDA {..} = unwrap skyMetaData <&> committeeOfDaMetaData
+generateCommittee SkyDa {..} = unwrap skyMetaData <&> committeeOfDaMetaData
 
 committeeOfDaMetaData :: DaMetaData r -> LiftRef r Committee
 committeeOfDaMetaData (DaMetaData _ c) = c
@@ -199,7 +201,7 @@ insertTopic ::
   DataHash ->
   SkyDa r ->
   e (Maybe TopicId, SkyDa r)
-insertTopic newTopicSchema da@SkyDA {..} =
+insertTopic newTopicSchema da@SkyDa {..} =
   do
     newTopicCommittee <- generateCommittee da
     oldTopicTrie <- unwrap skyTopicTrie
@@ -212,7 +214,7 @@ insertTopic newTopicSchema da@SkyDA {..} =
         rNewTopicMetaData <- wrap $ TopicMetaData newTopicSchema newTopicCommittee
         let newTopic = (rNewTopicMetaData, rNewMessageTrie)
         skyTopicTrieNew <- insert newTopic topicId oldTopicTrie >>= wrap
-        return (newTopicId, SkyDA {skyTopicTrie = skyTopicTrieNew, ..})
+        return (newTopicId, SkyDa {skyTopicTrie = skyTopicTrieNew, ..})
 
 insertMessage ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
@@ -222,7 +224,7 @@ insertMessage ::
   TopicId ->
   SkyDa r ->
   e (Maybe MessageId, SkyDa r)
-insertMessage poster timestamp newMessage topicId da@SkyDA {..} =
+insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
   do
     oldTopicTrie <- unwrap skyTopicTrie
     oldMaybeTopicEntry <- lookup topicId oldTopicTrie
@@ -242,7 +244,7 @@ insertMessage poster timestamp newMessage topicId da@SkyDA {..} =
             skyTopicTrieNew <-
               insert (rTopicMetaData, rNewMessageTrie) topicId oldTopicTrie
                 >>= wrap
-            return (Just messageId, SkyDA {skyTopicTrie = skyTopicTrieNew, ..})
+            return (Just messageId, SkyDa {skyTopicTrie = skyTopicTrieNew, ..})
 
 -- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProof #-}
@@ -258,7 +260,7 @@ applySkyDataProof SkyDataPath {..} messageDataHash =
     return . castDigest . computeDigest $ (liftref pathDaMetaData, daDataHash)
 
 getSkyDataPath :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataPath r))
-getSkyDataPath (topicId, messageId) SkyDA {..} = do
+getSkyDataPath (topicId, messageId) SkyDa {..} = do
   (Zip rTopicEntry topicPath) <- unwrap skyTopicTrie >>= zipperOf >>= refocus topicId
   fr rTopicEntry >>= \case
     Leaf (rTopicMetaData, rMessageTrie) -> do
@@ -295,15 +297,15 @@ initDa daSchema daCommittee = do
   skyTopicTrie <- empty >>= wrap
   rCommittee <- wrap daCommittee
   skyMetaData <- wrap (DaMetaData daSchema rCommittee)
-  return SkyDA {..}
+  return SkyDa {..}
 
 -- TODO: implement a "monadic lens" instead?
 updateDaCommittee :: (LiftDato r, LiftWrapping e r) => Committee -> SkyDa r -> e (SkyDa r)
-updateDaCommittee newCommittee SkyDA {..} = do
+updateDaCommittee newCommittee SkyDa {..} = do
   rNewCommittee <- wrap newCommittee
   DaMetaDataOfTuple (daSchema, _) <- unwrap skyMetaData
   skyMetaDataNew <- wrap $ DaMetaData daSchema rNewCommittee
-  return SkyDA {skyMetaData = skyMetaDataNew, ..}
+  return SkyDa {skyMetaData = skyMetaDataNew, ..}
 
 -- * Meta Declarations
 
