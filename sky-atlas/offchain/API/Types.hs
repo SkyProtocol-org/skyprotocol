@@ -8,6 +8,7 @@ import Data.IORef (IORef)
 import GHC.Generics (Generic)
 import Log
 import Servant
+import Data.Char (toLower)
 
 data APIError = APIError String deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
@@ -15,7 +16,22 @@ data AppConfig = AppConfig
   { configPort :: Int,
     configLogLevel :: Maybe String
   }
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
+  deriving (Show, Eq, Generic)
+
+instance ToJSON AppConfig where
+  toJSON = genericToJSON defaultOptions { fieldLabelModifier = dropPrefix "config" }
+
+instance FromJSON AppConfig where
+  parseJSON = genericParseJSON defaultOptions { fieldLabelModifier = dropPrefix "config" }
+
+dropPrefix :: String -> String -> String
+dropPrefix pr s = case splitAt (length pr) s of
+  (p, rest) | p == pr -> toLowerHead rest
+  _ -> s
+  where
+    toLowerHead :: String -> String
+    toLowerHead [] = []
+    toLowerHead (x:xs) = toLower x : xs
 
 data AppEnv = AppEnv
   { appConfig :: AppConfig,

@@ -116,13 +116,14 @@ library offchain
     , containers
     , log-base
     , mtl
+    , plutus-tx
     , servant
     , servant-server
-    , plutus-tx
     , sky-atlas:common
     , text
     , wai
     , warp
+    , yaml
 
 executable sky-atlas
   import:         common
@@ -136,17 +137,6 @@ executable sky-atlas
     , sky-atlas:common
     , sky-atlas:offchain
     , yaml
-
--- , atlas-cardano  >=0.12.0
--- , sky-atlas:offchain-lib
-
--- , aeson-pretty
--- , bytestring
--- , http-types
--- , servant-server
--- , transformers
--- , wai-cors
--- , warp
 
 test-suite tests
   import:         common
@@ -166,6 +156,7 @@ test-suite tests
     , hspec
     , http-client
     , http-client-tls
+    , log-base
     , plutus-ledger-api
     , plutus-tx
     , QuickCheck

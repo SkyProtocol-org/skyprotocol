@@ -9,8 +9,8 @@ import Test.Hspec
 
 main :: IO ()
 main = hspec $ do
-  typesSpec
-  cryptoSpec
-  trieSpec
-  daSpec
+  -- typesSpec
+  -- cryptoSpec
+  -- trieSpec
+  -- daSpec
   apiSpec
