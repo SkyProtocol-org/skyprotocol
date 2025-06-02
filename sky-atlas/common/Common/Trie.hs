@@ -8,8 +8,6 @@ module Common.Trie where
 import Common.Crypto
 -- import PlutusTx.Blueprint
 
--- import PlutusTx.Prelude qualified as PlutusTx
-
 import Common.Types
 import Control.Monad (Monad, (>=>))
 import Data.Function ((&))
@@ -138,12 +136,6 @@ class
 -- ** TrieTop
 
 -- for blockchain serialization purposes, we assume height+1 will fit in a UInt16
-{-
-instance
-  (Eq t) =>
-  Eq (TrieTop t) where
-  (TrieTop h t) == (TrieTop h' t') = h == h' && t == t'
--}
 instance (ToByteString t) => ToByteString (TrieTop t) where
   byteStringOut (TrieTop h t) = byteStringOut (toUInt16 $ h + 1, t)
 
@@ -238,31 +230,6 @@ instance Functor (TrieNodeF h k c) where
   fmap f (Branch l r) = Branch (f l) (f r)
   fmap f (Skip h k t) = Skip h k (f t)
 
-{-
-instance
-  (TrieHeightKey h k, ToData c, ToData t) =>
-  ToData (TrieNodeF h k c t)
-  where
-instance
-  (TrieHeightKey h k, FromData c, FromData t) =>
-  FromData (TrieNodeF h k c t)
-  where
-instance
-  (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) =>
-  UnsafeFromData (TrieNodeF h k c t)
-  where
--}
-{-
-instance
-  (TrieHeightKey h k, ToData c, ToData t) =>
-  ToData (TrieNodeF h k c t)
-  where
-  toBuiltinData Empty = Constr 0 ()
-  byteStringOut (Leaf c) = byteStringOut (Byte 1, c)
-  byteStringOut (Branch l r) = byteStringOut (Byte 2, l, r)
-  byteStringOut (Skip h k c) = byteStringOut (Byte 3, h, k, c)
--}
-
 -- ** TrieNodeFL
 
 deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, Eq c, Eq (LiftRef r t)) => Eq (TrieNodeFL r h k c t)
@@ -277,10 +244,6 @@ deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, Unsafe
 
 deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, FromData c, FromData (LiftRef r t)) => FromData (TrieNodeFL r h k c t)
 
--- instance
---  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
---  Eq (TrieNodeFL r h k c t) where
---  TrieNodeFL x == TrieNodeFL y = x = y
 instance
   (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
   Show (TrieNodeFL r h k c t)
@@ -797,9 +760,8 @@ update :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => (Maybe c 
 update updateLeaf key = zipperOf >=> zipUpdate updateLeaf key >=> ofZipper
 
 -- NOTE: zipInsert v k, not zipInsert k v
--- The definition suggests we should swap v and k, so insert = update . const . Just
 insert :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => c -> k -> Trie r h k c -> e (Trie r h k c)
-insert v = update (const (return (Just v)))
+insert = update . const . return . Just
 
 remove :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => k -> Trie r h k c -> e (Trie r h k c)
 remove = update (return . const Nothing)
