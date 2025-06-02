@@ -1,10 +1,13 @@
 module OffChain.API (apiSpec) where
 
 import API
+import Common
 import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Exception (bracket)
 import Control.Monad.IO.Class (liftIO)
+import Data.ByteString qualified as BS
+import Data.Either (isRight)
 import Data.Text
 import Log
 import Log.Backend.LogList
@@ -13,43 +16,63 @@ import Servant
 import Servant.Client
 import Test.Hspec
 
+data TestEnv = TestEnv
+  { appEnv :: AppEnv,
+    appThreadId :: ThreadId,
+    appLogList :: LogList,
+    clientEnv :: ClientEnv
+  }
+
 -- Start the API server in a separate thread
-startAPI :: IO (AppEnv, ThreadId, LogList)
+startAPI :: IO TestEnv
 startAPI = do
-  logList <- newLogList
-  logger <- mkLogger "tests" (putLogList logList)
-  env <- testEnv logger
-  appThreadId <- forkIO $ startApp env
+  -- initialize App environment
+  appLogList <- newLogList
+  logger' <- mkLogger "tests" (putLogList appLogList)
+  appEnv <- testEnv logger'
+
+  -- start the app
+  appThreadId <- forkIO $ startApp appEnv
   -- Give the server some time to start
   threadDelay 1000000
-  pure (env, appThreadId, logList)
+
+  -- initialize http client
+  manager <- liftIO $ newManager defaultManagerSettings
+  let baseUrl = BaseUrl Http "localhost" (configPort $ appConfig appEnv) ""
+      clientEnv = mkClientEnv manager baseUrl
+  pure TestEnv {..}
 
 -- Shut down the API server and display logs
-closeAPI :: (AppEnv, ThreadId, LogList) -> IO ()
-closeAPI (AppEnv {..}, appThreadId, logList) = do
+closeAPI :: TestEnv -> IO ()
+closeAPI TestEnv {..} = do
   -- Kill the server thread
   killThread appThreadId
   -- Wait for logger to flush logs
-  waitForLogger logger
+  waitForLogger $ logger appEnv
   -- Display logs
   putStrLn "Shutting down server. Logs:"
-  mapM_ print =<< getLogList logList
+  mapM_ print =<< getLogList appLogList
   -- Shutdown the logger
-  shutdownLogger logger
+  shutdownLogger $ logger appEnv
 
 -- Helper function to manage the lifecycle of the API server
-withAPI :: ((AppEnv, ThreadId, LogList) -> IO ()) -> IO ()
+withAPI :: (TestEnv -> IO ()) -> IO ()
 withAPI = bracket startAPI closeAPI
 
 -- Define Servant client functions
 healthClient :: ClientM Text
-healthClient :<|> _ = client api
+_bridgeClient :: ClientM Text :<|> (Text -> ClientM Text)
+createTopic :: ClientM TopicId
+readTopic :: TopicId -> MessageId -> ClientM BS.ByteString
+updateTopic :: Text -> ClientM Text
+healthClient :<|> _bridgeClient :<|> (createTopic :<|> readTopic :<|> updateTopic) = client api
 
 apiSpec :: Spec
 apiSpec = around withAPI $ describe "API Tests" $ do
-  it "should return OK for health endpoint" $ \(AppEnv {..}, _appThreadId, _logList) -> do
-    manager <- liftIO $ newManager defaultManagerSettings
-    let baseUrl = BaseUrl Http "localhost" (configPort appConfig) ""
-    let clientEnv = mkClientEnv manager baseUrl
+  it "should return OK for health endpoint" $ \TestEnv {..} -> do
     res <- liftIO $ runClientM healthClient clientEnv
     res `shouldBe` Right "OK"
+
+  it "should return TopicId 0 when creating new topic" $ \TestEnv {..} -> do
+    res <- liftIO $ runClientM createTopic clientEnv
+    res `shouldBe` Right (topicIdFromInteger 0)

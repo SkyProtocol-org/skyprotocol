@@ -160,6 +160,7 @@ test-suite offchain-tests
   other-modules:  OffChain.API
   build-depends:
     , base
+    , bytestring
     , hspec
     , http-client
     , log-base

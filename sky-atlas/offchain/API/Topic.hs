@@ -9,6 +9,7 @@ import Control.Monad.Reader (asks)
 import Data.ByteString qualified as BS
 import Data.IORef (readIORef, writeIORef)
 import Data.Text
+import Log
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
@@ -30,6 +31,7 @@ topicServer = createTopic :<|> readTopic :<|> updateTopic
         Nothing -> throwError $ APIError "Can't add topic"
         Just tId -> do
           liftIO $ writeIORef daRef newDa
+          logInfo_ $ "Created topic with id " <> pack (show $ toInt tId)
           pure tId
     readTopic tId mId = do
       daRef <- asks daData

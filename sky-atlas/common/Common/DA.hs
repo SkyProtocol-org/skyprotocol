@@ -85,6 +85,9 @@ newtype TopicId = TopicId {getTopicId :: Bytes8}
     )
     via Bytes8
 
+topicIdFromInteger :: Integer -> TopicId
+topicIdFromInteger = fromInt
+
 instance TrieKey TopicId
 
 instance TrieHeightKey Byte TopicId
