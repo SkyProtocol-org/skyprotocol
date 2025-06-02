@@ -1,5 +1,6 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 
 -- module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
 module Common.DaSpec where
@@ -123,13 +124,13 @@ signatureSpec = do
 fingerprintSpec :: Spec
 fingerprintSpec = do
   it "multi sig 1 serialization should match" $ do
-    hexOf mpk1 `shouldBe` "00033363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf6542fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca730002"
+    mpk1 `shouldBeHex` "00033363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf6542fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca730002"
 
   it "multi sig 1 fingerprint should match" $ do
-    hexOf (computeHash mpk1) `shouldBe` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
+    computeHash mpk1 `shouldBeHex` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327"
 
   it "multi sig 2 fingerprint should match" $ do
-    hexOf (computeHash mpk2) `shouldBe` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
+    computeHash mpk2 `shouldBeHex` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
 
 daSchema0 :: DataHash
 daSchema0 = computeHash $ (ofHex "deadbeef" :: Bytes4)
@@ -190,15 +191,13 @@ daSpec = do
   describe "simple tests for SkyDA" $ do
     -- Create an empty SkyDA, check its digest
     let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
-    let rootHash0 = castDigest . getDigest . skyTopicTrie $ da0 :: DataHash
-    let topHash0 = computeHash da0
     it "hash of empty DA" $ do
       computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
 
     -- Check that proofs come in empty
     let maybeProof0 =
           runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0 ::
-            Maybe (_, SkyDataProof Blake2b_256)
+            Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     it "No proof for (0,0) in empty Da" $ do
       maybeProof0 `shouldBeHex` "00"
 
@@ -207,13 +206,11 @@ daSpec = do
     let (Just msg2i, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
     let Just (msg1b, proof1) =
           runIdentity $ getSkyDataProof (topic0, msg1i) da3 ::
-            Maybe (_, SkyDataProof Blake2b_256)
-    let rMessageData1 = runIdentity $ wrap msg1 :: LiftRef HashRef (MessageData HashRef)
+            Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     it "msg1 matches" $ do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
     let topHash1 = computeHash da3 :: DataHash
-    let rootHash1 = castDigest . getDigest . skyTopicTrie $ da3 :: DataHash
 
     it "proof1 correct" $ do
       applySkyDataProof proof1 l1d == topHash1 `shouldBe` True
@@ -228,8 +225,7 @@ daSpec = do
 
     let Just (msg3b, proof3) =
           runIdentity $ getSkyDataProof (topic1, msg3i) da11 ::
-            Maybe (_, SkyDataProof Blake2b_256)
-    let rMessageData1 = runIdentity $ wrap msg3 :: LiftRef HashRef (MessageData HashRef)
+            Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     it "msg3 matches" $ do
       msg3b == LiftRef (digestRef msg3) `shouldBe` True
     let l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash

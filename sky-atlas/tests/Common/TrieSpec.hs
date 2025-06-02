@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 {-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
@@ -38,13 +39,6 @@ import PlutusTx.Prelude
 -- import PlutusTx.List (zip)
 import qualified PlutusTx.Show as PS
 -- import PlutusTx.Utils
-
-import qualified Debug.Trace as DT
-import qualified GHC.Show as GS
-import Data.Functor.Identity (Identity (..))
-import qualified GHC.Base as GB
-import Test.Hspec
-import Test.QuickCheck hiding ((.&.))
 
 instance TrieHeight Integer
 instance TrieHeightKey Integer Integer
@@ -144,24 +138,24 @@ trieSpec = describe "Spec.TrieSpec" $ do
   it "testing creation of random tries" $ property $ \(listOfK :: [Bytes8]) -> do
     let someTrie :: S = runIdentity $ ofList $ zip listOfK $ fmap PS.show listOfK
     case listOfK of
-      (k1 : k2 : ks) -> do
+      (k1 : k2 : _) -> do
         runIdentity (lookup k1 someTrie) `shouldBe` Just (PS.show k1)
         runIdentity (lookup k2 someTrie) `shouldBe` Just (PS.show k2)
-      (k1 : ks) -> do
+      (k1 : _) -> do
         runIdentity (lookup k1 someTrie) `shouldBe` Just (PS.show k1)
       _ -> return ()
 
   it "testing inserting and removing" $ property $ \(listOfK :: [Bytes8]) -> do
     let someTrie :: S = runIdentity $ ofList $ zip listOfK $ fmap PS.show listOfK
     case listOfK of
-      (k1 : k2 : ks) -> do
+      (k1 : k2 : _) -> do
         let newTrie = runIdentity $ remove k1 someTrie >>= remove k2
         runIdentity (lookup k1 newTrie) `shouldBe` Nothing
         runIdentity (lookup k2 newTrie) `shouldBe` Nothing
         let newTrie' = runIdentity $ insert (PS.show k1) k1 newTrie >>= insert (PS.show k2) k2
         runIdentity (lookup k1 newTrie') `shouldBe` Just (PS.show k1)
         runIdentity (lookup k2 newTrie') `shouldBe` Just (PS.show k2)
-      (k1 : ks) -> do
+      (k1 : _) -> do
         let newTrie = runIdentity $ remove k1 someTrie
         runIdentity (lookup k1 newTrie) `shouldBe` Nothing
         let newTrie' = runIdentity $ insert (PS.show k1) k1 newTrie
