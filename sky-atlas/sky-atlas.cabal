@@ -157,9 +157,7 @@ test-suite offchain-tests
   type:           exitcode-stdio-1.0
   main-is:        OffChainSpec.hs
   hs-source-dirs: tests
-  other-modules:
-    OffChain.API
-
+  other-modules:  OffChain.API
   build-depends:
     , base
     , hspec
@@ -169,6 +167,7 @@ test-suite offchain-tests
     , servant-server
     , sky-atlas:common
     , sky-atlas:offchain
+    , text
 
 test-suite onchain-tests
   import:         common, plutus-ghc-options
@@ -176,9 +175,7 @@ test-suite onchain-tests
   type:           exitcode-stdio-1.0
   main-is:        OnChainSpec.hs
   hs-source-dirs: tests
-  other-modules:
-    OnChain.ContractSpec
-
+  other-modules:  OnChain.ContractSpec
   build-depends:
     , base
     , hspec

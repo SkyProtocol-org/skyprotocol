@@ -1,16 +1,17 @@
 module OffChain.API (apiSpec) where
 
+import API
 import Common.OffChain ()
+import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
+import Control.Exception (bracket)
 import Control.Monad.IO.Class (liftIO)
+import Data.Text
+import Log
+import Log.Backend.LogList
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Servant
 import Servant.Client
 import Test.Hspec
-import API
-import Control.Exception (bracket)
-import Log.Backend.LogList
-import Log
-import Control.Concurrent (ThreadId, threadDelay, forkIO, killThread)
 
 -- Start the API server in a separate thread
 startAPI :: IO (AppEnv, ThreadId, LogList)
@@ -41,6 +42,7 @@ withAPI :: ((AppEnv, ThreadId, LogList) -> IO ()) -> IO ()
 withAPI = bracket startAPI closeAPI
 
 -- Define Servant client functions
+healthClient :: ClientM Text
 healthClient :<|> _ = client api
 
 apiSpec :: Spec

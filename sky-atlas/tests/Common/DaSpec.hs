@@ -2,10 +2,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 
--- module Spec.SkySpec (signatureSpec, fingerprintSpec, merkleSpec, topicSpec, bountySpec, bridgeSpec) where
 module Common.DaSpec where
-
--- hiding (Applicative, Functor, fmap, pure, (<*>))
 
 import Common.Crypto
 import Common.DA
@@ -13,7 +10,6 @@ import Common.Trie
 import Common.Types
 import Common.TypesSpec
 import Data.Functor.Identity (Identity (..))
-import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
 import PlutusTx.Prelude
@@ -41,14 +37,13 @@ mpk2 = MultiSigPubKey ([pk1, pk2], toUInt16 2) -- Require 2 of the 2 pks to sign
 signatureSpec :: Spec
 signatureSpec = do
   let fb1 = ofHex "CAFE" :: FixedLengthByteString L2
-  let fb2 = ofHex "BABE" :: FixedLengthByteString L2
-
-  let sig1 = signMessage sk1 fb1
-  let ss1 = SingleSig (pk1, sig1)
-  let sig2 = signMessage sk2 fb1
-  let ss2 = SingleSig (pk2, sig2)
-  let sig3 = signMessage sk3 fb1
-  let ss3 = SingleSig (pk3, sig3)
+      fb2 = ofHex "BABE" :: FixedLengthByteString L2
+      sig1 = signMessage sk1 fb1
+      ss1 = SingleSig (pk1, sig1)
+      sig2 = signMessage sk2 fb1
+      ss2 = SingleSig (pk2, sig2)
+      sig3 = signMessage sk3 fb1
+      ss3 = SingleSig (pk3, sig3)
 
   describe "check crypto primitives" $ do
     it "deriving pk's" $ do
@@ -62,60 +57,62 @@ signatureSpec = do
 
   describe "Single Sig operations" $ do
     it "single sig 1 should be valid" $ do
-      (singleSigValid fb1 ss1) `shouldBe` True
+      singleSigValid fb1 ss1 `shouldBe` True
     it "single sig 2 should be valid" $ do
-      (singleSigValid fb1 ss2) `shouldBe` True
+      singleSigValid fb1 ss2 `shouldBe` True
     it "single sig 3 should be valid" $ do
-      (singleSigValid fb1 ss3) `shouldBe` True
+      singleSigValid fb1 ss3 `shouldBe` True
     it "single sig 1 should not be valid for wrong hash" $ do
-      (singleSigValid fb2 ss1) `shouldBe` False
+      singleSigValid fb2 ss1 `shouldBe` False
     it "single sig 2 should not be valid for wrong hash" $ do
-      (singleSigValid fb2 ss2) `shouldBe` False
+      singleSigValid fb2 ss2 `shouldBe` False
     it "single sig 3 should not be valid for wrong hash" $ do
-      (singleSigValid fb2 ss3) `shouldBe` False
+      singleSigValid fb2 ss3 `shouldBe` False
 
   ------------------------------------------------------------------------------
   -- Multi sigs
   ------------------------------------------------------------------------------
 
-  let msig1OK = MultiSig [ss1, ss2]
-  let msig2OK = MultiSig [ss1, ss2, ss3]
-  let msig3OK = MultiSig [ss2, ss3]
-  let msig4Err = MultiSig [] -- no sigs at all
-  let msig5Err = MultiSig [ss1] -- too few sigs
-  let msig6OK = MultiSig [ss1, ss2]
-  let msig7Err = MultiSig [ss1, ss3] -- pk3 is not in mpk2
-  let msig8Err = MultiSig [ss1, ss1] -- repeated pk
   describe "Multi Sig operations" $ do
     it "multi sig 1 should be valid" $ do
-      (multiSigValid mpk1 fb1 msig1OK) `shouldBe` True
+      let msig1OK = MultiSig [ss1, ss2]
+      multiSigValid mpk1 fb1 msig1OK `shouldBe` True
 
     it "multi sig 2 should be valid" $ do
-      (multiSigValid mpk1 fb1 msig2OK) `shouldBe` True
+      let msig2OK = MultiSig [ss1, ss2, ss3]
+      multiSigValid mpk1 fb1 msig2OK `shouldBe` True
 
     it "multi sig 3 should be valid" $ do
-      (multiSigValid mpk1 fb1 msig3OK) `shouldBe` True
+      let msig3OK = MultiSig [ss2, ss3]
+      multiSigValid mpk1 fb1 msig3OK `shouldBe` True
 
     it "multi sig 4 should be invalid" $ do
-      (multiSigValid mpk1 fb1 msig4Err) `shouldBe` False
+      let msig4Err = MultiSig [] -- no sigs at all
+      multiSigValid mpk1 fb1 msig4Err `shouldBe` False
 
     it "multi sig 5 should be invalid" $ do
-      (multiSigValid mpk1 fb1 msig5Err) `shouldBe` False
+      let msig5Err = MultiSig [ss1] -- too few sigs
+      multiSigValid mpk1 fb1 msig5Err `shouldBe` False
 
     it "multi sig 6 should be valid" $ do
-      (multiSigValid mpk2 fb1 msig6OK) `shouldBe` True
+      let msig6OK = MultiSig [ss1, ss2]
+      multiSigValid mpk2 fb1 msig6OK `shouldBe` True
 
     it "multi sig 7 should be invalid" $ do
-      (multiSigValid mpk2 fb1 msig7Err) `shouldBe` False
+      let msig7Err = MultiSig [ss1, ss3] -- pk3 is not in mpk2
+      multiSigValid mpk2 fb1 msig7Err `shouldBe` False
 
     it "multi sig 8 should be invalid for repeating pk" $ do
-      (multiSigValid mpk2 fb1 msig8Err) `shouldBe` False
+      let msig8Err = MultiSig [ss1, ss1] -- repeated pk
+      multiSigValid mpk2 fb1 msig8Err `shouldBe` False
 
     it "multi sig 3 should be invalid for wrong hash" $ do
-      (multiSigValid mpk1 fb2 msig3OK) `shouldBe` False
+      let msig3OK = MultiSig [ss2, ss3]
+      multiSigValid mpk1 fb2 msig3OK `shouldBe` False
 
     it "multi sig 6 should be invalid for wrong hash" $ do
-      (multiSigValid mpk2 fb2 msig6OK) `shouldBe` False
+      let msig6OK = MultiSig [ss1, ss2]
+      multiSigValid mpk2 fb2 msig6OK `shouldBe` False
 
 ------------------------------------------------------------------------------
 -- Fingerprints
@@ -133,10 +130,10 @@ fingerprintSpec = do
     computeHash mpk2 `shouldBeHex` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
 
 daSchema0 :: DataHash
-daSchema0 = computeHash $ (ofHex "deadbeef" :: Bytes4)
+daSchema0 = computeHash @Bytes4 $ ofHex "deadbeef"
 
 topicSchema0 :: DataHash
-topicSchema0 = computeHash $ (ofHex "1ea7f00d" :: Bytes4)
+topicSchema0 = computeHash @Bytes4 $ ofHex "1ea7f00d"
 
 committee0 :: Committee
 committee0 = MultiSigPubKey ([pk1, pk2], UInt16 2)
@@ -146,27 +143,6 @@ daMetaData0 = DaMetaData daSchema0 (LiftRef (digestRef committee0))
 
 timestamp1 :: POSIXTime
 timestamp1 = 455155200000 -- June 4th 1989
-
-deadline :: POSIXTime
-deadline = 1000180800000 -- Sep 11th 2001
-
-txBeforeDeadlineRange :: Interval POSIXTime
-txBeforeDeadlineRange =
-  Interval
-    (strictLowerBound 999316800000) -- Sep 1st 2001
-    (strictUpperBound 1000008000000) -- Sep 9th 2001
-
-txAfterDeadlineRange :: Interval POSIXTime
-txAfterDeadlineRange =
-  Interval
-    (strictLowerBound 1000267200000) -- Sep 12th 2001
-    (strictUpperBound 1000872000000) -- Sep 19th 2001
-
-txAroundDeadlineRange :: Interval POSIXTime
-txAroundDeadlineRange =
-  Interval
-    (strictLowerBound 1000008000000) -- Sep 9th 2001
-    (strictUpperBound 1000872000000) -- Sep 19th 2001
 
 msgMeta1 :: MessageMetaData HashRef
 msgMeta1 = MessageMetaData pk1 timestamp1
@@ -192,23 +168,22 @@ daSpec = do
     -- Create an empty SkyDA, check its digest
     let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
     it "hash of empty DA" $ do
-      computeHash da0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
+      let topHash0 = computeHash da0
+      topHash0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19"
 
     -- Check that proofs come in empty
-    let maybeProof0 =
-          runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0 ::
-            Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     it "No proof for (0,0) in empty Da" $ do
+      let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
       maybeProof0 `shouldBeHex` "00"
 
     let (Just topic0, da1) = runIdentity $ insertTopic topicSchema0 da0
     let (Just msg1i, da2) = runIdentity $ insertMessage pk1 timestamp1 msg1 topic0 da1
-    let (Just msg2i, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
-    let Just (msg1b, proof1) =
-          runIdentity $ getSkyDataProof (topic0, msg1i) da3 ::
-            Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+    let (_, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
+    let Just (msg1b, proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+
     it "msg1 matches" $ do
       msg1b == LiftRef (digestRef msg1) `shouldBe` True
+
     let l1d = (castDigest . getDigest . liftref $ msg1b) :: DataHash
     let topHash1 = computeHash da3 :: DataHash
 
@@ -222,10 +197,7 @@ daSpec = do
     -- Additional DA tests can be added here
     let (Just topic1, da10) = runIdentity $ insertTopic topicSchema0 da3
     let (Just msg3i, da11) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
-
-    let Just (msg3b, proof3) =
-          runIdentity $ getSkyDataProof (topic1, msg3i) da11 ::
-            Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+    let Just (msg3b, proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     it "msg3 matches" $ do
       msg3b == LiftRef (digestRef msg3) `shouldBe` True
     let l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash
@@ -241,3 +213,16 @@ daSpec = do
       topHash1 == topHash3 `shouldBe` False
       topHash1 `shouldBeHex` "f889a9fec14bad5dfd59bd560a6d7626f11f048a194f813a8b090745ed243253"
       topHash3 `shouldBeHex` "c0bd8a731290df2fe149240c8271e56182b9d211ab8b9e5ba4ea7073af9dbc8a"
+
+    let topHash1Sig1 = SingleSig (pk1, signMessage sk1 topHash1)
+    let topHash1Sig2 = SingleSig (pk2, signMessage sk2 topHash1)
+    let topHash1Sig = MultiSig [topHash1Sig1, topHash1Sig2]
+
+    it "topHash1Sig1 signature should be valid" $ do
+      singleSigValid topHash1 topHash1Sig1 `shouldBe` True
+
+    it "topHash1Sig2 signature should be valid" $ do
+      singleSigValid topHash1 topHash1Sig2 `shouldBe` True
+
+    it "topHash1Sig multi-signature should be valid" $ do
+      multiSigValid committee0 topHash1 topHash1Sig `shouldBe` True
