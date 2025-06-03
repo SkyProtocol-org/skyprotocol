@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 
-module API (API, api, server, startApp, testEnv, AppEnv (..), AppConfig (..), APIError (..)) where
+module API (API, api, server, startApp, testEnv, AppEnv (..), AppConfig (..), AppError (..)) where
 
 import API.Bridge
 import API.Topic
@@ -34,7 +34,7 @@ server = healthServer :<|> bridgeServer :<|> topicServer
 convertAppM :: AppEnv -> Logger -> AppM a -> Handler a
 convertAppM env logger appM = runExceptT (runLogT "api" logger defaultLogLevel (runReaderT appM env)) >>= either (throwError . toServantErr) pure
 
-toServantErr :: APIError -> ServerError
+toServantErr :: AppError -> ServerError
 toServantErr (APIError msg) = err500 {errBody = BS.pack msg}
 
 startApp :: AppEnv -> IO ()
