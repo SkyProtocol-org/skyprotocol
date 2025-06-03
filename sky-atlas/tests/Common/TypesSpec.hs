@@ -4,8 +4,6 @@
 module Common.TypesSpec where
 
 import Common.Types
-import Common.Crypto
-
 import PlutusTx.Prelude
 import qualified PlutusTx.Prelude as P
 import PlutusTx.Builtins
@@ -59,10 +57,6 @@ instance
 
 instance (StaticLength len) => Arbitrary (FixedLengthByteString len) where
   arbitrary = genByteString (staticLength $ Proxy @len) >>= return . FixedLengthByteString
-
-instance (HashFunction hf) => GS.Show (Digest hf a)
-  where
-  show = GS.show . PS.show
 
 instance Arbitrary BuiltinByteString where
   arbitrary = choose (0, 31) >>= genByteString

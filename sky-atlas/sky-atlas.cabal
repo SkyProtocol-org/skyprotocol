@@ -67,7 +67,6 @@ library common
     , base
     , cardano-crypto-class
     , hex-text
-    , mtl
     , plutus-ledger-api
     , plutus-tx
     , servant

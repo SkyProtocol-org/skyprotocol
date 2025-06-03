@@ -83,6 +83,9 @@ data ByteStringCursor = ByteStringCursor
 -- | Wrapper for (r a)
 newtype LiftRef r a = LiftRef {liftref :: r a}
 
+deriving instance (HP.Eq (r a)) => HP.Eq (LiftRef r a)
+deriving instance (HP.Show (r a)) => HP.Show (LiftRef r a)
+
 -- | Fixed-Point
 data Fix f = Fix {getFix :: f (Fix f)}
 

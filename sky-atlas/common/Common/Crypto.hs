@@ -8,30 +8,34 @@ import Common.Types
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
-import PlutusTx
-import PlutusTx.Blueprint
-import PlutusTx.Builtins
-import PlutusTx.Prelude
-import PlutusTx.Show
+import qualified Prelude as HP
+import PlutusTx as P
+import PlutusTx.Blueprint as P
+import PlutusTx.Builtins as P
+import PlutusTx.Prelude as P
+import PlutusTx.Show as P
 
 -- * Types
 
 -- A pair (pubKey, signature) of signature by a single authority
 newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Signature)}
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (Bytes32, Bytes64)
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Signatures produced by data operators for top hash
 newtype MultiSig = MultiSig [SingleSig]
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via [SingleSig]
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- List of pubkeys that must sign and minimum number of them that must sign
-newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
   -- data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via ([PubKey], UInt16)
+newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -44,117 +48,95 @@ type DataHash = Hash BuiltinByteString
 type HashRef = DigestRef Blake2b_256
 
 newtype PubKey = PubKey {getPubKey :: Bytes32}
-  deriving newtype (Show)
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via Bytes32
+  deriving newtype (P.Show, P.Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (HP.Show, HP.Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 -- Don't use that on-chain! At least not without say much homomorphic encryption.
 -- TODO: move that to a separate file, too, that is incompatible with on-chain
 newtype SecKey = SecKey {getSecKey :: Bytes32}
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via Bytes32
-  deriving newtype (Show)
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (HP.Show, HP.Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 newtype Signature = Signature {getSignature :: Bytes64}
-  deriving newtype (Show)
-  deriving (Eq, ToByteString, FromByteString) via Bytes64
+  deriving newtype (P.Show, P.Eq, ToByteString, FromByteString, UnsafeFromData, ToData, FromData)
+  deriving newtype (HP.Show, HP.Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
 newtype Digest hf a = Digest {digestByteString :: FixedLengthByteString hf}
+  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-  deriving (Eq, ToInt, FromInt, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via FixedLengthByteString hf
 
 -- Static intent to transform with a hash or encryption function f
 newtype PlainText f a = PlainText a
   deriving stock (Generic)
+  deriving newtype (HP.Show, HP.Eq)
   deriving anyclass (HasBlueprintDefinition)
 
 data Blake2b_256 = Blake2b_256 -- static knowledge of hash function
+  deriving (HP.Eq, HP.Show)
+
+instance P.Eq Blake2b_256 where
+  Blake2b_256 == Blake2b_256 = True
+
+instance P.Show Blake2b_256 where
+  show Blake2b_256 = "Blake2b_256"
 
 data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue :: x}
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
+instance (HashFunction hf) => P.Eq (DigestRef hf x) where
+  DigestRef ah _ == DigestRef bh _ = ah == bh
+
+instance (HashFunction hf, P.Show a) => P.Show (DigestRef hf a) where
+  showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
+
+instance (HashFunction hf) => HP.Eq (DigestRef hf x) where
+  DigestRef ah _ == DigestRef bh _ = ah == bh
+
+-- instance (HashFunction hf, HP.Show a) => HP.Show (DigestRef hf a) where
+--   showsPrec prec (DigestRef _ x) = HP.showApp prec "digestRef" [HP.showArg x]
+
 -- * Classes
 
-class
-  (StaticLength hf) =>
-  HashFunction hf
-  where
+class (StaticLength hf) => HashFunction hf where
   hashFunction :: BuiltinByteString -> Digest hf a
 
-class
-  (HashFunction hf) =>
-  DigestibleRef hf r
-  where
+class (HashFunction hf) => DigestibleRef hf r where
   getDigest :: r a -> Digest hf a
 
 -- * Instances
 
--- ** SingleSig
-
-instance Show SingleSig where
-  showsPrec prec (SingleSig ps) = showApp prec "SingleSig" [showArg ps]
-
--- ** MultiSigPubKey
-
-instance Show MultiSigPubKey where
-  showsPrec prec (MultiSigPubKey ln) = showApp prec "MultiSigPubKey" [showArg ln]
-
 -- ** Digest
 
-instance
-  (HashFunction hf) =>
-  Show (Digest hf a)
-  where
-  show (Digest x) = "Digest " <> show x
-
-instance
-  (HashFunction hf) =>
-  LiftEq (Digest hf)
-  where
+instance (HashFunction hf) => LiftEq (Digest hf) where
   liftEq = (==)
 
-instance
-  (HashFunction hf) =>
-  LiftShow (Digest hf)
-  where
+instance (HashFunction hf) => LiftShow (Digest hf) where
   liftShowsPrec = showsPrec
 
-instance
-  (HashFunction hf) =>
-  LiftToByteString (Digest hf)
-  where
+instance (HashFunction hf) => LiftToByteString (Digest hf) where
   liftToByteString = toByteString
   liftByteStringOut = byteStringOut
 
-instance
-  (HashFunction hf) =>
-  LiftFromByteString (Digest hf)
-  where
+instance (HashFunction hf) => LiftFromByteString (Digest hf) where
   liftFromByteString = fromByteString
   liftByteStringIn = byteStringIn
 
-instance
-  (HashFunction hf) =>
-  LiftToData (Digest hf)
-  where
+instance (HashFunction hf) => LiftToData (Digest hf) where
   liftToBuiltinData = toBuiltinData
 
-instance
-  (HashFunction hf) =>
-  LiftFromData (Digest hf)
-  where
+instance (HashFunction hf) => LiftFromData (Digest hf) where
   liftFromBuiltinData = fromBuiltinData
 
-instance
-  (HashFunction hf) =>
-  LiftUnsafeFromData (Digest hf)
-  where
+instance (HashFunction hf) => LiftUnsafeFromData (Digest hf) where
   liftUnsafeFromBuiltinData = unsafeFromBuiltinData
 
 -- ** Blake2b_256
@@ -170,12 +152,6 @@ instance StaticLength Blake2b_256 where
 instance (HashFunction hf) => DigestibleRef hf (DigestRef hf) where
   getDigest = digestRefDigest
 
-instance
-  (HashFunction hf) =>
-  Eq (DigestRef hf x)
-  where
-  DigestRef ah _ == DigestRef bh _ = ah == bh
-
 instance (HashFunction hf) => ToByteString (DigestRef hf x) where
   toByteString = toByteString . digestRefDigest
   byteStringOut = byteStringOut . digestRefDigest
@@ -184,69 +160,39 @@ instance (HashFunction hf) => FromByteString (DigestRef hf x) where
   fromByteString = lookupDigestRef . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigestRef
 
-instance (HashFunction hf, Show a) => Show (DigestRef hf a) where
-  showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
-
 instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestRef hf) a where
   wrap = return . digestRef
 
 instance (HashFunction hf, Dato a) => Wrapping Identity (DigestRef hf) a where
   unwrap = return . digestRefValue
 
-instance
-  (HashFunction hf) =>
-  LiftShow (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftShow (DigestRef hf) where
   liftShowsPrec = showsPrec
 
-instance
-  (HashFunction hf) =>
-  LiftToByteString (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftToByteString (DigestRef hf) where
   liftToByteString = toByteString . digestRefDigest
   liftByteStringOut = byteStringOut . digestRefDigest
 
-instance
-  (HashFunction hf) =>
-  LiftFromByteString (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftFromByteString (DigestRef hf) where
   liftFromByteString = fromByteString
   liftByteStringIn = byteStringIn
 
-instance
-  (HashFunction hf) =>
-  LiftToData (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftToData (DigestRef hf) where
   liftToBuiltinData = toBuiltinData . digestRefDigest
 
-instance
-  (HashFunction hf) =>
-  LiftFromData (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftFromData (DigestRef hf) where
   liftFromBuiltinData b = fromBuiltinData b >>= return . \d -> DigestRef d $ lookupDigest d
 
-instance
-  (HashFunction hf) =>
-  LiftUnsafeFromData (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftUnsafeFromData (DigestRef hf) where
   liftUnsafeFromBuiltinData = unsafeFromBuiltinData -. \d -> DigestRef d $ lookupDigest d
 
-instance
-  (HashFunction hf) =>
-  LiftEq (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftEq (DigestRef hf) where
   liftEq = (==)
 
-instance
-  (HashFunction hf) =>
-  LiftPreWrapping Identity (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftPreWrapping Identity (DigestRef hf) where
   liftWrap = wrap
 
-instance
-  (HashFunction hf) =>
-  LiftWrapping Identity (DigestRef hf)
-  where
+instance (HashFunction hf) => LiftWrapping Identity (DigestRef hf) where
   liftUnwrap = unwrap
 
 -- instance (HashFunction hf, MonadReader r m) => LiftWrapping m (DigestRef hf) where
@@ -254,10 +200,7 @@ instance
 
 -- ** LiftRef
 
-instance
-  (HashFunction hf, DigestibleRef hf r) =>
-  DigestibleRef hf (LiftRef r)
-  where
+instance (HashFunction hf, DigestibleRef hf r) => DigestibleRef hf (LiftRef r) where
   getDigest = getDigest . liftref
 
 -- ** PubKeyHash

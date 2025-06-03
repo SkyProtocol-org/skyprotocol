@@ -11,10 +11,11 @@ import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
-import PlutusTx
-import PlutusTx.Functor
-import PlutusTx.Prelude
-import PlutusTx.Show
+import qualified Prelude as HP
+import PlutusTx as P
+import PlutusTx.Functor as P
+import PlutusTx.Prelude as P
+import PlutusTx.Show as P
 
 ------------------------------------------------------------------------------
 -- Core Data Types
@@ -25,14 +26,14 @@ import PlutusTx.Show
 data SkyDa r = SkyDa
   { skyMetaData :: LiftRef r (DaMetaData r),
     skyTopicTrie :: LiftRef r (TopicTrie r)
-  }
+  } -- deriving (HP.Show, HP.Eq)
 
 instance (LiftDato r) => ToByteString (SkyDa r) where
   byteStringOut SkyDa {..} isTerminal s = byteStringOut skyMetaData NonTerminal $ byteStringOut skyTopicTrie isTerminal s
 
-newtype DaMetaData r
-  = DaMetaDataOfTuple {tupleOfDaMetaData :: (DataHash, LiftRef r Committee)}
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (DataHash, LiftRef r Committee)
+newtype DaMetaData r = DaMetaDataOfTuple {tupleOfDaMetaData :: (DataHash, LiftRef r Committee)}
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  -- deriving (HP.Eq, HP.Show)
 
 pattern DaMetaData :: forall r. DataHash -> LiftRef r Committee -> DaMetaData r
 pattern DaMetaData {daSchema, daCommittee} = DaMetaDataOfTuple (daSchema, daCommittee)
@@ -45,7 +46,7 @@ type TopicEntry r = (LiftRef r (TopicMetaData r), LiftRef r (MessageTrie r))
 
 newtype TopicMetaData r
   = TopicMetaDataOfTuple {tupleOfTopicMetaData :: (DataHash, LiftRef r Committee)}
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (DataHash, LiftRef r Committee)
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 pattern TopicMetaData :: forall r. DataHash -> LiftRef r Committee -> TopicMetaData r
 pattern TopicMetaData {topicSchema, topicCommittee} = TopicMetaDataOfTuple (topicSchema, topicCommittee)
@@ -58,7 +59,7 @@ type MessageEntry r = (LiftRef r (MessageMetaData r), LiftRef r (MessageData r))
 
 newtype MessageMetaData (r :: Type -> Type)
   = MessageMetaDataOfTuple {tupleOfMessageMetaData :: (PubKey, POSIXTime)}
-  deriving (Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData) via (PubKey, POSIXTime)
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 pattern MessageMetaData :: PubKey -> POSIXTime -> MessageMetaData r
 pattern MessageMetaData {messagePoster, messageTime} = MessageMetaDataOfTuple (messagePoster, messageTime)
@@ -71,19 +72,20 @@ type MessageData (r :: Type -> Type) = BuiltinByteString
 type Committee = MultiSigPubKey
 
 newtype TopicId = TopicId {getTopicId :: Bytes8}
-  deriving
+  deriving newtype
     ( ToInt,
       FromInt,
       UnsafeFromData,
       ToData,
       FromData,
-      Show,
       BitLogic,
       FromByteString,
       ToByteString,
-      Eq
+      P.Show,
+      P.Eq,
+      HP.Show,
+      HP.Eq
     )
-    via Bytes8
 
 topicIdFromInteger :: Integer -> TopicId
 topicIdFromInteger = fromInt
@@ -93,19 +95,20 @@ instance TrieKey TopicId
 instance TrieHeightKey Byte TopicId
 
 newtype MessageId = MessageId {getMessageId :: Bytes8}
-  deriving
+  deriving newtype
     ( ToInt,
       FromInt,
       UnsafeFromData,
       ToData,
       FromData,
-      Show,
       BitLogic,
       FromByteString,
       ToByteString,
-      Eq
+      P.Show,
+      P.Eq,
+      HP.Show,
+      HP.Eq
     )
-    via Bytes8
 
 instance TrieKey MessageId
 
@@ -134,21 +137,15 @@ newtype SkyDataPath (r :: Type -> Type)
         TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)),
         LiftRef r (MessageMetaData r)
       )
-  }
-  deriving
-    ( Eq,
+  } deriving newtype
+    ( P.Eq,
+      P.Show,
       ToByteString,
       FromByteString,
       ToData,
       FromData,
       UnsafeFromData
     )
-    via ( LiftRef r (DaMetaData r),
-          TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)),
-          LiftRef r (TopicMetaData r),
-          TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)),
-          LiftRef r (MessageMetaData r)
-        )
 
 pattern SkyDataPath :: forall r. LiftRef r (DaMetaData r) -> TrieTopicPath (TrieTopicNodeRef r (TopicEntry r)) -> LiftRef r (TopicMetaData r) -> TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)) -> LiftRef r (MessageMetaData r) -> SkyDataPath r
 pattern SkyDataPath {pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData} = SkyDataPathOfTuple (pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathMessageTriePath, pathMessageMetaData)
@@ -158,27 +155,6 @@ pattern SkyDataPath {pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathM
 type SkyDataProof hf = SkyDataPath (Digest hf)
 
 -- * Instances
-
--- ** MessageMetaData
-
-instance (LiftShow r) => Show (MessageMetaData r) where
-  showsPrec prec (MessageMetaData p t) = showApp prec "MessageMetaData" [showArg p, showArg t]
-
--- ** TopicMetaData
-
-instance (LiftShow r) => Show (TopicMetaData r) where
-  showsPrec prec (TopicMetaData s c) = showApp prec "TopicMetaData" [showArg s, showArg c]
-
--- ** DaMetaData
-
-instance (LiftShow r) => Show (DaMetaData r) where
-  showsPrec prec (DaMetaData s c) = showApp prec "DaMetaData" [showArg s, showArg c]
-
--- ** SkyDataPath
-
-instance (LiftShow r) => Show (SkyDataPath r) where
-  showsPrec prec (SkyDataPath dmd ttp tmd mtp mmd) =
-    showApp prec "SkyDataPath" [showArg dmd, showArg ttp, showArg tmd, showArg mtp, showArg mmd]
 
 -- ** Trie64
 
