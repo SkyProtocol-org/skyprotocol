@@ -1,17 +1,5 @@
-{-# LANGUAGE BinaryLiterals #-}
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
-{-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Common.TrieSpec (trieSpec) where
 
@@ -21,24 +9,11 @@ import Common.Trie
 import qualified Common.Trie as TT
 import Common.DA
 import Common.TypesSpec
-
--- import Data.Bits (unsafeShiftL)
 import Data.Functor.Identity (Identity (..))
--- import Data.String (String, IsString, fromString)
--- import Data.Text (pack, unpack)
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
--- import Control.Exception
--- import Prelude (Int, putStrLn)
-
 import PlutusTx.Prelude
--- import qualified PlutusTx.Prelude as P
--- import PlutusTx
--- import PlutusTx.Builtins
--- import PlutusTx.Builtins.Internal (BuiltinString (..))
--- import PlutusTx.List (zip)
 import qualified PlutusTx.Show as PS
--- import PlutusTx.Utils
 
 instance TrieHeight Integer
 instance TrieHeightKey Integer Integer
@@ -73,7 +48,7 @@ trieSpec = describe "Spec.TrieSpec" $ do
   let rF :: TrieNodeF Byte Bytes8 BuiltinString SR -> SR = LiftRef . Identity . Fix . TrieNodeFL
   -- let fR :: SR -> TrieNodeF Byte Bytes8 BuiltinString SR = tfl . getFix . runIdentity . liftref
   let tp :: Integer -> Integer -> Integer -> [SR] -> TriePath Byte Bytes8 SR
-      tp h k m d = TriePath h (fromInt k) (fromInt m) d
+      tp h k m = TriePath h (fromInt k) (fromInt m)
   let sd :: TrieStep Byte Bytes8 SR -> TriePath Byte Bytes8 SR -> Identity (TriePath Byte Bytes8 SR) = stepDown
   let su :: TrieStep Byte Bytes8 SR -> SR -> Identity SR = stepUp
 
@@ -81,12 +56,12 @@ trieSpec = describe "Spec.TrieSpec" $ do
     let
     runIdentity (pathStep $ tp 0 1597 1023 [rF $ Leaf "42"]) ==
       Just (SkipStep (Byte 9) (fromInt 573), tp 10 1 0 [rF $ Leaf "42"]) `shouldBe` True
-    runIdentity (pathStep $ tp 5 0 30 [(rF $ Leaf "42"), (rF $ Leaf "69")]) ==
+    runIdentity (pathStep $ tp 5 0 30 [rF $ Leaf "42", rF $ Leaf "69"]) ==
       Just (LeftStep (rF $ Leaf "42"), tp 6 0 15 [rF $ Leaf "69"]) `shouldBe` True
 
   it "stepDown" $ do
     runIdentity (sd (LeftStep (rF $ Leaf "42")) (tp 6 0 15 [rF $ Leaf "69"])) ==
-      tp 5 0 30 [(rF $ Leaf "42"), (rF $ Leaf "69")] `shouldBe` True
+      tp 5 0 30 [rF $ Leaf "42", rF $ Leaf "69"] `shouldBe` True
     runIdentity (sd (SkipStep (Byte 9) (fromInt 573)) (tp 10 1 0 [rF $ Leaf "42"])) ==
       tp 0 1597 1023 [rF $ Leaf "42"] `shouldBe` True
 
@@ -131,7 +106,7 @@ trieSpec = describe "Spec.TrieSpec" $ do
     testLookup initialValues 13 $ Just "13"
     testLookup initialValues 34 $ Just "34"
     testLookup initialValues 1597 $ Just "1597"
-    testLookup initialValues 42 $ Nothing
+    testLookup initialValues 42 Nothing
     testLookup [(1,"1"),(0,"0")] 0 $ Just "0"
     testLookup [(9223372036854775808,"")] 9223372036854775808 $ Just ""
 

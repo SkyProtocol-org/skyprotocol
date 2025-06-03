@@ -1,16 +1,4 @@
-{-# LANGUAGE BinaryLiterals #-}
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
-{-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
 
 module Common.CryptoSpec where
 
@@ -18,30 +6,9 @@ import Common.Types
 import Common.Crypto
 import Common.Trie
 import Common.TypesSpec
-
 import PlutusTx.Prelude
-import qualified PlutusTx.Prelude as P
-import PlutusTx
-import PlutusTx.Builtins
-import PlutusTx.Builtins.Internal (BuiltinString (..))
-import PlutusTx.List (map, zip)
 import qualified PlutusTx.Show as PS
-import PlutusTx.Utils
-
-import GHC.Base ((++))
-import qualified GHC.Base as GB
-import qualified GHC.Err as GE
-import qualified GHC.Show as GS
-import qualified Debug.Trace as DT
-
-import Data.Bits (unsafeShiftL)
-import Data.Functor.Identity (Identity (..))
-import Data.String (String, IsString, fromString)
-import Data.Text (pack, unpack)
 import Test.Hspec
-import Test.QuickCheck hiding ((.&.))
-import Control.Exception
-import Prelude (Int, putStrLn)
 
 cryptoSpec :: Spec
 cryptoSpec = do

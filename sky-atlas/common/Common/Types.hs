@@ -1,9 +1,5 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 {-# HLINT ignore "Use newtype instead of data" #-}
 
@@ -15,18 +11,16 @@ import Data.Function ((&))
 import Data.Functor.Identity (Identity (..))
 import Data.String (IsString, String, fromString)
 import Data.Text (pack, unpack)
-import GHC.Base qualified as GB
+import qualified Prelude as HP
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusTx
-import PlutusTx.Blueprint
-import PlutusTx.Builtins
-import PlutusTx.Prelude
-import PlutusTx.Prelude qualified as PlutusTx
-import PlutusTx.Show
+import PlutusTx as P
+import PlutusTx.Blueprint as P
+import PlutusTx.Builtins as P
+import PlutusTx.Prelude as P
+import PlutusTx.Show as P
 import Text.Hex (decodeHex, encodeHex)
-import Control.Monad.Reader (MonadReader)
 
 -- * Types
 
@@ -38,47 +32,33 @@ data Proxy a = Proxy
 (-.) :: (a -> b) -> (b -> c) -> a -> c
 (-.) = flip (.)
 
---- | Type used as a phantom type to indicate a static length of something
+--- | Phantom type to indicate a static length of 'FixedLengthByteString'
 data Length = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9 | L10 | L16 | L32 | L64
 
 -- | ByteString of statically known length
 newtype FixedLengthByteString len
-  = FixedLengthByteString {getFixedLengthByteString :: BuiltinByteString}
-  deriving anyclass (HasBlueprintDefinition)
-  deriving newtype (Show)
-  deriving (Eq, ToInt, ToData) via BuiltinByteString
-
--- | Smart constructor for FixedLengthByteString.
--- Intended to use with TypeApplications, e.g. 'makeFixedLengthByteString @L1 bs'
-
-{-makeFixedLengthByteString :: forall len. (StaticLength len) => BuiltinByteString -> FixedLengthByteString len
-makeFixedLengthByteString = FixedLengthByteString-}
+  = FixedLengthByteString {getFixedLengthByteString :: P.BuiltinByteString}
+  deriving anyclass (P.HasBlueprintDefinition)
+  deriving newtype (HP.Show, HP.Eq, P.Show)
+  deriving (P.Eq, ToInt, P.ToData) via P.BuiltinByteString
 
 -- | Byte
 newtype Byte = Byte {getByte :: Integer}
-  deriving (Eq, ToInt) via Integer
-  deriving newtype (Show)
+  deriving (HP.Eq, P.Eq, ToInt) via Integer
+  deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
+  deriving anyclass (P.HasBlueprintDefinition)
 
 -- | UInt16
 newtype UInt16 = UInt16 {getUInt16 :: Integer}
-  deriving (Eq, ToInt) via Integer
+  deriving (HP.Eq, P.Eq, ToInt) via Integer
   deriving stock (Generic)
-  deriving newtype (Show)
-  deriving anyclass (HasBlueprintDefinition)
+  deriving newtype (HP.Show, P.Show)
+  deriving anyclass (P.HasBlueprintDefinition)
 
 -- | FixedLengthInteger
 newtype FixedLengthInteger len = FixedLengthInteger {getFixedLengthInteger :: Integer}
-  deriving anyclass (HasBlueprintDefinition)
-
--- | Smart constructor for FixedLengthInteger.
--- Intended to use with TypeApplications, e.g. 'makeFixedLengthInteger @L1 i'
-
-{-makeFixedLengthInteger :: forall len. (StaticLength len) => Integer -> FixedLengthInteger len
-makeFixedLengthInteger = FixedLengthInteger-}
-
--- Make it a newtype VariableLengthInteger = VariableLengthInteger { getVli :: (Integer, Integer) } ???
+  deriving anyclass (P.HasBlueprintDefinition)
 
 -- | VariableLengthInteger
 data VariableLengthInteger = VariableLengthInteger
@@ -86,31 +66,25 @@ data VariableLengthInteger = VariableLengthInteger
     vliInteger :: Integer
   }
   deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
+  deriving anyclass (P.HasBlueprintDefinition)
 
 -- | Pure Input from ByteString
 newtype ByteStringReader a = ByteStringReader
   {getByteStringReader :: ByteStringCursor -> Maybe (a, ByteStringCursor)}
 
 data ByteStringCursor = ByteStringCursor
-  { cursorByteString :: BuiltinByteString, -- the bytes
+  { cursorByteString :: P.BuiltinByteString, -- the bytes
     cursorStart :: Integer, -- start index included
     cursorEnd :: Integer -- end index not included
-    --  deriving (Show, Eq)
   }
   deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
+  deriving anyclass (P.HasBlueprintDefinition)
 
 -- | Wrapper for (r a)
 newtype LiftRef r a = LiftRef {liftref :: r a}
 
 -- | Fixed-Point
 data Fix f = Fix {getFix :: f (Fix f)}
-
--- not newtype because Plutus doesn't support recursive newtype
--- Do we want a two-parameter Fix2 f a = Fix2 { getFix2 :: f a (Fix f a) } for functoriality?
--- Or can we "directly" work with some variant of Fix (LiftRef (f a)) ?
--- or some Fix (LiftRef2 f a) where LiftRef2 accomodates for a bifunctor?
 
 -- ** Fixed size data structures
 
@@ -148,33 +122,42 @@ class ConvertFrom a b where
 
 -- | Partial types
 class Partial a where
-  isElement :: a -> Bool
+  isElement :: a -> P.Bool
 
   -- | given an element of the type, return Just it if it is well-formed, Nothing otherwise.
   maybeValidate :: a -> Maybe a
   maybeValidate a = if isElement a then Just a else Nothing
 
+  -- | partial function! Will fail if the element is not an element
   validate :: a -> a
   validate = fromJust . maybeValidate
+
+  {-# MINIMAL isElement #-}
 
 -- | Static Length data
 class StaticLength (l :: k) where
   staticLength :: Proxy l -> Integer
 
--- | Only one of toInt and maybeToInt is defined. toInt is unsafe if maybeToInt is partial.
+-- | 'toInt' is unsafe if 'maybeToInt' is partial.
 class ToInt a where
   toInt :: a -> Integer
   toInt = fromJust . maybeToInt
+
   maybeToInt :: a -> Maybe Integer
   maybeToInt = Just . toInt
 
--- | You need to define one and only one of fromInt or maybeFromInt, the other one will follow.
--- fromInt is not safe unless the function is total, will error out on bad input -- Use with care.
+  {-# MINIMAL toInt | maybeToInt #-}
+
+-- | fromInt is not safe unless the function is total, will error out on bad input
+-- Use with care.
 class FromInt a where
   fromInt :: Integer -> a
   fromInt = fromJust . maybeFromInt
+
   maybeFromInt :: Integer -> Maybe a
   maybeFromInt = Just . fromInt
+
+  {-# MINIMAL fromInt | maybeFromInt #-}
 
 -- | At least one of toByteString or appendByteStringTerminal must be defined.
 -- Additionally, if the output isn't fixed-length or otherwise self-delimited,
@@ -185,20 +168,18 @@ data IsTerminal = NonTerminal | Terminal
 
 class ToByteString a where
   -- | convert to String
-  toByteString :: a -> BuiltinByteString
+  toByteString :: a -> P.BuiltinByteString
   toByteString = toByteStringOut
 
   -- | append to a String in Terminal or NonTerminal position
   -- default method assumes self-delimitation (e.g. fixed length, length prefix, or terminator)
-  byteStringOut :: a -> IsTerminal -> BuiltinByteString -> BuiltinByteString
+  byteStringOut :: a -> IsTerminal -> P.BuiltinByteString -> P.BuiltinByteString
   byteStringOut a _ = appendByteString $ toByteString a
 
--- | byteStringIn must always be defined, but
--- fromByteString can be left defaulted, and maybeFromByteString almost always is
--- fromByteString is almost always unsafe, unless every byte string of any length is valid.
+-- | fromByteString is almost always unsafe, unless every byte string of any length is valid.
 class FromByteString a where
   {-# INLINEABLE fromByteString #-}
-  fromByteString :: BuiltinByteString -> a
+  fromByteString :: P.BuiltinByteString -> a
   fromByteString = fromByteStringIn
 
   --  fromByteString = fromJust . maybeFromByteString
@@ -209,11 +190,13 @@ class FromByteString a where
 --  maybeFromByteString__ :: BuiltinByteString -> Maybe a
 --  maybeFromByteString__ = maybeFromByteStringIn
 
+  {-# MINIMAL byteStringIn #-}
+
 {- Failure to include bitLength in either Haskell or Plutus seems incompetent to me. --fare
    (see CIP-123, compare to CLHS integer-length) -}
 class BitLogic a where
   bitLength :: a -> Integer
-  lowestBitClear :: a -> Integer -- NB: returns nBits for allBits, but -1 for -1 for Integers.
+  lowestBitClear :: a -> Integer -- ^ NB: returns nBits for allBits, but -1 for -1 for Integers.
   isBitSet :: Integer -> a -> Bool
   lowBitsMask :: Integer -> a
   logicalOr :: a -> a -> a
@@ -224,62 +207,66 @@ class BitLogic a where
   shiftLeftWithBits :: a -> Integer -> a -> a
   shiftLeftWithBits a l b = (a `shiftLeft` l) `logicalOr` b
 
-type Dato d = (ToByteString d, FromByteString d, ToData d, FromData d, UnsafeFromData d, Show d, Eq d)
+type Dato d =
+  ( ToByteString d,
+    FromByteString d,
+    P.ToData d,
+    P.FromData d,
+    P.UnsafeFromData d,
+    P.Show d,
+    P.Eq d)
 
-type LiftDato r = (LiftToByteString r, LiftFromByteString r, LiftToData r, LiftFromData r, LiftUnsafeFromData r, LiftShow r, LiftEq r)
+type LiftDato r =
+  ( LiftToByteString r,
+    LiftFromByteString r,
+    LiftToData r,
+    LiftFromData r,
+    LiftUnsafeFromData r,
+    LiftShow r,
+    LiftEq r)
 
 class LiftEq r where
-  liftEq :: (Eq a) => r a -> r a -> Bool
+  liftEq :: (P.Eq a) => r a -> r a -> Bool
 
 class LiftShow r where
-  liftShowsPrec :: (Show a) => Integer -> r a -> ShowS
+  liftShowsPrec :: (P.Show a) => Integer -> r a -> P.ShowS
 
 class LiftToByteString r where
-  liftToByteString :: (Dato a) => r a -> BuiltinByteString
+  liftToByteString :: (Dato a) => r a -> P.BuiltinByteString
   liftToByteString a = liftByteStringOut a Terminal emptyByteString
-  liftByteStringOut :: (Dato a) => r a -> IsTerminal -> BuiltinByteString -> BuiltinByteString
+
+  liftByteStringOut :: (Dato a) => r a -> IsTerminal -> P.BuiltinByteString -> P.BuiltinByteString
   liftByteStringOut a _ = appendByteString $ liftToByteString a
 
 class LiftFromByteString r where
-  liftFromByteString :: (FromByteString a) => BuiltinByteString -> r a
+  liftFromByteString :: (FromByteString a) => P.BuiltinByteString -> r a
   liftFromByteString = fromByteStringIn_ liftByteStringIn
+
   liftByteStringIn :: (FromByteString a) => IsTerminal -> ByteStringReader (r a)
 
 class LiftToData r where
-  liftToBuiltinData :: (ToData a) => r a -> BuiltinData
+  liftToBuiltinData :: (P.ToData a) => r a -> P.BuiltinData
 
 class LiftUnsafeFromData r where
-  liftUnsafeFromBuiltinData :: (UnsafeFromData a) => BuiltinData -> r a
+  liftUnsafeFromBuiltinData :: (P.UnsafeFromData a) => P.BuiltinData -> r a
 
 class LiftFromData r where
-  liftFromBuiltinData :: (FromData a) => BuiltinData -> Maybe (r a)
+  liftFromBuiltinData :: (P.FromData a) => P.BuiltinData -> Maybe (r a)
 
 class LiftHasBlueprintSchema r where
-  liftSchema :: (HasBlueprintSchema a referencedTypes) => (Proxy (r a), Schema referencedTypes)
+  liftSchema :: (P.HasBlueprintSchema a referencedTypes) => (Proxy (r a), P.Schema referencedTypes)
 
-class
-  (Monad e, Dato a) =>
-  PreWrapping e r a
-  where
+class (Monad e, Dato a) => PreWrapping e r a where
   wrap :: a -> e (r a)
 
 -- | Wrapping : a value can be wrapped, and wrapped value that can be unwrapped
-class
-  (PreWrapping e r a) =>
-  Wrapping e r a
-  where
+class (PreWrapping e r a) => Wrapping e r a where
   unwrap :: r a -> e a
 
-class
-  (Monad e) =>
-  LiftPreWrapping e r
-  where
+class (Monad e) => LiftPreWrapping e r where
   liftWrap :: (Dato a) => a -> e (r a)
 
-class
-  (LiftPreWrapping e r) =>
-  LiftWrapping e r
-  where
+class (LiftPreWrapping e r) => LiftWrapping e r where
   liftUnwrap :: (Dato a) => r a -> e a
 
 -- * Instances
@@ -337,10 +324,7 @@ instance StaticLength L64 where
 --   showsPrec prec (FixedLengthByteString b) =
 --     showApp prec "FixedLengthByteString" [showArg b]
 
-instance
-  (StaticLength len) =>
-  Partial (FixedLengthByteString len)
-  where
+instance (StaticLength len) => Partial (FixedLengthByteString len) where
   isElement (FixedLengthByteString b) = lengthOfByteString b == staticLength (Proxy @len)
 
 {-instance
@@ -349,10 +333,7 @@ instance
   where
   toInt (FixedLengthByteString b) = toInt b-}
 
-instance
-  (StaticLength len) =>
-  FromInt (FixedLengthByteString len)
-  where
+instance (StaticLength len) => FromInt (FixedLengthByteString len) where
   maybeFromInt =
     let len = staticLength $ Proxy @len
         isValidInt = isUInt $ 8 * len
@@ -363,26 +344,17 @@ instance
             else
               Nothing
 
-instance
-  (StaticLength len) =>
-  ToByteString (FixedLengthByteString len)
-  where
+instance (StaticLength len) => ToByteString (FixedLengthByteString len) where
   toByteString (FixedLengthByteString b) = b
   byteStringOut (FixedLengthByteString b) _ = appendByteString b
 
-instance
-  (StaticLength len) =>
-  FromByteString (FixedLengthByteString len)
-  where
+instance (StaticLength len) => FromByteString (FixedLengthByteString len) where
   -- {-# INLINEABLE fromByteString #-}
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   -- maybeFromByteString = maybeValidate . FixedLengthByteString
   byteStringIn _ = byteStringInFixedLength (staticLength $ Proxy @len) <&> FixedLengthByteString
 
-instance
-  (StaticLength len) =>
-  BitLogic (FixedLengthByteString len)
-  where
+instance (StaticLength len) => BitLogic (FixedLengthByteString len) where
   bitLength (FixedLengthByteString b) = bitLength b
   lowestBitClear (FixedLengthByteString b) = lowestBitClear b
   isBitSet n (FixedLengthByteString b) = readBit b n
@@ -427,22 +399,16 @@ instance
                   else
                     shiftByteString (getFixedLengthByteString fb) i
 
-instance
-  (StaticLength len) =>
-  HasBlueprintSchema (FixedLengthByteString len) referencedTypes
-  where
+instance (StaticLength len) =>
+  P.HasBlueprintSchema (FixedLengthByteString len) referencedTypes where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance
-  (StaticLength len) =>
-  FromData (FixedLengthByteString len)
-  where
+instance (StaticLength len) =>
+  P.FromData (FixedLengthByteString len) where
   fromBuiltinData d = fromBuiltinData d <&> fromByteString
 
-instance
-  (StaticLength len) =>
-  UnsafeFromData (FixedLengthByteString len)
-  where
+instance (StaticLength len) =>
+  P.UnsafeFromData (FixedLengthByteString len) where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** BuiltinByteString
@@ -452,28 +418,28 @@ instance
 -- a BuiltinByteString has to be of length <= 65535 (in practice smaller, more like 8192)
 -- For larger data structures... put them in a Trie wherein only a logarithmic fragment is witnessed
 
-instance Partial BuiltinByteString where
+instance Partial P.BuiltinByteString where
   isElement b = lengthOfByteString b <= 65535
 
-instance ToInt BuiltinByteString where
+instance ToInt P.BuiltinByteString where
   toInt = fromByteString
 
-instance FromInt BuiltinByteString where
+instance FromInt P.BuiltinByteString where
   fromInt = toByteString
 
-instance ToByteString BuiltinByteString where
+instance ToByteString P.BuiltinByteString where
   toByteString = id
   byteStringOut b Terminal = appendByteString b
   byteStringOut b NonTerminal =
     let len = toUInt16 $ lengthOfByteString b
      in appendByteString (toByteString len) . appendByteString b
 
-instance FromByteString BuiltinByteString where
+instance FromByteString P.BuiltinByteString where
   fromByteString = id
   byteStringIn Terminal = byteStringInToEnd
   byteStringIn NonTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> byteStringInFixedLength len
 
-instance BitLogic BuiltinByteString where
+instance BitLogic P.BuiltinByteString where
   bitLength b =
     let len = lengthOfByteString b
         loop i =
@@ -496,21 +462,21 @@ instance BitLogic BuiltinByteString where
 
 -- ** BuiltinString
 
-instance ToByteString BuiltinString where
+instance ToByteString P.BuiltinString where
   toByteString = encodeUtf8
   byteStringOut = byteStringOut . toByteString
 
-instance FromByteString BuiltinString where
+instance FromByteString P.BuiltinString where
   fromByteString = decodeUtf8 -- XXX
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
-instance ToData BuiltinString where
+instance P.ToData P.BuiltinString where
   toBuiltinData = toBuiltinData . toByteString
 
-instance FromData BuiltinString where
-  fromBuiltinData d = fromBuiltinData d >>= return . fromByteString
+instance P.FromData P.BuiltinString where
+  fromBuiltinData d = fromByteString <$> fromBuiltinData d
 
-instance UnsafeFromData BuiltinString where
+instance P.UnsafeFromData P.BuiltinString where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** Byte
@@ -552,16 +518,16 @@ instance BitLogic Byte where
   shiftLeft b i = Byte $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (Byte a) l (Byte b) = Byte $ (a `shiftLeft` l) + b
 
-instance ToData Byte where
+instance P.ToData Byte where
   toBuiltinData = toBuiltinData . getByte
 
-instance FromData Byte where
+instance P.FromData Byte where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
 
-instance UnsafeFromData Byte where
+instance P.UnsafeFromData Byte where
   unsafeFromBuiltinData = toByte . unsafeFromBuiltinData
 
-instance HasBlueprintSchema Byte referencedTypes where
+instance P.HasBlueprintSchema Byte referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** UInt16
@@ -603,58 +569,41 @@ instance BitLogic UInt16 where
   shiftLeft b i = UInt16 $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (UInt16 a) l (UInt16 b) = UInt16 $ (a `shiftLeft` l) + b
 
-instance ToData UInt16 where
+instance P.ToData UInt16 where
   toBuiltinData = toBuiltinData . getUInt16
 
-instance FromData UInt16 where
+instance P.FromData UInt16 where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
 
-instance UnsafeFromData UInt16 where
+instance P.UnsafeFromData UInt16 where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance HasBlueprintSchema UInt16 referencedTypes where
+instance P.HasBlueprintSchema UInt16 referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** FixedLengthInteger
 
-instance
-  (StaticLength len) =>
-  Eq (FixedLengthInteger len)
-  where
+instance (StaticLength len) => P.Eq (FixedLengthInteger len) where
   (FixedLengthInteger a) == (FixedLengthInteger b) = a == b
 
-instance
-  (StaticLength len) =>
-  Show (FixedLengthInteger len)
-  where
+instance (StaticLength len) => P.Show (FixedLengthInteger len) where
   showsPrec prec (FixedLengthInteger n) =
-    showApp prec "FixedLengthInteger" [showString "@L" . showArg (staticLength $ Proxy @len), showArg n]
+    showApp prec "FixedLengthInteger"
+      [showString "@L" . showArg (staticLength $ Proxy @len), showArg n]
 
-instance
-  (StaticLength len) =>
-  Partial (FixedLengthInteger len)
-  where
+instance (StaticLength len) => Partial (FixedLengthInteger len) where
   isElement = isUInt (8 * staticLength (Proxy @len)) . getFixedLengthInteger
 
 instance ToInt (FixedLengthInteger len) where
   toInt (FixedLengthInteger n) = n
 
-instance
-  (StaticLength len) =>
-  FromInt (FixedLengthInteger len)
-  where
+instance (StaticLength len) => FromInt (FixedLengthInteger len) where
   maybeFromInt = maybeValidate . FixedLengthInteger
 
-instance
-  (StaticLength len) =>
-  ToByteString (FixedLengthInteger len)
-  where
+instance (StaticLength len) => ToByteString (FixedLengthInteger len) where
   toByteString (FixedLengthInteger n) = integerToByteString BigEndian (staticLength $ Proxy @len) n
 
-instance
-  (StaticLength len) =>
-  FromByteString (FixedLengthInteger len)
-  where
+instance (StaticLength len) => FromByteString (FixedLengthInteger len) where
   --  {-# INLINEABLE fromByteString #-}
   --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
@@ -663,11 +612,9 @@ instance
       <&> FixedLengthInteger
       . byteStringToInteger BigEndian
 
-instance
-  (StaticLength len) =>
-  BitLogic (FixedLengthInteger len)
-  where
-  bitLength (FixedLengthInteger n) = bitLength $ integerToByteString BigEndian (staticLength $ Proxy @len) n
+instance (StaticLength len) => BitLogic (FixedLengthInteger len) where
+  bitLength (FixedLengthInteger n) =
+    bitLength $ integerToByteString BigEndian (staticLength $ Proxy @len) n
   lowestBitClear n = lowestBitClear $ toByteString n
   isBitSet n i = isBitSet n (toByteString i)
   lowBitsMask l = FixedLengthInteger . toInt $ (lowBitsMask l :: FixedLengthByteString len)
@@ -679,30 +626,20 @@ instance
     FixedLengthInteger . toInt $ logicalXor (fromInt a :: FixedLengthByteString len) (fromInt b)
   shiftRight (FixedLengthInteger b) i = FixedLengthInteger $ shiftRight b i
   shiftLeft (FixedLengthInteger b) i = FixedLengthInteger . toInt $ shiftByteString (toByteString b) i
-  shiftLeftWithBits (FixedLengthInteger a) l (FixedLengthInteger b) = FixedLengthInteger $ (a `shiftLeft` l) + b
+  shiftLeftWithBits (FixedLengthInteger a) l (FixedLengthInteger b) =
+    FixedLengthInteger $ (a `shiftLeft` l) + b
 
-instance
-  (StaticLength len) =>
-  ToData (FixedLengthInteger len)
-  where
+instance (StaticLength len) => P.ToData (FixedLengthInteger len) where
   toBuiltinData = toBuiltinData . getFixedLengthInteger
 
-instance
-  (StaticLength len) =>
-  FromData (FixedLengthInteger len)
-  where
+instance (StaticLength len) => P.FromData (FixedLengthInteger len) where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
 
-instance
-  (StaticLength len) =>
-  UnsafeFromData (FixedLengthInteger len)
-  where
+instance (StaticLength len) => P.UnsafeFromData (FixedLengthInteger len) where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance
-  (StaticLength len) =>
-  HasBlueprintSchema (FixedLengthInteger len) referencedTypes
-  where
+instance (StaticLength len) =>
+  P.HasBlueprintSchema (FixedLengthInteger len) referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** VariableLengthInteger
@@ -711,10 +648,10 @@ instance
  - only integers of length less than 65536
  - I/O only for non-negative integers (for now)
  - we do not reject non-canonical input (leading zeros) -}
-instance Eq VariableLengthInteger where
+instance P.Eq VariableLengthInteger where
   x == y = vliInteger x == vliInteger y
 
-instance Show VariableLengthInteger where
+instance P.Show VariableLengthInteger where
   showsPrec prec (VariableLengthInteger _ i) =
     showApp prec "toVariableLengthInteger" [showArg i]
 
@@ -751,35 +688,35 @@ instance BitLogic VariableLengthInteger where
   shiftLeftWithBits (VariableLengthInteger la a) l vb@(VariableLengthInteger _ b) =
     if la == 0 then vb else VariableLengthInteger (la + l) $ (a `shiftLeft` l) + b
 
-instance ToData VariableLengthInteger where
+instance P.ToData VariableLengthInteger where
   toBuiltinData = toBuiltinData . vliInteger
 
-instance FromData VariableLengthInteger where
+instance P.FromData VariableLengthInteger where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
 
-instance UnsafeFromData VariableLengthInteger where
+instance P.UnsafeFromData VariableLengthInteger where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance HasBlueprintSchema VariableLengthInteger referencedTypes where
+instance P.HasBlueprintSchema VariableLengthInteger referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** Integer
 
-instance ToInt Integer where
+instance ToInt P.Integer where
   toInt = id
 
-instance FromInt Integer where
+instance FromInt P.Integer where
   fromInt = id
 
-instance ToByteString Integer where
+instance ToByteString P.Integer where
   toByteString n = integerToByteString BigEndian (bitLengthToByteLength $ bitLength n) n
   byteStringOut = byteStringOut . toByteString
 
-instance FromByteString Integer where
+instance FromByteString P.Integer where
   fromByteString = byteStringToInteger BigEndian
-  byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @BuiltinByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> toInt @P.BuiltinByteString
 
-instance BitLogic Integer where
+instance BitLogic P.Integer where
   bitLength n
     | n < 0 = bitLength (-n - 1) -- two's complement notion of bit length
     | n <= 65535 = bitLength16 n
@@ -813,7 +750,7 @@ instance BitLogic Integer where
 
 -- ** POSIXTime
 
-instance Show POSIXTime where
+instance P.Show POSIXTime where
   showsPrec prec (POSIXTime x) = showApp prec "POSIXTime" [showArg x]
 
 instance ToByteString POSIXTime where
@@ -851,17 +788,15 @@ instance FromByteString () where
 
 -- *** Either
 
-instance
-  (ToByteString a, ToByteString b) =>
-  ToByteString (Either a b)
-  where
-  byteStringOut (Left a) isTerminal = byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
-  byteStringOut (Right b) isTerminal = byteStringOut (Byte 1) NonTerminal . byteStringOut b isTerminal
+instance (ToByteString a, ToByteString b) =>
+  ToByteString (P.Either a b) where
+  byteStringOut (P.Left a) isTerminal =
+    byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
+  byteStringOut (P.Right b) isTerminal =
+    byteStringOut (Byte 1) NonTerminal . byteStringOut b isTerminal
 
-instance
-  (FromByteString a, FromByteString b) =>
-  FromByteString (Either a b)
-  where
+instance (FromByteString a, FromByteString b) =>
+  FromByteString (Either a b) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \b ->
       if b == Byte 0
@@ -873,17 +808,11 @@ instance
 
 -- *** Maybe
 
-instance
-  (ToByteString a) =>
-  ToByteString (Maybe a)
-  where
+instance (ToByteString a) => ToByteString (Maybe a) where
   byteStringOut Nothing _ = byteStringOut (Byte 0) NonTerminal
   byteStringOut (Just a) isTerminal = byteStringOut (Byte 1) NonTerminal . byteStringOut a isTerminal
 
-instance
-  (FromByteString a) =>
-  FromByteString (Maybe a)
-  where
+instance (FromByteString a) => FromByteString (Maybe a) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \b ->
       if b == Byte 0
@@ -895,18 +824,12 @@ instance
 
 -- *** (,) or builtin Pairs
 
-instance
-  (ToByteString a, ToByteString b) =>
-  ToByteString (a, b)
-  where
+instance (ToByteString a, ToByteString b) => ToByteString (a, b) where
   byteStringOut (a, b) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b isTerminal s
 
-instance
-  (FromByteString a, FromByteString b) =>
-  FromByteString (a, b)
-  where
+instance (FromByteString a, FromByteString b) => FromByteString (a, b) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn isTerminal >>= \b ->
@@ -914,25 +837,18 @@ instance
 
 -- *** (,,) or builtin Triplets
 
-instance
-  (Eq a, Eq b, Eq c) =>
-  Eq (a, b, c)
-  where
+instance (P.Eq a, P.Eq b, P.Eq c) => P.Eq (a, b, c) where
   (a, b, c) == (a', b', c') = a == a' && b == b' && c == c'
 
-instance
-  (ToByteString a, ToByteString b, ToByteString c) =>
-  ToByteString (a, b, c)
-  where
+instance (ToByteString a, ToByteString b, ToByteString c) =>
+  ToByteString (a, b, c) where
   byteStringOut (a, b, c) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
       $ byteStringOut c isTerminal s
 
-instance
-  (FromByteString a, FromByteString b, FromByteString c) =>
-  FromByteString (a, b, c)
-  where
+instance (FromByteString a, FromByteString b, FromByteString c) =>
+  FromByteString (a, b, c) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -941,26 +857,19 @@ instance
 
 -- *** (,,,) or builtin Quadruplets
 
-instance
-  (Eq a, Eq b, Eq c, Eq d) =>
-  Eq (a, b, c, d)
-  where
+instance (P.Eq a, P.Eq b, P.Eq c, P.Eq d) => P.Eq (a, b, c, d) where
   (a, b, c, d) == (a', b', c', d') = a == a' && b == b' && c == c' && d == d'
 
-instance
-  (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
-  ToByteString (a, b, c, d)
-  where
+instance (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
+  ToByteString (a, b, c, d) where
   byteStringOut (a, b, c, d) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
       $ byteStringOut c NonTerminal
       $ byteStringOut d isTerminal s
 
-instance
-  (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
-  FromByteString (a, b, c, d)
-  where
+instance (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
+  FromByteString (a, b, c, d) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -970,17 +879,14 @@ instance
 
 -- *** (,,,,) or builtin Quintuplets
 
-instance
-  (Eq a, Eq b, Eq c, Eq d, Eq e) =>
-  Eq (a, b, c, d, e)
-  where
+instance (P.Eq a, P.Eq b, P.Eq c, P.Eq d, P.Eq e) =>
+  P.Eq (a, b, c, d, e) where
   (a, b, c, d, e) == (a', b', c', d', e') =
     a == a' && b == b' && c == c' && d == d' && e == e'
 
 instance
   (ToByteString a, ToByteString b, ToByteString c, ToByteString d, ToByteString e) =>
-  ToByteString (a, b, c, d, e)
-  where
+  ToByteString (a, b, c, d, e) where
   byteStringOut (a, b, c, d, e) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
@@ -990,8 +896,7 @@ instance
 
 instance
   (FromByteString a, FromByteString b, FromByteString c, FromByteString d, FromByteString e) =>
-  FromByteString (a, b, c, d, e)
-  where
+  FromByteString (a, b, c, d, e) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -1000,16 +905,12 @@ instance
             byteStringIn isTerminal >>= \e ->
               return (a, b, c, d, e)
 
-instance
-  (ToData a, ToData b, ToData c, ToData d, ToData e) =>
-  ToData (a, b, c, d, e)
-  where
+instance (P.ToData a, P.ToData b, P.ToData c, P.ToData d, P.ToData e) =>
+  P.ToData (a, b, c, d, e) where
   toBuiltinData (a, b, c, d, e) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e]
 
-instance
-  (FromData a, FromData b, FromData c, FromData d, FromData e) =>
-  FromData (a, b, c, d, e)
-  where
+instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e) =>
+  P.FromData (a, b, c, d, e) where
   fromBuiltinData x =
     fromBuiltinData x >>= \case
       [aa, bb, cc, dd, ee] -> do
@@ -1022,9 +923,8 @@ instance
       _ -> failNow
 
 instance
-  (UnsafeFromData a, UnsafeFromData b, UnsafeFromData c, UnsafeFromData d, UnsafeFromData e) =>
-  UnsafeFromData (a, b, c, d, e)
-  where
+  (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e) =>
+  P.UnsafeFromData (a, b, c, d, e) where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
@@ -1032,17 +932,14 @@ instance
 
 -- *** (,,,,,) or builtin Sextuplets
 
-instance
-  (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f) =>
-  Eq (a, b, c, d, e, f)
-  where
+instance (P.Eq a, P.Eq b, P.Eq c, P.Eq d, P.Eq e, P.Eq f) =>
+  P.Eq (a, b, c, d, e, f) where
   (a, b, c, d, e, f) == (a', b', c', d', e', f') =
     a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 
 instance
   (ToByteString a, ToByteString b, ToByteString c, ToByteString d, ToByteString e, ToByteString f) =>
-  ToByteString (a, b, c, d, e, f)
-  where
+  ToByteString (a, b, c, d, e, f) where
   byteStringOut (a, b, c, d, e, f) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
@@ -1053,8 +950,7 @@ instance
 
 instance
   (FromByteString a, FromByteString b, FromByteString c, FromByteString d, FromByteString e, FromByteString f) =>
-  FromByteString (a, b, c, d, e, f)
-  where
+  FromByteString (a, b, c, d, e, f) where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -1065,15 +961,13 @@ instance
                 return (a, b, c, d, e, f)
 
 instance
-  (ToData a, ToData b, ToData c, ToData d, ToData e, ToData f) =>
-  ToData (a, b, c, d, e, f)
-  where
+  (P.ToData a, P.ToData b, P.ToData c, P.ToData d, P.ToData e, P.ToData f) =>
+  P.ToData (a, b, c, d, e, f) where
   toBuiltinData (a, b, c, d, e, f) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e, toBuiltinData f]
 
 instance
-  (FromData a, FromData b, FromData c, FromData d, FromData e, FromData f) =>
-  FromData (a, b, c, d, e, f)
-  where
+  (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e, P.FromData f) =>
+  P.FromData (a, b, c, d, e, f) where
   fromBuiltinData x =
     fromBuiltinData x >>= \case
       [aa, bb, cc, dd, ee, ff] -> do
@@ -1087,9 +981,8 @@ instance
       _ -> failNow
 
 instance
-  (UnsafeFromData a, UnsafeFromData b, UnsafeFromData c, UnsafeFromData d, UnsafeFromData e, UnsafeFromData f) =>
-  UnsafeFromData (a, b, c, d, e, f)
-  where
+  (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e, P.UnsafeFromData f) =>
+  P.UnsafeFromData (a, b, c, d, e, f) where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
@@ -1097,10 +990,7 @@ instance
 
 -- ** Lists
 
-instance
-  (ToByteString a) =>
-  ToByteString [a] -- length limit 65535.
-  where
+instance (ToByteString a) => ToByteString [a] {- length limit 65535. -} where
   byteStringOut l isTerminal s =
     byteStringOut (toUInt16 $ length l) NonTerminal $ loop s l
     where
@@ -1108,10 +998,7 @@ instance
       loop bs [a] = byteStringOut a isTerminal bs
       loop bs (a : l') = byteStringOut a NonTerminal (loop bs l')
 
-instance
-  (FromByteString a) =>
-  FromByteString [a] -- length limit 65535
-  where
+instance (FromByteString a) => FromByteString [a] {- length limit 65535 -} where
   byteStringIn isTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> loop len
     where
       loop n =
@@ -1121,10 +1008,10 @@ instance
 
 -- ** Identity
 
-instance (Eq a) => Eq (Identity a) where
+instance (P.Eq a) => P.Eq (Identity a) where
   x == y = runIdentity x == runIdentity y
 
-instance (Show a) => Show (Identity a) where
+instance (P.Show a) => P.Show (Identity a) where
   showsPrec prec (Identity x) = showApp prec "Identity" [showArg x]
 
 instance (ToByteString a) => ToByteString (Identity a) where
@@ -1186,13 +1073,13 @@ instance LiftSerialise Identity where
 
 instance
   (LiftEq f) =>
-  Eq (Fix f)
+  P.Eq (Fix f)
   where
   (==) x y = liftEq (getFix x) (getFix y)
 
 instance
   (LiftShow f) =>
-  Show (Fix f)
+  P.Show (Fix f)
   where
   showsPrec prec (Fix x) = showApp prec "Fix" [liftShowsPrec 11 x]
 
@@ -1205,19 +1092,19 @@ instance
 
 instance
   (LiftToData f) =>
-  ToData (Fix f)
+  P.ToData (Fix f)
   where
   toBuiltinData = liftToBuiltinData . getFix
 
 instance
   (LiftFromData f) =>
-  FromData (Fix f)
+  P.FromData (Fix f)
   where
-  fromBuiltinData d = liftFromBuiltinData d >>= return . Fix
+  fromBuiltinData d = Fix <$> liftFromBuiltinData d
 
 instance
   (LiftUnsafeFromData f) =>
-  UnsafeFromData (Fix f)
+  P.UnsafeFromData (Fix f)
   where
   unsafeFromBuiltinData = liftUnsafeFromBuiltinData -. Fix
 
@@ -1241,32 +1128,32 @@ instance
 
 instance
   (LiftHasBlueprintSchema r) =>
-  HasBlueprintSchema (Fix r) referencedTypes
+  P.HasBlueprintSchema (Fix r) referencedTypes
   where
   schema = case liftSchema @r of (Proxy :: Proxy (r (Fix r)), sch) -> sch
 
 -- ** ByteStringCursor
 
-instance Eq ByteStringCursor where
+instance P.Eq ByteStringCursor where
   (ByteStringCursor b s e) == (ByteStringCursor b' s' e') = (b, s, e) == (b', s', e')
 
-instance Show ByteStringCursor where
+instance P.Show ByteStringCursor where
   showsPrec prec (ByteStringCursor b s e) =
     showApp prec "ByteStringCursor" [showArg b, showArg s, showArg e]
 
 -- ** ByteStringReader
 
-instance GB.Functor ByteStringReader where
+instance P.Functor ByteStringReader where
+  fmap = HP.fmap
+
+instance HP.Functor ByteStringReader where
   fmap f (ByteStringReader r) = ByteStringReader $ fmap (first f) . r
 
-instance Functor ByteStringReader where
-  fmap = GB.fmap
+instance P.Applicative ByteStringReader where
+  pure = HP.pure
+  (<*>) = (HP.<*>)
 
-instance Applicative ByteStringReader where
-  pure = GB.pure
-  (<*>) = (GB.<*>)
-
-instance GB.Applicative ByteStringReader where
+instance HP.Applicative ByteStringReader where
   pure a = ByteStringReader $ \s -> Just (a, s)
   ByteStringReader x <*> ByteStringReader y =
     ByteStringReader $ x >=> (\(f, s') -> y s' <&> first f)
@@ -1280,40 +1167,24 @@ instance Monad ByteStringReader where
 
 -- ** LiftRef
 
-instance
-  (LiftEq r, Eq a) =>
-  Eq (LiftRef r a)
-  where
+instance (LiftEq r, P.Eq a) => P.Eq (LiftRef r a) where
   LiftRef x == LiftRef y = x `liftEq` y
 
-instance
-  (LiftShow r, Show a) =>
-  Show (LiftRef r a)
-  where
+instance (LiftShow r, P.Show a) => P.Show (LiftRef r a) where
   showsPrec prec (LiftRef ra) = showApp prec "LiftRef" [liftShowsPrec 11 ra]
 
-instance
-  (LiftToData r, ToData a) =>
-  ToData (LiftRef r a)
-  where
+instance (LiftToData r, P.ToData a) => P.ToData (LiftRef r a) where
   toBuiltinData = liftToBuiltinData . liftref
 
-instance
-  (LiftUnsafeFromData r, UnsafeFromData a) =>
-  UnsafeFromData (LiftRef r a)
-  where
+instance (LiftUnsafeFromData r, P.UnsafeFromData a) =>
+  P.UnsafeFromData (LiftRef r a) where
   unsafeFromBuiltinData = LiftRef . liftUnsafeFromBuiltinData
 
-instance
-  (LiftFromData r, FromData a) =>
-  FromData (LiftRef r a)
-  where
-  fromBuiltinData d = liftFromBuiltinData d >>= return . LiftRef
+instance (LiftFromData r, P.FromData a) =>
+  P.FromData (LiftRef r a) where
+  fromBuiltinData d = LiftRef <$> liftFromBuiltinData d
 
-instance
-  (Functor r) =>
-  Functor (LiftRef r)
-  where
+instance P.Functor r => P.Functor (LiftRef r) where
   fmap f (LiftRef x) = LiftRef (fmap f x)
 
 instance
@@ -1342,31 +1213,29 @@ instance
   unwrap = liftUnwrap . liftref
 
 instance
-  (LiftHasBlueprintSchema r, HasBlueprintSchema a referencedTypes) =>
-  HasBlueprintSchema (LiftRef r a) referencedTypes
-  where
-  schema = case liftSchema @r of (Proxy :: Proxy (r a), sch :: Schema referencedTypes) -> sch
+  (LiftHasBlueprintSchema r, P.HasBlueprintSchema a referencedTypes) =>
+  P.HasBlueprintSchema (LiftRef r a) referencedTypes where
+  schema = case liftSchema @r of (Proxy :: Proxy (r a), sch :: P.Schema referencedTypes) -> sch
 
 -- * As
 
-instance (ConvertFrom a b, Eq a) => Eq (As a b) where
+instance (ConvertFrom a b, P.Eq a) => P.Eq (As a b) where
   As x == As y = convertFrom @a @b x == convertFrom @a @b y
 
 instance (ConvertFrom a b, ToByteString a) => ToByteString (As a b) where
   toByteString = toByteString . convertFrom @a @b . getAs
   byteStringOut = byteStringOut . convertFrom @a @b . getAs
 
-instance (ConvertFrom a b, ToData a) => ToData (As a b) where
+instance (ConvertFrom a b, P.ToData a) => P.ToData (As a b) where
   toBuiltinData = toBuiltinData . convertFrom @a @b . getAs
 
 instance (ConvertTo a b, FromByteString a) => FromByteString (As a b) where
   fromByteString = As . convertTo @a @b . fromByteString
-  byteStringIn x = byteStringIn x >>= return . As . convertTo @a @b
+  byteStringIn x = As . convertTo @a @b <$> byteStringIn x
 
-instance (ConvertTo a b, FromData a) => FromData (As a b) where
-  fromBuiltinData x = fromBuiltinData x >>= return . As . convertTo @a @b
-
-instance (ConvertTo a b, UnsafeFromData a) => UnsafeFromData (As a b) where
+instance (ConvertTo a b, P.FromData a) => P.FromData (As a b) where
+  fromBuiltinData x =  As . convertTo @a @b <$>  fromBuiltinData x
+instance (ConvertTo a b, P.UnsafeFromData a) => P.UnsafeFromData (As a b) where
   unsafeFromBuiltinData = As . convertTo @a @b . unsafeFromBuiltinData
 
 -- * Helpers
@@ -1411,7 +1280,7 @@ toUInt64 = fromInt
 toVariableLengthInteger :: Integer -> UInt64
 toVariableLengthInteger = fromInt
 
-equalizeByteStringLength :: BuiltinByteString -> BuiltinByteString -> (BuiltinByteString, BuiltinByteString)
+equalizeByteStringLength :: P.BuiltinByteString -> P.BuiltinByteString -> (P.BuiltinByteString, P.BuiltinByteString)
 equalizeByteStringLength a b =
   let la = lengthOfByteString a
       lb = lengthOfByteString b
@@ -1441,7 +1310,7 @@ bitLength4 n = if n < 4 then bitLength2 n else 2 + bitLength2 (n `quotient` 4)
 bitLength2 :: Integer -> Integer -- assumes input in [0,3]
 bitLength2 n = min n 2
 
-byteString1, byteString2 :: BuiltinByteString
+byteString1, byteString2 :: P.BuiltinByteString
 byteString1 = integerToByteString BigEndian 1 0xFF
 byteString2 = integerToByteString BigEndian 2 0xFFFF
 
@@ -1452,12 +1321,12 @@ writeByteString :: ByteStringOut a => a -> ByteStringWriter ()
 writeByteString a = get >>= \ suffix -> put (byteStringOut a . suffix)
 byteStringWriterResult :: ByteStringWriter a -> BuiltinByteString
 byteStringWriterResult m = execState m emptyByteString-}
-toByteStringOut :: (ToByteString a) => a -> BuiltinByteString
+toByteStringOut :: (ToByteString a) => a -> P.BuiltinByteString
 toByteStringOut a = byteStringOut a Terminal emptyByteString
 
 -- *** ByteString parsing
 
-byteStringInFixedLength :: Integer -> ByteStringReader BuiltinByteString
+byteStringInFixedLength :: Integer -> ByteStringReader P.BuiltinByteString
 byteStringInFixedLength n =
   ByteStringReader $ \ByteStringCursor {..} ->
     let next = cursorStart + n
@@ -1469,7 +1338,7 @@ byteStringInFixedLength n =
               )
           else Nothing
 
-byteStringInToEnd :: ByteStringReader BuiltinByteString
+byteStringInToEnd :: ByteStringReader P.BuiltinByteString
 byteStringInToEnd =
   ByteStringReader $ \ByteStringCursor {..} ->
     let len = cursorEnd - cursorStart
@@ -1481,23 +1350,23 @@ byteStringInToEnd =
 byteStringReaderFail :: ByteStringReader a
 byteStringReaderFail = ByteStringReader $ const Nothing
 
-maybeFromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> BuiltinByteString -> Maybe a
+maybeFromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> P.BuiltinByteString -> Maybe a
 maybeFromByteStringIn_ bsIn bs =
   byteStringCursor bs
     & getByteStringReader (bsIn Terminal) >>= \(a, bs') ->
       if emptyByteStringCursor bs' then Just a else Nothing
 
-fromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> BuiltinByteString -> a
+fromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> P.BuiltinByteString -> a
 fromByteStringIn_ bsIn = fromJust . maybeFromByteStringIn_ bsIn
 
 {-# INLINEABLE fromByteStringIn #-}
-fromByteStringIn :: (FromByteString a) => BuiltinByteString -> a
+fromByteStringIn :: FromByteString a => P.BuiltinByteString -> a
 fromByteStringIn = fromByteStringIn_ byteStringIn
 
-maybeFromByteStringIn :: (FromByteString a) => BuiltinByteString -> Maybe a
+maybeFromByteStringIn :: FromByteString a => P.BuiltinByteString -> Maybe a
 maybeFromByteStringIn = maybeFromByteStringIn_ byteStringIn
 
-byteStringCursor :: BuiltinByteString -> ByteStringCursor
+byteStringCursor :: P.BuiltinByteString -> ByteStringCursor
 byteStringCursor bs = ByteStringCursor bs 0 (lengthOfByteString bs)
 
 emptyByteStringCursor :: ByteStringCursor -> Bool
@@ -1513,7 +1382,7 @@ nextByteStringCursor bsc =
           ByteStringCursor (cursorByteString bsc) (cursorStart bsc + 1) (cursorEnd bsc)
         )
 
-maybeFromByteString :: (FromByteString a) => BuiltinByteString -> Maybe a -- XXX DEBUG
+maybeFromByteString :: (FromByteString a) => P.BuiltinByteString -> Maybe a -- XXX DEBUG
 maybeFromByteString = maybeFromByteStringIn -- XXX DEBUG
 -- fromByteString :: (FromByteString a) => BuiltinByteString -> a -- XXX DEBUG
 -- fromByteString = fromJust . maybeFromByteString -- XXX DEBUG
@@ -1551,14 +1420,14 @@ curry6 g a b c d e f = g (a, b, c, d, e, f)
 
 -- ** For Show
 
-showApp :: Integer -> BuiltinString -> [ShowS] -> ShowS
+showApp :: Integer -> P.BuiltinString -> [P.ShowS] -> P.ShowS
 showApp prec funName showArgList =
   showParen (prec > 10) $ showString funName . showSpaced showArgList
 
-showArg :: (Show a) => a -> ShowS
+showArg :: (P.Show a) => a -> P.ShowS
 showArg = showsPrec 11
 
-showSpaced :: [ShowS] -> ShowS
+showSpaced :: [P.ShowS] -> P.ShowS
 showSpaced [] = id
 showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 
@@ -1570,10 +1439,10 @@ ofHex = fromByteString . toBuiltin . fromJust . decodeHex . pack
 hexOf :: (ToByteString a, IsString s) => a -> s
 hexOf = fromString . unpack . encodeHex . fromBuiltin . toByteString
 
-bHex :: (ToByteString a) => a -> BuiltinString
+bHex :: (ToByteString a) => a -> P.BuiltinString
 bHex = hexOf
 
-hexB :: String -> BuiltinByteString
+hexB :: String -> P.BuiltinByteString
 hexB = ofHex
 
 failNow :: a
@@ -1584,7 +1453,7 @@ failNow = traceError "FOO"
 noReturn :: a -> a
 noReturn = noReturn
 
-trace' :: (Show s) => s -> e -> e
+trace' :: (P.Show s) => s -> e -> e
 trace' s = trace (show s)
 
 {-

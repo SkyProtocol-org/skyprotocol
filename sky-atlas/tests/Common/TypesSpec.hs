@@ -1,16 +1,4 @@
-{-# LANGUAGE BinaryLiterals #-}
-{-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:preserve-logging #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
-{-# OPTIONS_GHC -O0 #-} -- don't optimize errors away
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Common.TypesSpec where
@@ -20,26 +8,14 @@ import Common.Crypto
 
 import PlutusTx.Prelude
 import qualified PlutusTx.Prelude as P
--- import PlutusTx
 import PlutusTx.Builtins
--- import PlutusTx.Builtins.Internal (BuiltinString (..))
--- import PlutusTx.List (map, zip)
 import qualified PlutusTx.Show as PS
--- import PlutusTx.Utils
-
 import qualified GHC.Base as GB
--- import qualified GHC.Err as GE
 import qualified GHC.Show as GS
--- import qualified Debug.Trace as DT
-
--- import Data.Bits (unsafeShiftL)
--- import Data.Functor.Identity (Identity (..))
-import Data.String (String) -- , IsString, fromString)
--- import Data.Text (pack, unpack)
+import Data.String (String)
 import Test.Hspec
 import Test.QuickCheck hiding ((.&.))
 import Control.Exception
--- import Prelude (Int, putStrLn)
 
 -- * Helpers
 shouldBeHex :: (ToByteString a) => a -> GB.String -> Expectation
@@ -54,7 +30,7 @@ a `shouldBeHex2` h = do
   hexOf b `shouldBe` h
 
 genUInt :: Integer -> Gen Integer
-genUInt len = choose (0, (exponential 256 len) - 1)
+genUInt len = choose (0, exponential 256 len - 1)
 
 genByteString :: Integer -> Gen BuiltinByteString
 genByteString n = genUInt n >>= return . integerToByteString LittleEndian n
@@ -66,47 +42,40 @@ toBytes8 :: Integer -> Bytes8
 toBytes8 = fromInt
 
 -- * QuickCheck support
-instance
-  Arbitrary Byte where
+instance Arbitrary Byte where
   arbitrary = genUInt 1 >>= return . Byte
 
-instance
-  Arbitrary UInt16 where
+instance Arbitrary UInt16 where
   arbitrary = genUInt 2 >>= return . UInt16
 
-instance
-  (StaticLength len) =>
+instance (StaticLength len) =>
   Arbitrary (FixedLengthInteger len) where
   arbitrary = genUInt (staticLength $ Proxy @len) >>= return . FixedLengthInteger
+
 instance
   (StaticLength len) =>
   GS.Show (FixedLengthInteger len) where
   show = GS.show . PS.show
 
-instance
-  (StaticLength len) =>
+instance (StaticLength len) =>
   Arbitrary (FixedLengthByteString len) where
   arbitrary = genByteString (staticLength $ Proxy @len) >>= return . FixedLengthByteString
-instance
-  (StaticLength len) =>
+
+instance (StaticLength len) =>
   GB.Eq (FixedLengthByteString len) where
   (==) = (P.==)
-instance
-  (StaticLength len) =>
+
+instance (StaticLength len) =>
   GS.Show (FixedLengthByteString len) where
   show = GS.show . PS.show
-instance
-  (HashFunction hf) =>
-  GS.Show (Digest hf a)
+
+instance (HashFunction hf) => GS.Show (Digest hf a)
   where
   show = GS.show . PS.show
 
-instance
-  Arbitrary BuiltinByteString where
+instance Arbitrary BuiltinByteString where
   arbitrary = choose (0, 31) >>= genByteString
 
-instance GS.Show Bytes4 where show = GS.show . PS.show
-instance GS.Show UInt64 where show = GS.show . PS.show
 instance GB.Eq UInt64 where (==) = (P.==)
 
 instance Exception String where
@@ -133,10 +102,12 @@ typesSpec = do
       --result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
       result <- try (evaluate (toInt . toByte $ 257)) :: GB.IO (Either ErrorCall Integer)
       case result of
-        Left (ErrorCall x)  -> do -- putStrLn $ "The exception is: " GB.++ x
-                                  trace "FOOOOOO" $ -- dropped on the ground! :-(
-                                    x `shouldBe` "PlutusTx.Builtins.Internal.error" -- unhappily uninformative
-        Right val -> do -- putStrLn $ "The result is: " GB.++ (GS.show $ PS.show val)
+        Left (ErrorCall x)  -> do
+          -- putStrLn $ "The exception is: " GB.++ x
+          trace "FOOOOOO" $ -- dropped on the ground! :-(
+            x `shouldBe` "PlutusTx.Builtins.Internal.error" -- unhappily uninformative
+        Right val -> do
+          -- putStrLn $ "The result is: " GB.++ (GS.show $ PS.show val)
           val `shouldBe` 257
           True `shouldBe` False -- wrong to reach this
 
@@ -169,10 +140,10 @@ typesSpec = do
       exponential 3 42 `shouldBe` 109418989131512359209
       bitLength (exponential 3 42) `shouldBe` 67
       -- a Mersenne number, large enough to require Bignums, yet not too large either (66 bytes)
-      let m521 = (exponential 2 521) - 1
+      let m521 = exponential 2 521 - 1
       PS.show m521 `shouldBe` "6864797660130609714981900799081393217269435300143305409394463459185543183397656052122559640661454554977296311391480858037121987999716643812574028291115057151"
       bitLength m521 `shouldBe` 521
-      map (\i -> exponential 2 i) [0..16] `shouldBe`
+      map (exponential 2) [0..16] `shouldBe`
         [1,2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536]
     it "toByte" $ do
       toByte 0 `shouldBeHex2` "00"
@@ -243,21 +214,21 @@ testBitLogic :: (BitLogic a, FromInt a, Dato a, Eq a, GS.Show a, Arbitrary a) =>
 testBitLogic typ i t allBits len isUnsigned =
   let nBits = len * 8
       -- bM = t $ lowBitsMask nBits
-      maxi = i $ (exponential 256 len) - 1
+      maxi = i $ exponential 256 len - 1
       -- genA = genUInt len
       m1 = t maxi `quotient` 255
       rep b = i $ b * m1 -- or we could add a method using replicateByte for ByteString's
       r17 = rep 17
-      aAnd x y = t $ (i x) `logicalAnd` (i y)
-      aOr x y = t $ (i x) `logicalOr` (i y)
-      aXor x y = t $ (i x) `logicalXor` (i y)
+      aAnd x y = t $ i x `logicalAnd` i y
+      aOr x y = t $ i x `logicalOr` i y
+      aXor x y = t $ i x `logicalXor` i y
       aLowestBitClear n = lowestBitClear (i n)
       ebf l height bits = t $ extractBitField l height (i bits)
       itt x = it $ typ GB.++ " " GB.++ x
   in
   do -- it "Checking BitLogic" $ do
     itt "bitLength" $ do
-      (bitLength $ i 17) `shouldBe` 5
+      bitLength (i 17) `shouldBe` 5
       bitLength r17 `shouldBe` (len * 8) - 3
     itt "lowestBitClear" $ do
       aLowestBitClear 0 `shouldBe` 0
