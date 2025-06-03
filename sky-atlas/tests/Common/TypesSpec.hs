@@ -57,17 +57,8 @@ instance
   GS.Show (FixedLengthInteger len) where
   show = GS.show . PS.show
 
-instance (StaticLength len) =>
-  Arbitrary (FixedLengthByteString len) where
+instance (StaticLength len) => Arbitrary (FixedLengthByteString len) where
   arbitrary = genByteString (staticLength $ Proxy @len) >>= return . FixedLengthByteString
-
-instance (StaticLength len) =>
-  GB.Eq (FixedLengthByteString len) where
-  (==) = (P.==)
-
-instance (StaticLength len) =>
-  GS.Show (FixedLengthByteString len) where
-  show = GS.show . PS.show
 
 instance (HashFunction hf) => GS.Show (Digest hf a)
   where
