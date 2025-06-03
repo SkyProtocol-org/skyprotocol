@@ -79,21 +79,25 @@ class (LiftPreWrapping e r) => LiftWrapping e r where
 
 -- * Instances
 
+instance (Monad e, Dato a) => PreWrapping e Identity a where
+  wrap = return . Identity
+
+instance (Monad e, Dato a) => Wrapping e Identity a where
+  unwrap = return . runIdentity
+
 instance LiftEq Identity where
---  liftEq (Identity a) (Identity b) = a == b
   liftEq = (==)
 
 instance LiftShow Identity where
---  liftShowsPrec prec (Identity x) = showApp prec "Identity" [showArg x]
   liftShowsPrec = showsPrec
 
 instance LiftToByteString Identity where
-  liftByteStringOut = byteStringOut . runIdentity
-  liftToByteString = toByteString . runIdentity
+  liftByteStringOut = byteStringOut
+  liftToByteString = toByteString
 
 instance LiftFromByteString Identity where
-  liftFromByteString = Identity . fromByteString
-  liftByteStringIn it = byteStringIn it <&> Identity
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
 
 instance LiftToData Identity where
   liftToBuiltinData = toBuiltinData . runIdentity
@@ -234,12 +238,3 @@ instance
   (LiftHasBlueprintSchema r, P.HasBlueprintSchema a referencedTypes) =>
   P.HasBlueprintSchema (LiftRef r a) referencedTypes where
   schema = liftSchema @r (Proxy, schema @a)
-
--- ** (Pre)Wrapping
-
-instance (Dato a) => PreWrapping Identity Identity a where
-  wrap = Identity . Identity
-
-instance (Dato a) => Wrapping Identity Identity a where
-  unwrap x = x
-
