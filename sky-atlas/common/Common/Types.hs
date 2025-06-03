@@ -83,9 +83,6 @@ data ByteStringCursor = ByteStringCursor
 -- | Wrapper for (r a)
 newtype LiftRef r a = LiftRef {liftref :: r a}
 
-deriving instance (HP.Eq (r a)) => HP.Eq (LiftRef r a)
-deriving instance (HP.Show (r a)) => HP.Show (LiftRef r a)
-
 -- | Fixed-Point
 data Fix f = Fix {getFix :: f (Fix f)}
 
@@ -1081,10 +1078,22 @@ instance
   (==) x y = liftEq (getFix x) (getFix y)
 
 instance
+  (LiftEq f) =>
+  HP.Eq (Fix f)
+  where
+  (==) = (P.==)
+
+instance
   (LiftShow f) =>
   P.Show (Fix f)
   where
   showsPrec prec (Fix x) = showApp prec "Fix" [liftShowsPrec 11 x]
+
+instance
+  (LiftShow f) =>
+  HP.Show (Fix f)
+  where
+  show = HP.show . P.show
 
 instance
   (LiftDato f) =>
@@ -1173,8 +1182,14 @@ instance Monad ByteStringReader where
 instance (LiftEq r, P.Eq a) => P.Eq (LiftRef r a) where
   LiftRef x == LiftRef y = x `liftEq` y
 
+instance (LiftEq r, P.Eq a) => HP.Eq (LiftRef r a) where
+  (==) = (HP.==)
+
 instance (LiftShow r, P.Show a) => P.Show (LiftRef r a) where
   showsPrec prec (LiftRef ra) = showApp prec "LiftRef" [liftShowsPrec 11 ra]
+
+instance (LiftShow r, P.Show a) => HP.Show (LiftRef r a) where
+  show = HP.show . P.show
 
 instance (LiftToData r, P.ToData a) => P.ToData (LiftRef r a) where
   toBuiltinData = liftToBuiltinData . liftref
