@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
@@ -10,6 +11,16 @@ import PlutusTx as P
 import PlutusTx.Builtins as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
+import qualified Prelude as HP
+
+-- * Classes
+data Either3 a b c = E3_0 a | E3_1 b | E3_2 c
+--  deriving anyclass (P.HasBlueprintDefinition)
+  deriving (HP.Show, HP.Eq)
+
+data Either4 a b c d = E4_0 a | E4_1 b | E4_2 c | E4_3 d
+--  deriving anyclass (P.HasBlueprintDefinition)
+  deriving (HP.Show, HP.Eq)
 
 -- * Instances
 
@@ -45,6 +56,136 @@ instance (FromByteString a, FromByteString b) =>
           if b == Byte 1
             then byteStringIn isTerminal <&> Right
             else byteStringReaderFail
+
+-- *** Either3
+
+instance (ToByteString a, ToByteString b, ToByteString c) =>
+  ToByteString (Either3 a b c) where
+  byteStringOut (E3_0 a) isTerminal =
+    byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
+  byteStringOut (E3_1 b) isTerminal =
+    byteStringOut (Byte 1) NonTerminal . byteStringOut b isTerminal
+  byteStringOut (E3_2 c) isTerminal =
+    byteStringOut (Byte 2) NonTerminal . byteStringOut c isTerminal
+
+instance (FromByteString a, FromByteString b, FromByteString c) =>
+  FromByteString (Either3 a b c) where
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \b ->
+      if b == Byte 0
+        then byteStringIn isTerminal <&> E3_0
+        else
+          if b == Byte 1
+            then byteStringIn isTerminal <&> E3_1
+            else if b == Byte 2
+              then byteStringIn isTerminal <&> E3_2
+              else byteStringReaderFail
+
+instance (P.ToData a, P.ToData b, P.ToData c) =>
+  P.ToData (Either3 a b c) where
+  toBuiltinData (E3_0 a) = toBuiltinData (toBuiltinData (Byte 0), toBuiltinData a)
+  toBuiltinData (E3_1 b) = toBuiltinData (toBuiltinData (Byte 1), toBuiltinData b)
+  toBuiltinData (E3_2 c) = toBuiltinData (toBuiltinData (Byte 2), toBuiltinData c)
+
+instance (P.FromData a, P.FromData b, P.FromData c) =>
+  P.FromData (Either3 a b c) where
+  fromBuiltinData x =
+    fromBuiltinData x >>= \case
+      (i, v) -> do
+        if i == Byte 0 then do
+          a <- fromBuiltinData v
+          return $ E3_0 a
+        else if i == Byte 1 then do
+          b <- fromBuiltinData v
+          return $ E3_1 b
+        else if i == Byte 2 then do
+          c <- fromBuiltinData v
+          return $ E3_2 c
+        else failNow
+
+instance
+  (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c) =>
+  P.UnsafeFromData (Either3 a b c) where
+  unsafeFromBuiltinData x =
+    case unsafeFromBuiltinData x of
+      (i, v) ->
+        if i == Byte 0 then
+          E3_0 . unsafeFromBuiltinData $ v
+        else if i == Byte 1 then
+          E3_1 . unsafeFromBuiltinData $ v
+        else if i == Byte 2 then
+          E3_2 . unsafeFromBuiltinData $ v
+        else failNow
+
+-- *** Either4
+
+instance (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
+  ToByteString (Either4 a b c d) where
+  byteStringOut (E4_0 a) isTerminal =
+    byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
+  byteStringOut (E4_1 b) isTerminal =
+    byteStringOut (Byte 1) NonTerminal . byteStringOut b isTerminal
+  byteStringOut (E4_2 c) isTerminal =
+    byteStringOut (Byte 2) NonTerminal . byteStringOut c isTerminal
+  byteStringOut (E4_3 c) isTerminal =
+    byteStringOut (Byte 3) NonTerminal . byteStringOut c isTerminal
+
+instance (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
+  FromByteString (Either4 a b c d) where
+  byteStringIn isTerminal =
+    byteStringIn NonTerminal >>= \i ->
+      if i == Byte 0
+        then byteStringIn isTerminal <&> E4_0
+        else
+          if i == Byte 1
+            then byteStringIn isTerminal <&> E4_1
+            else if i == Byte 2
+              then byteStringIn isTerminal <&> E4_2
+                 else if i == Byte 3
+                   then byteStringIn isTerminal <&> E4_3
+                   else byteStringReaderFail
+
+instance (P.ToData a, P.ToData b, P.ToData c, P.ToData d) =>
+  P.ToData (Either4 a b c d) where
+  toBuiltinData (E4_0 a) = toBuiltinData (toBuiltinData (Byte 0), toBuiltinData a)
+  toBuiltinData (E4_1 b) = toBuiltinData (toBuiltinData (Byte 1), toBuiltinData b)
+  toBuiltinData (E4_2 c) = toBuiltinData (toBuiltinData (Byte 2), toBuiltinData c)
+  toBuiltinData (E4_3 d) = toBuiltinData (toBuiltinData (Byte 3), toBuiltinData d)
+
+instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d) =>
+  P.FromData (Either4 a b c d) where
+  fromBuiltinData x =
+    fromBuiltinData x >>= \case
+      (i, v) -> do
+        if i == Byte 0 then do
+          a <- fromBuiltinData v
+          return $ E4_0 a
+        else if i == Byte 1 then do
+          b <- fromBuiltinData v
+          return $ E4_1 b
+        else if i == Byte 2 then do
+          c <- fromBuiltinData v
+          return $ E4_2 c
+        else if i == Byte 3 then do
+          c <- fromBuiltinData v
+          return $ E4_3 c
+        else failNow
+
+instance
+  (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d) =>
+  P.UnsafeFromData (Either4 a b c d) where
+  unsafeFromBuiltinData x =
+    case unsafeFromBuiltinData x of
+      (i, v) ->
+        if i == Byte 0 then
+          E4_0 . unsafeFromBuiltinData $ v
+        else if i == Byte 1 then
+          E4_1 . unsafeFromBuiltinData $ v
+        else if i == Byte 2 then
+          E4_2 . unsafeFromBuiltinData $ v
+        else if i == Byte 3 then
+          E4_3 . unsafeFromBuiltinData $ v
+        else failNow
 
 -- *** Maybe
 
@@ -288,9 +429,6 @@ curry5 f a b c d e = f (a, b, c, d, e)
 curry6 :: ((a, b, c, d, e, f) -> g) -> a -> b -> c -> d -> e -> f -> g
 curry6 g a b c d e f = g (a, b, c, d, e, f)
 
-
-failNow :: a
-failNow = traceError "FOO"
 
 -- Plutus refuses to compile noReturn = noReturn
 -- which isn't because it won't loop forever at times when not asked!

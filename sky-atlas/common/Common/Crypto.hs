@@ -293,24 +293,3 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
           let -- Filter for valid signatures from required public keys
               validSignatures = filter (\ss@(SingleSig (pubKey, _)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
            in length validSignatures >= toInt minSigs
-
--- * Meta declarations
-
-{-
-PlutusTx.unstableMakeIsData ''Blake2b_256
-PlutusTx.unstableMakeIsData ''Digest
-PlutusTx.makeIsDataSchemaIndexed ''FixedLengthByteString [('FixedLengthByteString, 0)]
-PlutusTx.makeLift ''Digest
-PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
-
-PlutusTx.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''PubKey [('PubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSigPubKey [('MultiSigPubKey, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''SingleSig [('SingleSig, 0)]
-PlutusTx.makeIsDataSchemaIndexed ''MultiSig [('MultiSig, 0)]
-PlutusTx.makeLift ''DataHash
-PlutusTx.makeLift ''PubKey
-PlutusTx.makeLift ''MultiSigPubKey
-PlutusTx.makeLift ''SingleSig
-PlutusTx.makeLift ''MultiSig
--}

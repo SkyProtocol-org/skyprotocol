@@ -161,23 +161,23 @@ instance (Show t) => Show (TrieTop t) where
 
 -- $(PlutusTx.makeIsDataSchemaIndexed ''TrieNodeF [('Empty, 0),('Leaf, 1),('Branch, 2),('Skip, 3)])
 
-instance ConvertTo (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) where
-  convertTo (Left (Left ())) = Empty
-  convertTo (Left (Right c)) = Leaf c
-  convertTo (Right (Left (l, r))) = Branch l r
-  convertTo (Right (Right (h, k, c))) = Skip h k c
+instance ConvertTo (Either4 () c (t, t) (h, k, t)) (TrieNodeF h k c t) where
+  convertTo (E4_0 ()) = Empty
+  convertTo (E4_1 c) = Leaf c
+  convertTo (E4_2 (l, r)) = Branch l r
+  convertTo (E4_3 (h, k, c)) = Skip h k c
 
-instance ConvertFrom (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) where
-  convertFrom Empty = Left (Left ())
-  convertFrom (Leaf c) = Left (Right c)
-  convertFrom (Branch l r) = Right (Left (l, r))
-  convertFrom (Skip h k c) = Right (Right (h, k, c))
+instance ConvertFrom (Either4 () c (t, t) (h, k, t)) (TrieNodeF h k c t) where
+  convertFrom Empty = E4_0 ()
+  convertFrom (Leaf c) = E4_1 c
+  convertFrom (Branch l r) = E4_2 (l, r)
+  convertFrom (Skip h k c) = E4_3 (h, k, c)
 
-deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, ToData c, ToData t) => ToData (TrieNodeF h k c t)
+deriving via As (Either4 () c (t, t) (h, k, t)) (TrieNodeF h k c t) instance (TrieHeightKey h k, ToData c, ToData t) => ToData (TrieNodeF h k c t)
 
-deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, FromData c, FromData t) => FromData (TrieNodeF h k c t)
+deriving via As (Either4 () c (t, t) (h, k, t)) (TrieNodeF h k c t) instance (TrieHeightKey h k, FromData c, FromData t) => FromData (TrieNodeF h k c t)
 
-deriving via As (Either (Either () c) (Either (t, t) (h, k, t))) (TrieNodeF h k c t) instance (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) => UnsafeFromData (TrieNodeF h k c t)
+deriving via As (Either4 () c (t, t) (h, k, t)) (TrieNodeF h k c t) instance (TrieHeightKey h k, UnsafeFromData c, UnsafeFromData t) => UnsafeFromData (TrieNodeF h k c t)
 
 instance (TrieHeightKey h k, Eq c, Eq t) => Eq (TrieNodeF h k c t) where
   Empty == Empty = True
@@ -376,30 +376,30 @@ instance
   SkipStep h k == SkipStep _h' k' = h == h && k == k'
   _ == _ = False
 
-instance ConvertTo (Either (Either o o) (h, k)) (TrieStep h k o) where
-  convertTo (Left (Left r)) = LeftStep r
-  convertTo (Left (Right l)) = RightStep l
-  convertTo (Right (h, k)) = SkipStep h k
+instance ConvertTo (Either3 o o (h, k)) (TrieStep h k o) where
+  convertTo (E3_0 r) = LeftStep r
+  convertTo (E3_1 l) = RightStep l
+  convertTo (E3_2 (h, k)) = SkipStep h k
 
-instance ConvertFrom (Either (Either o o) (h, k)) (TrieStep h k o) where
-  convertFrom (LeftStep r) = Left (Left r)
-  convertFrom (RightStep l) = Left (Right l)
-  convertFrom (SkipStep h k) = Right (h, k)
+instance ConvertFrom (Either3 o o (h, k)) (TrieStep h k o) where
+  convertFrom (LeftStep r) = E3_0 r
+  convertFrom (RightStep l) = E3_1 l
+  convertFrom (SkipStep h k) = E3_2 (h, k)
 
 deriving via
-  As (Either (Either o o) (h, k)) (TrieStep h k o)
+  As (Either3 o o (h, k)) (TrieStep h k o)
   instance
     (TrieHeightKey h k, ToData o) =>
     ToData (TrieStep h k o)
 
 deriving via
-  As (Either (Either o o) (h, k)) (TrieStep h k o)
+  As (Either3 o o (h, k)) (TrieStep h k o)
   instance
     (TrieHeightKey h k, FromData o) =>
     FromData (TrieStep h k o)
 
 deriving via
-  As (Either (Either o o) (h, k)) (TrieStep h k o)
+  As (Either3 o o (h, k)) (TrieStep h k o)
   instance
     (TrieHeightKey h k, UnsafeFromData o) =>
     UnsafeFromData (TrieStep h k o)

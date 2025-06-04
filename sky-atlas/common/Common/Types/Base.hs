@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -931,6 +932,10 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
 fromJust Nothing = traceError "fromJust Nothing"
+
+-- | Generic failure
+failNow :: a
+failNow = traceError "FOO"
 
 -- ** For testing and debugging purposes
 
