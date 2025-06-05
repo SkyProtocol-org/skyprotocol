@@ -14,7 +14,6 @@ import Servant
 
 data AppError
   = APIError String
-  | ReferenceError String
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data AppConfig = AppConfig

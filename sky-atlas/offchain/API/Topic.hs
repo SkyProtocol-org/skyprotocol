@@ -46,11 +46,11 @@ topicServer = createTopic :<|> readTopic :<|> updateTopic
       let SkyDa {..} = view (blockState . skyDa) $ state
       maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
       case maybeTopic of
-        Nothing -> throwError $ APIError "Can't find topic"
+        Nothing -> throwError . APIError $ "Can't find topic with id " <> show (toInt tId)
         Just (_tMeta, messageTrie) -> do
           maybeMessage <- C.lookup mId =<< unwrap messageTrie
           case maybeMessage of
-            Nothing -> throwError $ APIError "Can't find message"
+            Nothing -> throwError . APIError $ "Can't find message with id " <> show (toInt mId)
             Just (_mMeta, mData) -> builtinByteStringToByteString <$> unwrap mData
-    updateTopic _ = throwError $ APIError "Unimplemented"
+    updateTopic _ = throwError $ APIError "Not implemented"
     builtinByteStringToByteString (BuiltinByteString b) = b
