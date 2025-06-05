@@ -82,27 +82,9 @@ newtype PlainText f a = PlainText a
 data Blake2b_256 = Blake2b_256 -- static knowledge of hash function
   deriving (HP.Eq, HP.Show)
 
-instance P.Eq Blake2b_256 where
-  Blake2b_256 == Blake2b_256 = True
-
-instance P.Show Blake2b_256 where
-  show Blake2b_256 = "Blake2b_256"
-
 data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue :: x}
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-
-instance (HashFunction hf) => P.Eq (DigestRef hf x) where
-  DigestRef ah _ == DigestRef bh _ = ah == bh
-
-instance (HashFunction hf, P.Show a) => P.Show (DigestRef hf a) where
-  showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
-
-instance (HashFunction hf) => HP.Eq (DigestRef hf x) where
-  DigestRef ah _ == DigestRef bh _ = ah == bh
-
--- instance (HashFunction hf, HP.Show a) => HP.Show (DigestRef hf a) where
---   showsPrec prec (DigestRef _ x) = HP.showApp prec "digestRef" [HP.showArg x]
 
 -- * Classes
 
@@ -147,7 +129,25 @@ instance HashFunction Blake2b_256 where
 instance StaticLength Blake2b_256 where
   staticLength = const 32
 
+instance P.Eq Blake2b_256 where
+  Blake2b_256 == Blake2b_256 = True
+
+instance P.Show Blake2b_256 where
+  show Blake2b_256 = "Blake2b_256"
+
 -- ** DigestRef
+
+instance (HashFunction hf, P.Show a) => P.Show (DigestRef hf a) where
+  showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
+
+instance (HashFunction hf) => HP.Eq (DigestRef hf x) where
+  DigestRef ah _ == DigestRef bh _ = ah == bh
+
+instance (HashFunction hf) => P.Eq (DigestRef hf x) where
+  DigestRef ah _ == DigestRef bh _ = ah == bh
+
+-- instance (HashFunction hf, HP.Show a) => HP.Show (DigestRef hf a) where
+--   showsPrec prec (DigestRef _ x) = HP.showApp prec "digestRef" [HP.showArg x]
 
 instance (HashFunction hf) => DigestibleRef hf (DigestRef hf) where
   getDigest = digestRefDigest
