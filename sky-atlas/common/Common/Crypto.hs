@@ -5,15 +5,16 @@ module Common.Crypto where
 import Cardano.Crypto.DSIGN.Class qualified as DSIGN
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
 import Common.Types
+import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
-import qualified Prelude as HP
 import PlutusTx as P
 import PlutusTx.Blueprint as P
 import PlutusTx.Builtins as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
+import qualified Prelude as HP
 
 -- * Types
 
@@ -32,20 +33,11 @@ newtype MultiSig = MultiSig [SingleSig]
   deriving anyclass (HasBlueprintDefinition)
 
 -- List of pubkeys that must sign and minimum number of them that must sign
-  -- data MultiSigPubKey = MultiSigPubKey { multiSigPubKeyKeys :: [PubKey], multiSigPubKeyThreshold :: UInt16 }
 newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
   deriving newtype (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
-
-type DataDigest hf = Digest hf BuiltinByteString
-
-type Hash = Digest Blake2b_256
-
-type DataHash = Hash BuiltinByteString
-
-type HashRef = DigestRef Blake2b_256
 
 newtype PubKey = PubKey {getPubKey :: Bytes32}
   deriving newtype (P.Show, P.Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
@@ -86,6 +78,18 @@ data DigestRef hf x = DigestRef {digestRefDigest :: Digest hf x, digestRefValue 
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
+data DigestMRef hf x = DigestMRef {digestMRefDigest :: Digest hf x, digestMRefValue :: Maybe x}
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+type DataDigest hf = Digest hf BuiltinByteString
+
+type Hash = Digest Blake2b_256
+
+type DataHash = Hash BuiltinByteString
+
+type HashRef = DigestRef Blake2b_256
+
 -- * Classes
 
 class (StaticLength hf) => HashFunction hf where
@@ -93,6 +97,12 @@ class (StaticLength hf) => HashFunction hf where
 
 class (HashFunction hf) => DigestibleRef hf r where
   getDigest :: r a -> Digest hf a
+  makeDigestRef :: Digest hf a -> a -> r a
+--  | r -> hf
+  digestRef_ :: ToByteString a => Proxy hf -> a -> r a
+  digestRef_ _ a = makeDigestRef @hf (computeDigest @hf a) a
+  lookupDigestRef :: ToByteString a => Digest hf a -> r a
+  lookupDigestRef d = makeDigestRef d $ lookupDigest d
 
 -- * Instances
 
@@ -138,7 +148,10 @@ instance P.Show Blake2b_256 where
 -- ** DigestRef
 
 instance (HashFunction hf, P.Show a) => P.Show (DigestRef hf a) where
-  showsPrec prec (DigestRef _ x) = showApp prec "digestRef" [showArg x]
+  showsPrec prec (DigestRef d x) = showApp prec "DigestRef" [showArg d, showArg x]
+
+-- instance (HashFunction hf, HP.Show a) => HP.Show (DigestRef hf a) where
+--   showsPrec prec (DigestRef _ x) = HP.showApp prec "DigestRef" [HP.showArg d, HP.showArg x]
 
 instance (HashFunction hf) => HP.Eq (DigestRef hf x) where
   DigestRef ah _ == DigestRef bh _ = ah == bh
@@ -146,24 +159,22 @@ instance (HashFunction hf) => HP.Eq (DigestRef hf x) where
 instance (HashFunction hf) => P.Eq (DigestRef hf x) where
   DigestRef ah _ == DigestRef bh _ = ah == bh
 
--- instance (HashFunction hf, HP.Show a) => HP.Show (DigestRef hf a) where
---   showsPrec prec (DigestRef _ x) = HP.showApp prec "digestRef" [HP.showArg x]
-
 instance (HashFunction hf) => DigestibleRef hf (DigestRef hf) where
   getDigest = digestRefDigest
+  makeDigestRef d a = DigestRef d a
 
 instance (HashFunction hf) => ToByteString (DigestRef hf x) where
   toByteString = toByteString . digestRefDigest
   byteStringOut = byteStringOut . digestRefDigest
 
-instance (HashFunction hf) => FromByteString (DigestRef hf x) where
-  fromByteString = lookupDigestRef . fromByteString
-  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigestRef
+instance (HashFunction hf, ToByteString x) => FromByteString (DigestRef hf x) where
+  fromByteString = lookupDigestRef @hf . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigestRef @hf
 
-instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestRef hf) a where
-  wrap = return . digestRef
+instance (HashFunction hf, Dato a, Monad e) => PreWrapping e (DigestRef hf) a where
+  wrap = return . digestRef_ (Proxy @hf)
 
-instance (HashFunction hf, Dato a) => Wrapping Identity (DigestRef hf) a where
+instance (HashFunction hf, Dato a, Monad e) => Wrapping e (DigestRef hf) a where
   unwrap = return . digestRefValue
 
 instance (HashFunction hf) => LiftShow (DigestRef hf) where
@@ -189,19 +200,85 @@ instance (HashFunction hf) => LiftUnsafeFromData (DigestRef hf) where
 instance (HashFunction hf) => LiftEq (DigestRef hf) where
   liftEq = (==)
 
-instance (HashFunction hf) => LiftPreWrapping Identity (DigestRef hf) where
+instance (HashFunction hf, Monad e) => LiftPreWrapping e (DigestRef hf) where
   liftWrap = wrap
 
-instance (HashFunction hf) => LiftWrapping Identity (DigestRef hf) where
+instance (HashFunction hf, Monad e) => LiftWrapping e (DigestRef hf) where
   liftUnwrap = unwrap
 
 -- instance (HashFunction hf, MonadReader r m) => LiftWrapping m (DigestRef hf) where
 --   liftUnwrap = unwrap
 
+{-
+-- ** DigestMRef
+
+instance (HashFunction hf, P.Show a) => P.Show (DigestMRef hf a) where
+  showsPrec prec (DigestMRef d x) = showApp prec "DigestMRef" [showArg d, showArg x]
+
+instance (HashFunction hf) => P.Eq (DigestMRef hf x) where
+  DigestMRef ah _ == DigestMRef bh _ = ah == bh
+
+instance (HashFunction hf) => HP.Eq (DigestMRef hf x) where
+  (==) = (P.==)
+
+instance (HashFunction hf) => DigestibleRef hf (DigestMRef hf) where
+  getDigest = digestMRefDigest
+  makeDigestRef d a = DigestMRef d (Just a)
+
+instance (HashFunction hf) => ToByteString (DigestMRef hf x) where
+  toByteString = toByteString . digestMRefDigest
+  byteStringOut = byteStringOut . digestMRefDigest
+
+instance (HashFunction hf, ToByteString x, FromByteString x) => FromByteString (DigestMRef hf x) where
+  fromByteString = lookupDigestRef . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupDigestRef
+
+instance (HashFunction hf, Dato a) => PreWrapping Identity (DigestMRef hf) a where
+  wrap = return . digestRef
+
+-- Unsafe. TODO: Implement a safer version with an error monad
+instance (HashFunction hf, Dato a) => Wrapping Identity (DigestMRef hf) a where
+  unwrap = return . fromJust . digestMRefValue
+
+instance (HashFunction hf) => LiftShow (DigestMRef hf) where
+  liftShowsPrec = showsPrec
+
+instance (HashFunction hf) => LiftToByteString (DigestMRef hf) where
+  liftToByteString = toByteString . digestMRefDigest
+  liftByteStringOut = byteStringOut . digestMRefDigest
+
+instance (HashFunction hf) => LiftFromByteString (DigestMRef hf) where
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
+
+instance (HashFunction hf) => LiftToData (DigestMRef hf) where
+  liftToBuiltinData = toBuiltinData . digestMRefDigest
+
+instance (HashFunction hf) => LiftFromData (DigestMRef hf) where
+  liftFromBuiltinData b = fromBuiltinData b >>= return . \d -> DigestMRef d . Just $ lookupDigest d
+
+instance (HashFunction hf) => LiftUnsafeFromData (DigestMRef hf) where
+  liftUnsafeFromBuiltinData = unsafeFromBuiltinData -. \d -> DigestMRef d . Just $ lookupDigest d
+
+instance (HashFunction hf) => LiftEq (DigestMRef hf) where
+  liftEq = (==)
+
+instance (HashFunction hf) => LiftPreWrapping Identity (DigestMRef hf) where
+  liftWrap = wrap
+
+instance (HashFunction hf) => LiftWrapping Identity (DigestMRef hf) where
+  liftUnwrap = unwrap
+
+-- instance (HashFunction hf, MonadReader r m) => LiftWrapping m (DigestMRef hf) where
+--   liftUnwrap = unwrap
+-}
+
 -- ** LiftRef
 
 instance (HashFunction hf, DigestibleRef hf r) => DigestibleRef hf (LiftRef r) where
+-- instance (HashFunction hf, DigestibleRef hf (r hf)) => DigestibleRef hf (LiftRef (r hf)) where
   getDigest = getDigest . liftref
+  makeDigestRef d a = LiftRef $ makeDigestRef d a
 
 -- ** PubKeyHash
 
@@ -238,11 +315,12 @@ computeDigest a = hashFunction (toByteString a)
 digestRef :: (HashFunction hf, ToByteString a) => a -> DigestRef hf a
 digestRef x = DigestRef (computeDigest x) x
 
+-- Make that a monadic method on a typeclass
 lookupDigest :: (HashFunction hf) => Digest hf a -> a
 lookupDigest = traceError "Cannot get a value from its digest"
 
-lookupDigestRef :: (HashFunction hf) => Digest hf a -> DigestRef hf a
-lookupDigestRef d = DigestRef d $ lookupDigest d
+-- lookupDigestRef :: (HashFunction hf) => Digest hf a -> DigestRef hf a
+-- lookupDigestRef d = DigestRef d $ lookupDigest d
 
 castDigest :: Digest hf a -> Digest hf b
 castDigest (Digest x) = Digest x

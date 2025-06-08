@@ -15,6 +15,7 @@ common common
     EmptyCase
     FlexibleContexts
     FlexibleInstances
+    FunctionalDependencies
     GADTs
     GeneralizedNewtypeDeriving
     ImportQualifiedPost
@@ -23,9 +24,11 @@ common common
     MultiParamTypeClasses
     MultiWayIf
     OverloadedStrings
+    PatternSynonyms
     RecordWildCards
     RoleAnnotations
     ScopedTypeVariables
+    TemplateHaskell
     TypeApplications
     TypeFamilies
     ViewPatterns
@@ -64,6 +67,7 @@ library common
     Common.Types.Base
     Common.Types.Cons
     Common.Types.Lift
+    Common.Types.Lift2
 
   build-depends:
     , aeson
@@ -112,6 +116,7 @@ library offchain
     , atlas-cardano     >=0.12.0
     , base
     , bytestring
+    , lens
     , log-base
     , mtl
     , plutus-tx

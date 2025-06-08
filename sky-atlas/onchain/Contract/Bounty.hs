@@ -137,7 +137,7 @@ clientTypedValidator DecodedClientParams {..} () redeemer ctx =
     daTopHash :: DataHash
     daTopHash = case getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx of
       Nothing -> PlutusTx.traceError "bridge NFT not found"
-      Just (BridgeNFTDatum topHash) -> topHash
+      Just (BridgeNFTDatum topHash) -> fromByteString topHash
     -- Tx validity interval
     txValidRange = txInfoValidRange . scriptContextTxInfo $ ctx
     -- Bounty prize funds are sent to pre-configured address

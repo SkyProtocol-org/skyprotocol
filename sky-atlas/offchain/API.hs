@@ -7,11 +7,11 @@ import API.Bridge
 import API.Topic
 import API.Types
 import Common (Bytes4, HashRef, MultiSigPubKey (..), SkyDa, UInt16 (..), computeHash, derivePubKey, initDa, ofHex)
+import Control.Concurrent.MVar
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Identity
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy.Char8 qualified as BS
-import Data.IORef
 import Data.Text (Text)
 import Data.Yaml.Config (loadYamlSettings, requireEnv)
 import Log
@@ -36,6 +36,7 @@ convertAppM env logger appM = runExceptT (runLogT "api" logger defaultLogLevel (
 
 toServantErr :: AppError -> ServerError
 toServantErr (APIError msg) = err500 {errBody = BS.pack msg}
+toServantErr _ = err500 {errBody = "ISE ???"}
 
 startApp :: AppEnv -> IO ()
 startApp env = do
@@ -44,7 +45,7 @@ startApp env = do
 
 testEnv :: Logger -> IO AppEnv
 testEnv logger = do
-  config <- loadYamlSettings ["config/local-test.yaml"] [] requireEnv
+  appConfig <- loadYamlSettings ["config/local-test.yaml"] [] requireEnv
   let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
 
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
@@ -53,7 +54,21 @@ testEnv logger = do
       pk2 = derivePubKey sk2
       committee = MultiSigPubKey ([pk1, pk2], UInt16 2)
 
-      daData = runIdentity $ initDa daSchema committee :: SkyDa HashRef
+      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
 
-  dataRef <- newIORef daData
-  pure $ AppEnv {appConfig = config, daData = dataRef, ..}
+  let _blockState = BlockState { _skyDa,
+                             _erasureCoding = (), _superTopic = (), _subTopics = (),
+                             _publisherPayments = () }
+  let appState = AppState { _blockState,
+    _oldBlockQueue = (),
+    _partialSignatures = (),
+    _bridgeState = (),
+    _stake = (),
+    _peers = (),
+    _clients = (),
+    _subscriberPayments = (),
+    _auctions = (),
+    _longTermStorage = () }
+  appStateW <- newMVar appState
+  appStateR <- newMVar appState
+  pure $ AppEnv {..}

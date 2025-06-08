@@ -1,7 +1,5 @@
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module Common.Trie where
 
@@ -245,51 +243,51 @@ deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, Unsafe
 deriving via (TrieNodeF h k c (LiftRef r t)) instance (TrieHeightKey h k, FromData c, FromData (LiftRef r t)) => FromData (TrieNodeFL r h k c t)
 
 instance
-  (TrieHeightKey h k, Show c, LiftShow r, Show t) =>
+  (LiftDato r, TrieHeightKey h k, Dato c, Dato t) =>
   Show (TrieNodeFL r h k c t)
   where
   showsPrec prec (TrieNodeFL x) = showApp prec "TrieNodeFL" [showArg x]
 
 instance
-  (TrieHeightKey h k, Eq c, LiftEq r) =>
+  (LiftDato r, TrieHeightKey h k, Dato c) =>
   LiftEq (TrieNodeFL r h k c)
   where
   liftEq = (==)
 
 instance
-  (TrieHeightKey h k, Show c, LiftShow r) =>
+  (TrieHeightKey h k, Dato c, LiftDato r) =>
   LiftShow (TrieNodeFL r h k c)
   where
   liftShowsPrec = showsPrec
 
 instance
-  (LiftToByteString r, TrieHeightKey h k, ToByteString c) =>
+  (LiftDato r, TrieHeightKey h k, Dato c) =>
   LiftToByteString (TrieNodeFL r h k c)
   where
   liftToByteString = toByteString
   liftByteStringOut = byteStringOut
 
 instance
-  (TrieHeightKey h k, FromByteString h, FromByteString k, FromByteString c, LiftFromByteString r) =>
+  (LiftDato r, TrieHeightKey h k, Dato c) =>
   LiftFromByteString (TrieNodeFL r h k c)
   where
   liftFromByteString = fromByteString
   liftByteStringIn = byteStringIn
 
 instance
-  (LiftToData r, TrieHeightKey h k, ToData c) =>
+  (LiftDato r, TrieHeightKey h k, Dato c) =>
   LiftToData (TrieNodeFL r h k c)
   where
   liftToBuiltinData = toBuiltinData
 
 instance
-  (LiftUnsafeFromData r, TrieHeightKey h k, UnsafeFromData c) =>
+  (LiftDato r, TrieHeightKey h k, Dato c) =>
   LiftUnsafeFromData (TrieNodeFL r h k c)
   where
   liftUnsafeFromBuiltinData = unsafeFromBuiltinData
 
 instance
-  (LiftFromData r, TrieHeightKey h k, FromData c) =>
+  (LiftDato r, TrieHeightKey h k, Dato c) =>
   LiftFromData (TrieNodeFL r h k c)
   where
   liftFromBuiltinData = fromBuiltinData
@@ -799,9 +797,9 @@ listOf = zipperOf >=> flip appendListOfZipper []
 
 -- TODO: have merkle proofs of Non-Inclusion, by showing the last not before Empty.
 getMerkleProof ::
-  (TrieHeightKey h k, LiftWrapping e r, DigestibleRef hf r, LiftDato r, Dato c) =>
+  (TrieHeightKey h k, LiftWrapping e (r hf), DigestibleRef hf (r hf), LiftDato (r hf), Dato c) =>
   k ->
-  Trie r h k c ->
+  Trie (r hf) h k c ->
   e (TrieProof h k hf)
 getMerkleProof k t = zipperOf t >>= refocus k >>= zipPath -. fmap (liftref -. getDigest -. castDigest) -. return
 

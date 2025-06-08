@@ -34,14 +34,14 @@ import PlutusTx.Prelude qualified as PlutusTx
 ------------------------------------------------------------------------------
 
 newtype BridgeNFTDatum = BridgeNFTDatum
-  { bridgeNFTTopHash :: DataHash
+  { bridgeNFTTopHash :: BuiltinByteString -- DataHash
   }
-  deriving (Eq, FromByteString, ToByteString) via DataHash
+  deriving (Eq, FromByteString, ToByteString) via BuiltinByteString
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
--- PlutusTx.makeLift ''BridgeNFTDatum
--- PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
+PlutusTx.makeLift ''BridgeNFTDatum
+PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for the bridge contract
@@ -173,10 +173,10 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
     newBridgeNFTDatum = fromJust $ getBridgeNFTDatumFromTxOut ownOutput ctx
 
     oldNFTTopHash :: DataHash
-    (BridgeNFTDatum oldNFTTopHash) = oldBridgeNFTDatum
+    oldNFTTopHash = fromByteString . bridgeNFTTopHash $ oldBridgeNFTDatum
 
     newNFTTopHash :: DataHash
-    (BridgeNFTDatum newNFTTopHash) = newBridgeNFTDatum
+    newNFTTopHash = fromByteString . bridgeNFTTopHash $ newBridgeNFTDatum
 
     -- The output NFT UTXO's datum must match the new values for the root hashes
     nftUpdated :: DataHash -> Bool

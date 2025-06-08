@@ -6,7 +6,6 @@ import Common.Types.Base
 import Common.Types.Cons()
 import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
-import Data.Kind (Type)
 import qualified Prelude as HP
 import PlutusTx as P
 import PlutusTx.Blueprint as P
@@ -34,10 +33,10 @@ type LiftDato r =
     LiftEq r)
 
 class LiftEq r where
-  liftEq :: (P.Eq a) => r a -> r a -> Bool
+  liftEq :: (Dato a) => r a -> r a -> Bool
 
 class LiftShow r where
-  liftShowsPrec :: (P.Show a) => Integer -> r a -> P.ShowS
+  liftShowsPrec :: (Dato a) => Integer -> r a -> P.ShowS
 
 class LiftToByteString r where
   liftToByteString :: (Dato a) => r a -> P.BuiltinByteString
@@ -47,21 +46,20 @@ class LiftToByteString r where
   liftByteStringOut a _ = appendByteString $ liftToByteString a
 
 class LiftFromByteString r where
-  liftFromByteString :: (FromByteString a) => P.BuiltinByteString -> r a
+  liftFromByteString :: (Dato a) => P.BuiltinByteString -> r a
   liftFromByteString = fromByteStringIn_ liftByteStringIn
-
-  liftByteStringIn :: (FromByteString a) => IsTerminal -> ByteStringReader (r a)
+  liftByteStringIn :: (Dato a) => IsTerminal -> ByteStringReader (r a)
 
 class LiftToData r where
-  liftToBuiltinData :: (P.ToData a) => r a -> P.BuiltinData
+  liftToBuiltinData :: (Dato a) => r a -> P.BuiltinData
 
 class LiftUnsafeFromData r where
-  liftUnsafeFromBuiltinData :: (P.UnsafeFromData a) => P.BuiltinData -> r a
+  liftUnsafeFromBuiltinData :: (Dato a) => P.BuiltinData -> r a
 
 class LiftFromData r where
-  liftFromBuiltinData :: (P.FromData a) => P.BuiltinData -> Maybe (r a)
+  liftFromBuiltinData :: (Dato a) => P.BuiltinData -> Maybe (r a)
 
-class LiftHasBlueprintSchema (r :: Type -> Type) where
+class LiftHasBlueprintSchema r where
   liftSchema :: (Proxy (r a), Schema referencedTypes) -> Schema referencedTypes
 
 class (Monad e, Dato a) => PreWrapping e r a where
@@ -120,25 +118,25 @@ instance LiftWrapping Identity Identity where
 -- ** Fix: Y-combinator or fixed point combinator for types
 
 instance
-  (LiftEq f) =>
+  (LiftDato f) =>
   P.Eq (Fix f)
   where
   (==) x y = liftEq (getFix x) (getFix y)
 
 instance
-  (LiftEq f) =>
+  (LiftDato f) =>
   HP.Eq (Fix f)
   where
   (==) = (P.==)
 
 instance
-  (LiftShow f) =>
+  (LiftDato f) =>
   P.Show (Fix f)
   where
   showsPrec prec (Fix x) = showApp prec "Fix" [liftShowsPrec 11 x]
 
 instance
-  (LiftShow f) =>
+  (LiftDato f) =>
   HP.Show (Fix f)
   where
   show = HP.show . P.show
@@ -151,25 +149,25 @@ instance
   byteStringOut = liftByteStringOut . getFix
 
 instance
-  (LiftToData f) =>
+  (LiftDato f) =>
   P.ToData (Fix f)
   where
   toBuiltinData = liftToBuiltinData . getFix
 
 instance
-  (LiftFromData f) =>
+  (LiftDato f) =>
   P.FromData (Fix f)
   where
   fromBuiltinData d = Fix <$> liftFromBuiltinData d
 
 instance
-  (LiftUnsafeFromData f) =>
+  (LiftDato f) =>
   P.UnsafeFromData (Fix f)
   where
   unsafeFromBuiltinData = liftUnsafeFromBuiltinData -. Fix
 
 instance
-  (LiftFromByteString f) =>
+  (LiftDato f) =>
   FromByteString (Fix f)
   where
   fromByteString = Fix . liftFromByteString
@@ -183,26 +181,26 @@ instance
 
 -- ** LiftRef
 
-instance (LiftEq r, P.Eq a) => P.Eq (LiftRef r a) where
+instance (LiftDato r, Dato a) => P.Eq (LiftRef r a) where
   LiftRef x == LiftRef y = x `liftEq` y
 
-instance (LiftEq r, P.Eq a) => HP.Eq (LiftRef r a) where
+instance (LiftDato r, Dato a) => HP.Eq (LiftRef r a) where
   (==) = (HP.==)
 
-instance (LiftShow r, P.Show a) => P.Show (LiftRef r a) where
+instance (LiftDato r, Dato a) => P.Show (LiftRef r a) where
   showsPrec prec (LiftRef ra) = showApp prec "LiftRef" [liftShowsPrec 11 ra]
 
-instance (LiftShow r, P.Show a) => HP.Show (LiftRef r a) where
+instance (LiftDato r, Dato a) => HP.Show (LiftRef r a) where
   show = HP.show . P.show
 
-instance (LiftToData r, P.ToData a) => P.ToData (LiftRef r a) where
+instance (LiftDato r, Dato a) => P.ToData (LiftRef r a) where
   toBuiltinData = liftToBuiltinData . liftref
 
-instance (LiftUnsafeFromData r, P.UnsafeFromData a) =>
+instance (LiftDato r, Dato a) =>
   P.UnsafeFromData (LiftRef r a) where
   unsafeFromBuiltinData = LiftRef . liftUnsafeFromBuiltinData
 
-instance (LiftFromData r, P.FromData a) =>
+instance (LiftDato r, Dato a) =>
   P.FromData (LiftRef r a) where
   fromBuiltinData d = LiftRef <$> liftFromBuiltinData d
 
@@ -217,7 +215,7 @@ instance
   byteStringOut = liftByteStringOut . liftref
 
 instance
-  (LiftFromByteString r, FromByteString a) =>
+  (LiftDato r, Dato a) =>
   FromByteString (LiftRef r a)
   where
   byteStringIn isTerminal = liftByteStringIn isTerminal <&> LiftRef
