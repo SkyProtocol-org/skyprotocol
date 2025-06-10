@@ -195,9 +195,6 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
   multiSigValid daCommittee newTopHash sig
     &&
     -- \^ The new top hash must be signed by the committee
-    -- \^ The new top hash must be signed by the committee
-
-    -- \^ The new top hash must be signed by the committee
     oldTopHash
     == computedOldTopHash
   where

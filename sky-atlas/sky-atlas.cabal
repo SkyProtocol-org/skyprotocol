@@ -184,7 +184,10 @@ test-suite onchain-tests
   type:           exitcode-stdio-1.0
   main-is:        OnChainSpec.hs
   hs-source-dirs: tests
-  other-modules:  OnChain.ContractSpec
+  other-modules:
+    OnChain.BountySpec
+    OnChain.ContractSpec
+
   build-depends:
     , base
     , plutus-ledger-api
