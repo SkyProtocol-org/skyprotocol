@@ -8,6 +8,7 @@ import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpper
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusTx.Prelude
 import Test.Tasty
+import Test.Tasty.HUnit
 
 deadline :: POSIXTime
 deadline = 1000180800000 -- Sep 11th 2001
