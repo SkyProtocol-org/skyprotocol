@@ -151,14 +151,12 @@ test-suite common-tests
 
   build-depends:
     , base
+    , plutus-ledger-api
+    , plutus-tx
+    , sky-atlas:common
     , tasty
     , tasty-hunit
     , tasty-quickcheck
-    , plutus-ledger-api
-    , plutus-tx
-    , QuickCheck
-    , sky-atlas:common
-    , text
 
 test-suite offchain-tests
   import:         common
@@ -170,14 +168,14 @@ test-suite offchain-tests
   build-depends:
     , base
     , bytestring
-    , tasty
-    , tasty-hunit
     , http-client
     , log-base
     , servant-client
     , servant-server
     , sky-atlas:common
     , sky-atlas:offchain
+    , tasty
+    , tasty-hunit
     , text
 
 test-suite onchain-tests
@@ -189,9 +187,9 @@ test-suite onchain-tests
   other-modules:  OnChain.ContractSpec
   build-depends:
     , base
-    , tasty
-    , tasty-hunit
     , plutus-ledger-api
     , plutus-tx
     , sky-atlas:common
     , sky-atlas:onchain
+    , tasty
+    , tasty-hunit
