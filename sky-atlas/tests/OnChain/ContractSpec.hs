@@ -7,7 +7,7 @@ import Contract.Bounty
 import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusTx.Prelude
-import Test.Hspec
+import Test.Tasty
 
 deadline :: POSIXTime
 deadline = 1000180800000 -- Sep 11th 2001
@@ -30,23 +30,26 @@ txAroundDeadlineRange =
     (strictLowerBound 1000008000000) -- Sep 9th 2001
     (strictUpperBound 1000872000000) -- Sep 19th 2001
 
-contractSpec :: Spec
-contractSpec = do
-  describe "OnChain Contract Tests" $ do
-    describe "Bounty Contract" $ do
-      it "should validate timeout after deadline" $ do
-        validateTimeout deadline txAfterDeadlineRange `shouldBe` True
+contractSpec :: TestTree
+contractSpec = testGroup "OnChain Contract Tests"
+  [ testGroup "Bounty Contract"
+    [ testCase "should validate timeout after deadline" $ do
+        validateTimeout deadline txAfterDeadlineRange @?= True
 
-      it "should reject timeout before deadline" $ do
-        validateTimeout deadline txBeforeDeadlineRange `shouldBe` False
+    , testCase "should reject timeout before deadline" $ do
+        validateTimeout deadline txBeforeDeadlineRange @?= False
 
-      it "should reject timeout in interval around deadline" $ do
-        validateTimeout deadline txAroundDeadlineRange `shouldBe` False
+    , testCase "should reject timeout in interval around deadline" $ do
+        validateTimeout deadline txAroundDeadlineRange @?= False
+    ]
 
-    describe "Bridge Contract" $ do
-      it "should validate timeout after deadline" $ do
-        pendingWith "Not Yet Implemented"
+  , testGroup "Bridge Contract"
+    [ testCase "should validate timeout after deadline" $ do
+        assertFailure "Not Yet Implemented"
+    ]
 
-    describe "Sky Minting Policy" $ do
-      it "should validate minting with correct public key hash" $ do
-        pendingWith "Not Yet Implemented"
+  , testGroup "Sky Minting Policy"
+    [ testCase "should validate minting with correct public key hash" $ do
+        assertFailure "Not Yet Implemented"
+    ]
+  ]

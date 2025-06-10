@@ -1,8 +1,9 @@
 module Main (main) where
 
 import OnChain.ContractSpec (contractSpec)
-import Test.Hspec
+import Test.Tasty
 
 main :: IO ()
-main = hspec $ do
-  contractSpec
+main = defaultMain $ testGroup "OnChain Tests"
+  [ contractSpec
+  ]

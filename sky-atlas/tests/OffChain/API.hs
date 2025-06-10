@@ -14,7 +14,7 @@ import Log.Backend.LogList
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Servant
 import Servant.Client
-import Test.Hspec
+import Test.Tasty
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -67,12 +67,13 @@ readTopic :: TopicId -> MessageId -> ClientM BS.ByteString
 updateTopic :: Text -> ClientM Text
 healthClient :<|> _bridgeClient :<|> (createTopic :<|> readTopic :<|> updateTopic) = client api
 
-apiSpec :: Spec
-apiSpec = around withAPI $ describe "API Tests" $ do
-  it "should return OK for health endpoint" $ \TestEnv {..} -> do
-    res <- liftIO $ runClientM healthClient clientEnv
-    res `shouldBe` Right "OK"
+apiSpec :: TestTree
+apiSpec = testGroup "API Tests"
+  [ testCase "should return OK for health endpoint" $ withAPI $ \TestEnv {..} -> do
+      res <- liftIO $ runClientM healthClient clientEnv
+      res @?= Right "OK"
 
-  it "should return TopicId 0 when creating new topic" $ \TestEnv {..} -> do
-    res <- liftIO $ runClientM createTopic clientEnv
-    res `shouldBe` Right (topicIdFromInteger 0)
+  , testCase "should return TopicId 0 when creating new topic" $ withAPI $ \TestEnv {..} -> do
+      res <- liftIO $ runClientM createTopic clientEnv
+      res @?= Right (topicIdFromInteger 0)
+  ]

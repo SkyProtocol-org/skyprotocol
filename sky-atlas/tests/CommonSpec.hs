@@ -1,14 +1,17 @@
 module Main (main) where
 
 import Common.CryptoSpec (cryptoSpec)
-import Common.DaSpec (daSpec)
+import Common.DaSpec (daSpec, signatureSpec, fingerprintSpec)
 import Common.TrieSpec (trieSpec)
 import Common.TypesSpec (typesSpec)
-import Test.Hspec
+import Test.Tasty
 
 main :: IO ()
-main = hspec $ do
-  typesSpec
-  cryptoSpec
-  trieSpec
-  daSpec
+main = defaultMain $ testGroup "Common Tests"
+  [ typesSpec
+  , cryptoSpec
+  , trieSpec
+  , signatureSpec
+  , fingerprintSpec
+  , daSpec
+  ]

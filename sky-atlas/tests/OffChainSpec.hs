@@ -1,8 +1,9 @@
 module Main (main) where
 
 import OffChain.API (apiSpec)
-import Test.Hspec
+import Test.Tasty
 
 main :: IO ()
-main = hspec $ do
-  apiSpec
+main = defaultMain $ testGroup "OffChain Tests"
+  [ apiSpec
+  ]
