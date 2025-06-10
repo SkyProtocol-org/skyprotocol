@@ -4,10 +4,8 @@ import API
 import Common
 import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
-import Control.Exception (bracket)
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString qualified as BS
-import Data.Either (isRight)
 import Data.Text
 import Log
 import Log.Backend.LogList
@@ -15,6 +13,7 @@ import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Servant
 import Servant.Client
 import Test.Tasty
+import Test.Tasty.HUnit
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -55,10 +54,6 @@ closeAPI TestEnv {..} = do
   -- Shutdown the logger
   shutdownLogger $ logger appEnv
 
--- Helper function to manage the lifecycle of the API server
-withAPI :: (TestEnv -> IO ()) -> IO ()
-withAPI = bracket startAPI closeAPI
-
 -- Define Servant client functions
 healthClient :: ClientM Text
 _bridgeClient :: ClientM Text :<|> (Text -> ClientM Text)
@@ -67,13 +62,16 @@ readTopic :: TopicId -> MessageId -> ClientM BS.ByteString
 updateTopic :: Text -> ClientM Text
 healthClient :<|> _bridgeClient :<|> (createTopic :<|> readTopic :<|> updateTopic) = client api
 
+-- NOTE: 'withResource' shares the resource across the 'testGroup' it is applied to
 apiSpec :: TestTree
-apiSpec = testGroup "API Tests"
-  [ testCase "should return OK for health endpoint" $ withAPI $ \TestEnv {..} -> do
+apiSpec = withResource startAPI closeAPI $ \getTestEnv -> testGroup "API Tests"
+  [ testCase "should return OK for health endpoint" $  do
+      TestEnv {..} <- getTestEnv
       res <- liftIO $ runClientM healthClient clientEnv
       res @?= Right "OK"
 
-  , testCase "should return TopicId 0 when creating new topic" $ withAPI $ \TestEnv {..} -> do
+  , testCase "should return TopicId 0 when creating new topic" $ do
+      TestEnv {..} <- getTestEnv
       res <- liftIO $ runClientM createTopic clientEnv
       res @?= Right (topicIdFromInteger 0)
   ]
