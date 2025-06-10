@@ -28,7 +28,7 @@ topicServer = createTopic :<|> readTopic :<|> updateTopic
   where
     createTopic = do
       stateW <- asks appStateW
-      stateR <- asks appStateW
+      stateR <- asks appStateR
       tId <- liftIO . modifyMVar stateW $ \ state -> do
         let da = view (blockState . skyDa) $ state
         let (maybeTopicId, newDa) = runIdentity $ insertTopic (computeHash (ofHex "1ea7f00d" :: Bytes4)) da
