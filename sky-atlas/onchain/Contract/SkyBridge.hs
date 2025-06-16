@@ -62,11 +62,11 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 ------------------------------------------------------------------------------
 
 data BridgeRedeemer = UpdateBridge
-  { bridgeSchema :: DataHash,
-    bridgeCommittee :: MultiSigPubKey,
-    bridgeOldRootHash :: DataHash,
-    bridgeNewTopHash :: DataHash,
-    bridgeSig :: MultiSig -- signature over new top hash
+  { bridgeSchema :: BuiltinByteString, -- DataHash,
+    bridgeCommittee :: BuiltinByteString, -- MultiSigPubKey,
+    bridgeOldRootHash :: BuiltinByteString, -- DataHash,
+    bridgeNewTopHash :: BuiltinByteString, -- DataHash,
+    bridgeSig :: BuiltinByteString -- MultiSig -- signature over new top hash
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -75,7 +75,7 @@ instance FromByteString BridgeRedeemer where
   byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 UpdateBridge
 
 -- PlutusTx.makeLift ''BridgeRedeemer
--- PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
+PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
 ------------------------------------------------------------------------------
 -- NFT Utilities
@@ -154,11 +154,17 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       -- Update the bridge state
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
         [ -- Core validation, below
-          bridgeTypedValidatorCore daSchema daCommittee oldRootHash newTopHash sig oldNFTTopHash,
+          bridgeTypedValidatorCore
+            (fromByteString daSchema)
+            (fromByteString daCommittee)
+            (fromByteString oldRootHash)
+            (fromByteString newTopHash)
+            (fromByteString sig)
+            oldNFTTopHash,
           -- The NFT must be again included in the outputs
           outputHasNFT,
           -- The NFT's data must have been updated
-          nftUpdated newTopHash
+          nftUpdated (fromByteString newTopHash)
         ]
 
     ownOutput :: TxOut

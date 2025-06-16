@@ -7,10 +7,11 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Aeson
 import Data.Char (toLower)
-import Data.IORef (IORef)
 import GHC.Generics (Generic)
 import Log
 import Servant
+import GeniusYield.GYConfig (GYCoreConfig)
+import GeniusYield.Types (GYProviders)
 
 data AppError
   = APIError String
@@ -18,12 +19,13 @@ data AppError
 
 data AppConfig = AppConfig
   { configPort :: Int,
-    configLogLevel :: Maybe String
+    configLogLevel :: Maybe String,
+    configAtlas :: GYCoreConfig
   }
-  deriving (Show, Eq, Generic)
+  deriving (Show, Generic)
 
-instance ToJSON AppConfig where
-  toJSON = genericToJSON defaultOptions {fieldLabelModifier = dropPrefix "config"}
+-- instance ToJSON AppConfig where
+--   toJSON = genericToJSON defaultOptions {fieldLabelModifier = dropPrefix "config"}
 
 instance FromJSON AppConfig where
   parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "config"}
@@ -66,6 +68,7 @@ $(makeLenses ''AppState)
 
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
+    appProviders :: GYProviders,
     appStateW :: MVar AppState, -- Write copy, lock can be held a long time
     appStateR :: MVar AppState, -- Read copy, lock held very briefly but slightly out-of-date (double buffering / "MVCC")
     logger :: Logger

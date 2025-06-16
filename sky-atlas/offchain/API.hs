@@ -1,7 +1,17 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
 
-module API (API, api, server, startApp, testEnv, AppEnv (..), AppConfig (..), AppError (..)) where
+module API
+  ( API
+  , api
+  , server
+  , app
+  , testEnv
+  , convertAppM
+  , AppEnv (..)
+  , AppConfig (..)
+  , AppError (..)
+  ) where
 
 import API.Bridge
 import API.Topic
@@ -13,10 +23,9 @@ import Control.Monad.Identity
 import Control.Monad.Reader (runReaderT)
 import Data.ByteString.Lazy.Char8 qualified as BS
 import Data.Text (Text)
-import Data.Yaml.Config (loadYamlSettings, requireEnv)
 import Log
-import Network.Wai.Handler.Warp (run)
 import Servant
+import GeniusYield.Types (GYProviders)
 
 type HealthAPI = "health" :> Get '[JSON] Text
 
@@ -36,16 +45,10 @@ convertAppM env logger appM = runExceptT (runLogT "api" logger defaultLogLevel (
 
 toServantErr :: AppError -> ServerError
 toServantErr (APIError msg) = err500 {errBody = BS.pack msg}
-toServantErr _ = err500 {errBody = "ISE ???"}
+-- toServantErr _ = err500 {errBody = "ISE ???"}
 
-startApp :: AppEnv -> IO ()
-startApp env = do
-  let config = appConfig env
-  run (configPort config) (serve api (hoistServer api (convertAppM env (logger env)) server))
-
-testEnv :: Logger -> IO AppEnv
-testEnv logger = do
-  appConfig <- loadYamlSettings ["config/local-test.yaml"] [] requireEnv
+testEnv :: AppConfig -> Logger -> GYProviders -> IO AppEnv
+testEnv appConfig logger appProviders = do
   let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
 
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
@@ -72,3 +75,6 @@ testEnv logger = do
   appStateW <- newMVar appState
   appStateR <- newMVar appState
   pure $ AppEnv {..}
+
+app :: AppEnv -> Application
+app env = serve api (hoistServer api (convertAppM env (logger env)) server)

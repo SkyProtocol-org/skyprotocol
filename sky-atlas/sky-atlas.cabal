@@ -123,8 +123,6 @@ library offchain
     , servant-server
     , sky-atlas:common
     , text
-    , warp
-    , yaml
 
 executable sky-atlas
   import:         common
@@ -132,10 +130,14 @@ executable sky-atlas
   main-is:        Main.hs
   ghc-options:    -O2 -threaded -rtsopts -with-rtsopts=-T
   build-depends:
+    , atlas-cardano
     , base
+    , http-types
     , log-base
-    , sky-atlas:common
     , sky-atlas:offchain
+    , wai-cors
+    , warp
+    , yaml
 
 test-suite common-tests
   import:         common
