@@ -9,7 +9,7 @@ on:
       - '*'
 
 jobs:
-  build:
+  contracts_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -17,3 +17,10 @@ jobs:
     - uses: actions/setup-node@v4
     - run: nix develop --accept-flake-config --command ./test-setup.sh
       working-directory: ./contracts/off-chain
+  atlas_test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v27
+    - run: nix develop --accept-flake-config --command cabal test all
+      working-directory: ./sky-atlas
