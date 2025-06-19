@@ -38,4 +38,4 @@ TAGS
 .direnv/
 */dist-newstyle/*
 
-./sky-atlas/config/local-test.yaml
+local-test.yaml

@@ -8,10 +8,10 @@ import Control.Monad.Reader
 import Data.Aeson
 import Data.Char (toLower)
 import GHC.Generics (Generic)
-import Log
-import Servant
 import GeniusYield.GYConfig (GYCoreConfig)
 import GeniusYield.Types (GYProviders)
+import Log
+import Servant
 
 data AppError
   = APIError String
@@ -41,28 +41,43 @@ dropPrefix pr s = case splitAt (length pr) s of
 
 data BlockState = BlockState
   { _skyDa :: SkyDa HashRef, -- data published on the DA
-    -- Not Implemented Yet:
-    _erasureCoding :: (), -- validation for erasure coding
-    _superTopic :: (), -- super topic under which this topic operates, if any
-    _subTopics :: (), -- sub-topics that operate under this topic, if any
-    _publisherPayments :: () -- payments accepted from publishers but not yet fulfilled
-    }
+  -- Not Implemented Yet:
+    _erasureCoding :: (),
+    -- validation for erasure coding
+    _superTopic :: (),
+    -- super topic under which this topic operates, if any
+    _subTopics :: (),
+    -- sub-topics that operate under this topic, if any
+    _publisherPayments :: ()
+  }
+
+-- payments accepted from publishers but not yet fulfilled
 
 $(makeLenses ''BlockState)
 
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment
-    -- Not Implemented Yet:
-    _oldBlockQueue :: (), -- Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
-    _partialSignatures :: (), -- table of candidate blocks being signed but not yet fully completed
-    _bridgeState :: (), -- bridge to the upstream blockchain
-    _stake :: (), -- stake for upstream proof-of-stake
-    _peers :: (), -- peers for block consensus
-    _clients :: (), -- client connections
-    _subscriberPayments :: (), -- table of payments that were accepted * are pending from subscribers
-    _auctions :: (), -- auctions for blockspace
-    _longTermStorage :: () -- long term storage of data, if any
+  -- Not Implemented Yet:
+    _oldBlockQueue :: (),
+    -- Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
+    _partialSignatures :: (),
+    -- table of candidate blocks being signed but not yet fully completed
+    _bridgeState :: (),
+    -- bridge to the upstream blockchain
+    _stake :: (),
+    -- stake for upstream proof-of-stake
+    _peers :: (),
+    -- peers for block consensus
+    _clients :: (),
+    -- client connections
+    _subscriberPayments :: (),
+    -- table of payments that were accepted * are pending from subscribers
+    _auctions :: (),
+    -- auctions for blockspace
+    _longTermStorage :: ()
   }
+
+-- long term storage of data, if any
 
 $(makeLenses ''AppState)
 
