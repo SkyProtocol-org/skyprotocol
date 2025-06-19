@@ -111,5 +111,7 @@
 
   nixConfig = {
     allow-import-from-derivation = "true";
+    extra-substituters = [ "https://mukn.cachix.org" ];
+    extra-trusted-public-keys = [ "mukn.cachix.org-1:ujoZLZMpGNQMeZbLBxmOcO7aj+7E5XSnZxwFpuhhsqs=" ];
   };
 }
