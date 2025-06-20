@@ -5,7 +5,7 @@
   inputs = {
     haskellNix.url = "github:input-output-hk/haskell.nix";
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
-    cardano-cli.url = "github:IntersectMBO/cardano-cli";
+    # cardano-cli.url = "github:IntersectMBO/cardano-cli";
     flake-utils.url = "github:numtide/flake-utils";
     CHaP = {
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
@@ -13,7 +13,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, cardano-cli, flake-utils, haskellNix, CHaP }:
+  outputs = { self, nixpkgs, flake-utils, haskellNix, CHaP }:
     let
       supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
     in
@@ -85,7 +85,7 @@
                 # Non-Haskell shell tools go here
                 shell.buildInputs = with final; [
                   nixpkgs-fmt
-                  cardano-cli.packages."${system}"."cardano-cli:exe:cardano-cli"
+                  # cardano-cli.packages."${system}"."cardano-cli:exe:cardano-cli"
                 ];
 
                 # ???: Fix for `nix flake show --allow-import-from-derivation`
