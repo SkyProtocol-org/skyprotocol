@@ -51,6 +51,10 @@ data BlockState = BlockState
     _publisherPayments :: ()
   }
 
+data BridgeState = BridgeState
+  { _bridgedSkyDa :: SkyDa HashRef, -- data published on the DA *and* bridged on the blockchain
+    }
+
 -- payments accepted from publishers but not yet fulfilled
 
 $(makeLenses ''BlockState)
@@ -86,7 +90,14 @@ data AppEnv = AppEnv
     appProviders :: GYProviders,
     appStateW :: MVar AppState, -- Write copy, lock can be held a long time
     appStateR :: MVar AppState, -- Read copy, lock held very briefly but slightly out-of-date (double buffering / "MVCC")
+    -- TODO: add updatable whitelist for users here or in the AppState
     logger :: Logger
   }
 
 type AppM = ReaderT AppEnv (LogT (ExceptT AppError Handler))
+
+data User = User
+  { userEmail :: Text,
+    userPubKey :: PubKey
+    -- TODO: add information about payments to the blockchain?
+  }

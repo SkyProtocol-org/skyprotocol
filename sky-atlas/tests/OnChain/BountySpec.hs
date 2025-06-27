@@ -56,7 +56,7 @@ testMessageHash = computeHash testMessage
 
 -- Create test DA structure and proof
 createTestDaAndProof :: (SkyDa HashRef, TopicId, MessageId, SkyDataProof Blake2b_256, DataHash)
-createTestDaAndProof = 
+createTestDaAndProof =
   let daSchema = computeHash @Bytes4 $ ofHex "deadbeef"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
       sk2 = ofHex "B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F"
@@ -66,8 +66,8 @@ createTestDaAndProof =
       topicSchema = computeHash @Bytes4 $ ofHex "1ea7f00d"
       timestamp = POSIXTime 455155200000 -- June 4th 1989
       da0 = runIdentity $ initDa daSchema committee :: SkyDa HashRef
-      (Just topicId, da1) = runIdentity $ insertTopic topicSchema da0
-      (Just messageId, da2) = runIdentity $ insertMessage pk1 timestamp testMessage topicId da1
+      (da1, Just topicId) = runIdentity $ insertTopic topicSchema da0
+      (da2, Just messageId) = runIdentity $ insertMessage pk1 timestamp testMessage topicId da1
       Just (_messageRef, proof) = runIdentity $ getSkyDataProof (topicId, messageId) da2 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
       topHash = computeHash da2
   in (da2, topicId, messageId, proof, topHash)
@@ -81,7 +81,7 @@ testProofTyped = testProof
 
 -- Create invalid proofs for negative testing
 createInvalidProof :: SkyDataProof Blake2b_256
-createInvalidProof = 
+createInvalidProof =
   let daSchema = computeHash @Bytes4 $ ofHex "baadf00d"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
       pk1 = derivePubKey sk1
@@ -90,8 +90,8 @@ createInvalidProof =
       timestamp = POSIXTime 455155200000
       wrongMessage = "Wrong message content"
       da0 = runIdentity $ initDa daSchema committee :: SkyDa HashRef
-      (Just topicId, da1) = runIdentity $ insertTopic topicSchema da0
-      (Just messageId, da2) = runIdentity $ insertMessage pk1 timestamp wrongMessage topicId da1
+      (da1, Just topicId) = runIdentity $ insertTopic topicSchema da0
+      (da2, Just messageId) = runIdentity $ insertMessage pk1 timestamp wrongMessage topicId da1
       Just (_messageRef, proof) = runIdentity $ getSkyDataProof (topicId, messageId) da2 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
   in proof
 
@@ -102,60 +102,60 @@ bountySpec :: TestTree
 bountySpec = testGroup "Bounty Contract"
   [ testGroup "validateClaimBounty"
     [ testCase "should validate correct bounty claim within deadline" $ do
-        validateClaimBounty 
-          testDeadline 
-          beforeDeadline 
-          testMessageHash 
-          testTopicIdFromDa 
-          testProofTyped 
+        validateClaimBounty
+          testDeadline
+          beforeDeadline
+          testMessageHash
+          testTopicIdFromDa
+          testProofTyped
           testTopHash @?= True
 
     , testCase "should reject bounty claim after deadline" $ do
-        validateClaimBounty 
-          testDeadline 
-          afterDeadline 
-          testMessageHash 
-          testTopicIdFromDa 
-          testProofTyped 
+        validateClaimBounty
+          testDeadline
+          afterDeadline
+          testMessageHash
+          testTopicIdFromDa
+          testProofTyped
           testTopHash @?= False
 
     , testCase "should reject bounty claim with wrong message hash" $ do
         let wrongHash = computeHash ("wrong message" :: BuiltinString)
-        validateClaimBounty 
-          testDeadline 
-          beforeDeadline 
-          wrongHash 
-          testTopicIdFromDa 
-          testProofTyped 
+        validateClaimBounty
+          testDeadline
+          beforeDeadline
+          wrongHash
+          testTopicIdFromDa
+          testProofTyped
           testTopHash @?= False
 
     , testCase "should reject bounty claim with wrong topic ID" $ do
         let wrongTopicId = topicIdFromInteger 999
-        validateClaimBounty 
-          testDeadline 
-          beforeDeadline 
-          testMessageHash 
-          wrongTopicId 
-          testProofTyped 
+        validateClaimBounty
+          testDeadline
+          beforeDeadline
+          testMessageHash
+          wrongTopicId
+          testProofTyped
           testTopHash @?= False
 
     , testCase "should reject bounty claim with wrong DA top hash" $ do
         let wrongTopHash = computeHash ("wrong top hash" :: BuiltinString)
-        validateClaimBounty 
-          testDeadline 
-          beforeDeadline 
-          testMessageHash 
-          testTopicIdFromDa 
-          testProofTyped 
+        validateClaimBounty
+          testDeadline
+          beforeDeadline
+          testMessageHash
+          testTopicIdFromDa
+          testProofTyped
           wrongTopHash @?= False
 
     , testCase "should reject bounty claim with invalid proof" $ do
-        validateClaimBounty 
-          testDeadline 
-          beforeDeadline 
-          testMessageHash 
-          testTopicIdFromDa 
-          invalidProof 
+        validateClaimBounty
+          testDeadline
+          beforeDeadline
+          testMessageHash
+          testTopicIdFromDa
+          invalidProof
           testTopHash @?= False
 
     , testCase "should validate proof structure requirements" $ do
@@ -280,12 +280,12 @@ bountySpec = testGroup "Bounty Contract"
     , testCase "should validate empty topic ID correctly" $ do
         let emptyTopicId = topicIdFromInteger 0
         -- This should work with our test proof since we created it with topic 0
-        validateClaimBounty 
-          testDeadline 
-          beforeDeadline 
-          testMessageHash 
-          emptyTopicId 
-          testProofTyped 
+        validateClaimBounty
+          testDeadline
+          beforeDeadline
+          testMessageHash
+          emptyTopicId
+          testProofTyped
           testTopHash @?= True
     ]
   ]

@@ -120,9 +120,11 @@ library offchain
     , log-base
     , mtl
     , plutus-tx
+    , servant-auth
     , servant-server
     , sky-atlas:common
     , text
+    , time
 
 executable sky-atlas
   import:         common

@@ -202,7 +202,7 @@ insertMessage ::
   BuiltinByteString ->
   TopicId ->
   SkyDa r ->
-  e (Maybe MessageId, SkyDa r)
+  e (SkyDa r, Maybe MessageId)
 insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
   do
     oldTopicTrie <- unwrap skyTopicTrie
@@ -223,7 +223,7 @@ insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
             skyTopicTrieNew <-
               insert (rTopicMetaData, rNewMessageTrie) topicId oldTopicTrie
                 >>= wrap
-            return (Just messageId, SkyDa {skyTopicTrie = skyTopicTrieNew, ..})
+            return (SkyDa {skyTopicTrie = skyTopicTrieNew, ..}, Just messageId)
 
 -- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProof #-}

@@ -171,9 +171,9 @@ msg3Hash = computeHash msg3
 daSpec :: TestTree
 daSpec = testGroup "simple tests for SkyDA"
   let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
-      (Just topic0, da1) = runIdentity $ insertTopic topicSchema0 da0
-      (Just msg1i, da2) = runIdentity $ insertMessage pk1 timestamp1 msg1 topic0 da1
-      (_, da3) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
+      (da1, Just topic0) = runIdentity $ insertTopic topicSchema0 da0
+      (da2, Just msg1i) = runIdentity $ insertMessage pk1 timestamp1 msg1 topic0 da1
+      (da3, _) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
       Just (msg1b, proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
   in
   [ -- Create an empty SkyDA, check its digest
@@ -198,14 +198,14 @@ daSpec = testGroup "simple tests for SkyDA"
       (triePathHeight . pathMessageTriePath $ proof1) == 0 @?= True
       (triePathKey . pathMessageTriePath $ proof1) == msg1i @?= True
 
-  , let (Just topic1, da10) = runIdentity $ insertTopic topicSchema0 da3
-        (Just msg3i, da11) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+  , let (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
+        (da11, Just msg3i) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
         Just (msg3b, _proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     in testCase "msg3 matches" $ do
       msg3b == LiftRef (digestRef msg3) @?= True
 
-  , let (Just topic1, da10) = runIdentity $ insertTopic topicSchema0 da3
-        (Just msg3i, da11) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+  , let (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
+        (da11, Just msg3i) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
         Just (msg3b, proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
         l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash
         topHash3 = computeHash da11 :: DataHash
@@ -217,8 +217,8 @@ daSpec = testGroup "simple tests for SkyDA"
       (triePathKey . pathMessageTriePath $ proof3) == msg3i @?= True
 
   , let topHash1 = computeHash da3 :: DataHash
-        (Just topic1, da10) = runIdentity $ insertTopic topicSchema0 da3
-        (Just _msg3i, da11) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+        (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
+        (da11, Just _msg3i) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
         topHash3 = computeHash da11 :: DataHash
     in testCase "hashes differ" $ do
       topHash1 == topHash3 @?= False
