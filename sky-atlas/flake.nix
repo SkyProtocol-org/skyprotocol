@@ -111,7 +111,13 @@
 
   nixConfig = {
     allow-import-from-derivation = "true";
-    extra-substituters = [ "https://mukn.cachix.org" ];
-    extra-trusted-public-keys = [ "mukn.cachix.org-1:ujoZLZMpGNQMeZbLBxmOcO7aj+7E5XSnZxwFpuhhsqs=" ];
+    extra-substituters =
+      [
+        "https://sky-protocol.cachix.org"
+      ];
+    extra-trusted-public-keys =
+      [
+        "sky-protocol.cachix.org-1:dI30Dt7GXBzRrn7dhO+VpEAvFBq7XmioeNEhFXv6AR4="
+      ];
   };
 }
