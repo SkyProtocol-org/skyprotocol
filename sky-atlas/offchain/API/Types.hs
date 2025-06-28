@@ -6,7 +6,9 @@ import Control.Lens
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Aeson
+import Data.ByteString qualified as BS
 import Data.Char (toLower)
+-- import Data.Text (Text)
 import GHC.Generics (Generic)
 import GeniusYield.GYConfig (GYCoreConfig)
 import GeniusYield.Types (GYProviders)
@@ -52,7 +54,7 @@ data BlockState = BlockState
   }
 
 data BridgeState = BridgeState
-  { _bridgedSkyDa :: SkyDa HashRef, -- data published on the DA *and* bridged on the blockchain
+  { _bridgedSkyDa :: SkyDa HashRef -- data published on the DA *and* bridged on the blockchain
     }
 
 -- payments accepted from publishers but not yet fulfilled
@@ -66,7 +68,7 @@ data AppState = AppState
     -- Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
     _partialSignatures :: (),
     -- table of candidate blocks being signed but not yet fully completed
-    _bridgeState :: (),
+    _bridgeState :: BridgeState,
     -- bridge to the upstream blockchain
     _stake :: (),
     -- stake for upstream proof-of-stake
@@ -97,7 +99,7 @@ data AppEnv = AppEnv
 type AppM = ReaderT AppEnv (LogT (ExceptT AppError Handler))
 
 data User = User
-  { userEmail :: Text,
+  { userEmail :: BS.ByteString,
     userPubKey :: PubKey
     -- TODO: add information about payments to the blockchain?
   }

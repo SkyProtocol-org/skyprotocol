@@ -5,7 +5,6 @@ module OnChain.BountySpec (bountySpec) where
 
 import Common
 import Contract.Bounty (DecodedClientParams(..), ClientRedeemer(..), validateClaimBounty, validateTimeout, getDecodedClientParams)
-import qualified Contract.Bounty
 import Data.Functor.Identity (Identity(..))
 import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))

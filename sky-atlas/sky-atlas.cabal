@@ -72,6 +72,7 @@ library common
   build-depends:
     , aeson
     , base
+    , bytestring
     , cardano-crypto-class
     , hex-text
     , plutus-ledger-api
@@ -119,6 +120,7 @@ library offchain
     , lens
     , log-base
     , mtl
+    , plutus-ledger-api
     , plutus-tx
     , servant-auth
     , servant-server

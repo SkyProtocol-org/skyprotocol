@@ -17,11 +17,13 @@ import API.Bridge
 import API.Topic
 import API.Types
 import Common (Bytes4, HashRef, MultiSigPubKey (..), SkyDa, UInt16 (..), computeHash, derivePubKey, initDa, ofHex)
+import Common.Crypto (PubKey, SecKey)
 import Control.Concurrent.MVar
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Identity
 import Control.Monad.Reader (runReaderT)
-import Data.ByteString.Lazy.Char8 qualified as BS
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy.Char8 qualified as BSL
 import Data.Text (Text)
 import Log
 import Servant
@@ -44,7 +46,7 @@ convertAppM :: AppEnv -> Logger -> AppM a -> Handler a
 convertAppM env logger appM = runExceptT (runLogT "api" logger defaultLogLevel (runReaderT appM env)) >>= either (throwError . toServantErr) pure
 
 toServantErr :: AppError -> ServerError
-toServantErr (APIError msg) = err500 {errBody = BS.pack msg}
+toServantErr (APIError msg) = err500 {errBody = BSL.pack msg}
 -- toServantErr _ = err500 {errBody = "ISE ???"}
 
 {- TODO: move that to a separate file about the test environment.
@@ -70,7 +72,7 @@ testEnv appConfig logger appProviders = do
       appState = AppState { _blockState,
                             _oldBlockQueue = (),
                             _partialSignatures = (),
-                            _bridgeState = (),
+                            _bridgeState = BridgeState _skyDa,
                             _stake = (),
                             _peers = (),
                             _clients = (),
@@ -88,7 +90,7 @@ app :: AppEnv -> Application
 app env = serveWithContext api ctx $ hoistServer api (convertAppM env (logger env)) server
 
 authCheck :: BasicAuthCheck User
-authCheck = basicAuthCheck $ \ (BasicAuthData email password) ->
+authCheck = BasicAuthCheck $ \ (BasicAuthData email password) ->
   if email == "skyAdmin" && password == "1234" then
     return $ Authorized (User email testPubKey1)
   else

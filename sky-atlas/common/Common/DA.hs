@@ -179,21 +179,21 @@ insertTopic ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
   DataHash ->
   SkyDa r ->
-  e (Maybe TopicId, SkyDa r)
+  e (SkyDa r, Maybe TopicId)
 insertTopic newTopicSchema da@SkyDa {..} =
   do
     newTopicCommittee <- generateCommittee da
     oldTopicTrie <- unwrap skyTopicTrie
     newTopicId <- nextIndex oldTopicTrie
     case newTopicId of
-      Nothing -> return (Nothing, da)
+      Nothing -> return (da, Nothing)
       Just topicId -> do
         newMessageTrie <- empty
         rNewMessageTrie <- wrap newMessageTrie
         rNewTopicMetaData <- wrap $ TopicMetaData newTopicSchema newTopicCommittee
         let newTopic = (rNewTopicMetaData, rNewMessageTrie)
         skyTopicTrieNew <- insert newTopic topicId oldTopicTrie >>= wrap
-        return (newTopicId, SkyDa {skyTopicTrie = skyTopicTrieNew, ..})
+        return (SkyDa {skyTopicTrie = skyTopicTrieNew, ..}, newTopicId)
 
 insertMessage ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
@@ -208,14 +208,14 @@ insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
     oldTopicTrie <- unwrap skyTopicTrie
     oldMaybeTopicEntry <- lookup topicId oldTopicTrie
     case oldMaybeTopicEntry of
-      Nothing -> return (Nothing, da)
+      Nothing -> return (da, Nothing)
       Just (rTopicMetaData, rOldMessageTrie) -> do
         oldMessageTrie <- unwrap rOldMessageTrie
         rNewMessageMetaData <- wrap $ MessageMetaData poster timestamp
         rNewMessageData <- wrap newMessage
         newMessageId <- nextIndex oldMessageTrie
         case newMessageId of
-          Nothing -> return (Nothing, da) -- error "table full"
+          Nothing -> return (da, Nothing) -- error "table full"
           Just messageId -> do
             rNewMessageTrie <-
               insert (rNewMessageMetaData, rNewMessageData) messageId oldMessageTrie

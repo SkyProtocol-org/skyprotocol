@@ -6,6 +6,7 @@ module Common.Types.Base where
 
 import Control.Monad (Monad, (>=>))
 import Data.Bifunctor (first)
+import Data.ByteString qualified as BS
 import Data.Function ((&))
 import Data.String (IsString, String, fromString)
 import Data.Text (pack, unpack)
@@ -16,6 +17,7 @@ import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx as P
 import PlutusTx.Blueprint as P
 import PlutusTx.Builtins as P
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
 import Text.Hex (decodeHex, encodeHex)
@@ -790,6 +792,11 @@ multiplyByExponential a e n =
 -- | How is this not in Plutus already?
 exponential :: Integer -> Integer -> Integer
 exponential = multiplyByExponential 1
+
+-- *** Strings
+
+builtinByteStringToByteString :: BuiltinByteString -> BS.ByteString
+builtinByteStringToByteString (BuiltinByteString b) = b
 
 -- *** Bit-banging utilities
 
