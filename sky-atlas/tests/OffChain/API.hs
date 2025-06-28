@@ -64,8 +64,8 @@ healthClient :: ClientM Text
 _bridgeClient :: ClientM Text :<|> (Text -> ClientM Text)
 createTopic :: ClientM TopicId
 readTopic :: TopicId -> MessageId -> ClientM BS.ByteString
-updateTopic :: Text -> ClientM Text
-healthClient :<|> _bridgeClient :<|> (createTopic :<|> readTopic :<|> updateTopic) = client api
+-- updateTopic :: Text -> ClientM Text
+healthClient :<|> _bridgeClient :<|> (createTopic :<|> readTopic {-:<|> updateTopic-}) = client api
 
 -- NOTE: 'withResource' shares the resource across the 'testGroup' it is applied to
 apiSpec :: TestTree

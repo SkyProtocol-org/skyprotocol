@@ -22,21 +22,21 @@ import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
 type TopicAPI =
-  "topic" :> (PublicTopicAPI {-:<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI)-})
+  "topic" :> (PublicTopicAPI :<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI))
 
 type PublicTopicAPI =
   ( "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
-  {-:<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html -}
+  :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html
   )
 
 type ProtectedTopicAPI =
   ( "create" :> Post '[JSON] TopicId
   -- :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
-  :<|> "add_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
+  -- :<|> "add_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
   )
 
 topicServer :: ServerT TopicAPI AppM
-topicServer = (readTopic {-:<|> getProof) :<|> (createTopic :<|> addMessage-})
+topicServer = (readTopic :<|> getProof) :<|> (createTopic) -- :<|> addMessage)
 
 readTopic :: TopicId -> MessageId -> AppM BS.ByteString
 readTopic tId mId = do
