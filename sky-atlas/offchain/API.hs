@@ -67,6 +67,7 @@ testEnv appConfig logger appProviders = do
       committee = MultiSigPubKey ([testPubKey1, testPubKey2], UInt16 2)
       _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
       _blockState = BlockState { _skyDa,
+                             _topic = (),
                              _erasureCoding = (), _superTopic = (), _subTopics = (),
                              _publisherPayments = () }
       appState = AppState { _blockState,
@@ -83,11 +84,12 @@ testEnv appConfig logger appProviders = do
   appStateR <- newMVar appState
   pure $ AppEnv {..}
 
-ctx :: Context '[BasicAuthCheck User]
-ctx = authCheck :. EmptyContext
+testCtx :: Context (BasicAuthCheck User ': '[])
+-- ctx :: Context '[BasicAuthCheck User]
+testCtx = authCheck :. EmptyContext
 
 app :: AppEnv -> Application
-app env = serveWithContext api ctx $ hoistServer api (convertAppM env (logger env)) server
+app env = serveWithContext api testCtx $ hoistServer api (convertAppM env (logger env)) server
 
 authCheck :: BasicAuthCheck User
 authCheck = BasicAuthCheck $ \ (BasicAuthData email password) ->
