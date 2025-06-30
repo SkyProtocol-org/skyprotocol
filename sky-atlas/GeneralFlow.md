@@ -1,8 +1,9 @@
+### Terms
 admin - creates minting policy and signs it, bridge
 offerer -
 claimant - used for bounty blueprint
 
-1) Mint & create bridge using the Admin's keys
+### First step: Mint & create bridge using the Admin's keys
 
 currency symbol - hash of the sky policy minting
 
@@ -10,18 +11,18 @@ user's change address - addresses from which to spend your money
 
 payment signing key - look at the MeshJS wallet on how to procure one
 
-2) Offer bounty
+### Second step: Offer bounty
 
 sends 10 ada to bounty validator
 sign with offerrer pkh
 
-3) Offer bounty check
+### Third step: Offer bounty check
 
 get the address of the validator
 get the utxos
 check for the amount and unit
 
-4) Update bridge
+### Fourth step: Update bridge
 
 admin updates the bridge
 get the address of validator
@@ -34,7 +35,7 @@ call the backend endpoint to update the bridge:
   create the updated datum
   
 
-5) Claiming bounty
+### Fifth step: Claiming bounty
 
 get the bridge outputs
 get the nft
@@ -46,7 +47,7 @@ don't consume the nft by making it a reference input
 
 sign it with the recipient wallet
 
-6) Verifying bounty claiming
+### Sixth step: Verifying bounty claiming
 
 check the length of utxos of bounty validator
 

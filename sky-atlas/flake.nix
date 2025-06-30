@@ -19,6 +19,7 @@
     in
     flake-utils.lib.eachSystem supportedSystems (system:
       let
+        # TODO: get overlays in their own file and leave only the skyAtlas config here
         overlay = final: prev: {
           cardano-cli = with final; stdenv.mkDerivation rec {
             pname = "cardano-cli";
