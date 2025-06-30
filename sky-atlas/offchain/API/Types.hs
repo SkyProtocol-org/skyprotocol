@@ -12,6 +12,8 @@ import Data.Aeson
 import Data.ByteString qualified as BS
 import Data.Char (toLower)
 -- import Data.Text (Text)
+
+import Data.Text (Text)
 import GHC.Generics (Generic)
 import GeniusYield.GYConfig
 import GeniusYield.TxBuilder
@@ -25,7 +27,8 @@ data AppError
 
 data AppConfig = AppConfig
   { configPort :: Int,
-    configLogLevel :: Maybe String,
+    configLogLevel :: Maybe Text,
+    configTokenName :: Text,
     configAtlas :: GYCoreConfig
   }
   deriving (Show, Generic)
@@ -46,22 +49,23 @@ dropPrefix pr s = case splitAt (length pr) s of
     toLowerHead (x : xs) = toLower x : xs
 
 data BlockState = BlockState
-  { _skyDa :: SkyDa HashRef, -- ^ data published on the DA
-  -- Not Implemented Yet:
+  { -- | data published on the DA
+    -- Not Implemented Yet:
+    _skyDa :: SkyDa HashRef,
+    -- | current topic
     _topic :: (),
-    -- ^ current topic
+    -- | validation for erasure coding
     _erasureCoding :: (),
-    -- ^ validation for erasure coding
+    -- | super topic under which this topic operates, if any
     _superTopic :: (),
-    -- ^ super topic under which this topic operates, if any
+    -- | sub-topics that operate under this topic, if any
     _subTopics :: (),
-    -- ^ sub-topics that operate under this topic, if any
     _publisherPayments :: ()
   }
 
 data BridgeState = BridgeState
   { _bridgedSkyDa :: SkyDa HashRef -- data published on the DA *and* bridged on the blockchain
-    }
+  }
 
 -- payments accepted from publishers but not yet fulfilled
 
@@ -70,22 +74,23 @@ $(makeLenses ''BlockState)
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment
   -- Not Implemented Yet:
+
+    -- | Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
     _oldBlockQueue :: (),
-    -- ^ Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
+    -- | table of candidate blocks being signed but not yet fully completed
     _partialSignatures :: (),
-    -- ^ table of candidate blocks being signed but not yet fully completed
+    -- | bridge to the upstream blockchain
     _bridgeState :: BridgeState,
-    -- ^ bridge to the upstream blockchain
+    -- | stake for upstream proof-of-stake
     _stake :: (),
-    -- ^ stake for upstream proof-of-stake
+    -- | peers for block consensus
     _peers :: (),
-    -- ^ peers for block consensus
+    -- | client connections
     _clients :: (),
-    -- ^ client connections
+    -- | table of payments that were accepted * are pending from subscribers
     _subscriberPayments :: (),
-    -- ^ table of payments that were accepted * are pending from subscribers
+    -- | auctions for blockspace
     _auctions :: (),
-    -- ^ auctions for blockspace
     _longTermStorage :: ()
   }
 
@@ -93,15 +98,26 @@ data AppState = AppState
 
 $(makeLenses ''AppState)
 
+data CardanoUser = CardanoUser
+  { cuserVerificationKey :: Text,
+    cuserSigningKey :: Text,
+    cuserAddress :: Text
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
     appProviders :: GYProviders,
+    appAdmin :: CardanoUser,
+    appClaimant :: CardanoUser,
+    appOfferer :: CardanoUser,
     appStateW :: MVar AppState, -- Write copy, lock can be held a long time
     appStateR :: MVar AppState, -- Read copy, lock held very briefly but slightly out-of-date (double buffering / "MVCC")
     -- TODO: add updatable whitelist for users here or in the AppState
     logger :: Logger
   }
 
+-- TODO: consider integration atlas core monads into the monad stack
 type AppM = ReaderT AppEnv (LogT (ExceptT AppError Handler))
 
 data User = User

@@ -2,8 +2,6 @@
 
 {-# HLINT ignore "Use newtype instead of data" #-}
 
-{-# LANGUAGE OverloadedStrings #-}
-
 module API.Bridge (BridgeAPI, bridgeServer) where
 
 import API.SkyMintingPolicy
@@ -24,21 +22,6 @@ import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
 import Control.Monad
 import GHC.Stack (HasCallStack)
 import PlutusTx.Prelude (BuiltinByteString)
-
-data CreateBridgeRequest = CreateBridgeRequest
-  { -- | signer is the admin?
-    -- Manuel set up three addresses, one for admin, one for offerer and one for claimant
-    -- Admin mints tokens, creates bridge
-    cbrSigner :: GYPubKeyHash,
-    -- | Make it optional, with default 1
-    cbrAmount :: Integer,
-    -- | wtf is this?
-    cbrChangeAddr :: GYAddress,
-    -- | compatibility with non-single address wallets
-    cbrUsedAddrs :: [GYAddress],
-    cbrCollateral :: Maybe GYTxOutRefCbor
-  }
-  deriving (Show, Generic, ToJSON, FromJSON)
 
 type BridgeAPI =
   "bridge"
@@ -64,7 +47,8 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       void $ runGY psk Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
 
     readBridgeH = throwError $ APIError "Unimplemented"
-    updateBridgeH _ = throwError $ APIError "Unimplemented"
+    updateBridgeH _ = do
+      throwError $ APIError "Unimplemented"
 
 
 createBridge :: (HasCallStack, GYTxBuilderMonad m)
@@ -76,8 +60,7 @@ createBridge :: (HasCallStack, GYTxBuilderMonad m)
      BuiltinByteString ->
      m (GYTxSkeleton 'PlutusV2)
 createBridge amount mintSigner topHash = do
-      let  -- bridge datum
-          bridgeNFTDatum = BridgeNFTDatum topHash
+      let bridgeNFTDatum = BridgeNFTDatum topHash
 
       -- TODO tokenName should be in the config
       let tokenName = "SkyBridge"
@@ -112,3 +95,18 @@ updateBridge :: (HasCallStack, GYTxMonad m)
   => m ()
 updateBridge = do
   pure ()
+
+data CreateBridgeRequest = CreateBridgeRequest
+  { -- | signer is the admin?
+    -- Manuel set up three addresses, one for admin, one for offerer and one for claimant
+    -- Admin mints tokens, creates bridge
+    cbrSigner :: GYPubKeyHash,
+    -- | Make it optional, with default 1
+    cbrAmount :: Integer,
+    -- | wtf is this?
+    cbrChangeAddr :: GYAddress,
+    -- | compatibility with non-single address wallets
+    cbrUsedAddrs :: [GYAddress],
+    cbrCollateral :: Maybe GYTxOutRefCbor
+  }
+  deriving (Show, Generic, ToJSON, FromJSON)

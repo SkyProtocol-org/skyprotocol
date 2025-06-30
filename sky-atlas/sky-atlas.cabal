@@ -109,13 +109,13 @@ library offchain
   exposed-modules:
     API
     API.Bridge
+    API.SkyMintingPolicy
     API.Topic
     API.Types
-    API.SkyMintingPolicy
 
   build-depends:
     , aeson
-    , atlas-cardano     >=0.12.0
+    , atlas-cardano      >=0.12.0
     , base
     , bytestring
     , lens
@@ -123,7 +123,6 @@ library offchain
     , mtl
     , plutus-ledger-api
     , plutus-tx
-    , servant-auth
     , servant-server
     , sky-atlas:common
     , sky-atlas:onchain

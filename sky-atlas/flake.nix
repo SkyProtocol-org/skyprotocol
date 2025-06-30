@@ -20,6 +20,26 @@
     flake-utils.lib.eachSystem supportedSystems (system:
       let
         overlay = final: prev: {
+          cardano-cli = with final; stdenv.mkDerivation rec {
+            pname = "cardano-cli";
+            version = "10.11.0.0";
+
+            src = fetchurl {
+              url = "https://github.com/IntersectMBO/cardano-cli/releases/download/cardano-cli-${version}/cardano-cli-${version}-${system}.tar.gz";
+              sha256 = "sha256-bPc3a5NWX+GzVgSlKk2XoE7OhMZZ78wq5olSZr2J6OI=";
+            };
+
+            nativeBuildInputs = [ autoPatchelfHook ];
+            builInputs = [ zlib ];
+
+            sourceRoot = ".";
+
+            installPhase = ''
+              mkdir -p $out/bin
+              cp "cardano-cli-${system}" $out/bin/cardano-cli
+              chmod +x $out/bin/cardano-cli
+            '';
+          };
           haskell-nix = prev.haskell-nix // {
             extraPkgconfigMappings = prev.haskell-nix.extraPkgconfigMappings // {
               # String pkgconfig-depends names are mapped to lists of Nixpkgs
@@ -85,7 +105,7 @@
                 # Non-Haskell shell tools go here
                 shell.buildInputs = with final; [
                   nixpkgs-fmt
-                  # cardano-cli.packages."${system}"."cardano-cli:exe:cardano-cli"
+                  cardano-cli
                 ];
 
                 # ???: Fix for `nix flake show --allow-import-from-derivation`
