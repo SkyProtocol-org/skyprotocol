@@ -6,7 +6,6 @@ import Common.OffChain ()
 import Control.Concurrent.MVar
 import Control.Lens
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Identity (runIdentity)
 import Control.Monad.Reader (asks)
 import Data.ByteString qualified as BS
 import Data.Fixed

@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use newtype instead of data" #-}
 module API.Types where
 
 import Common
@@ -10,8 +13,9 @@ import Data.ByteString qualified as BS
 import Data.Char (toLower)
 -- import Data.Text (Text)
 import GHC.Generics (Generic)
-import GeniusYield.GYConfig (GYCoreConfig)
-import GeniusYield.Types (GYProviders)
+import GeniusYield.GYConfig
+import GeniusYield.TxBuilder
+import GeniusYield.Types
 import Log
 import Servant
 
@@ -105,3 +109,68 @@ data User = User
     userPubKey :: PubKey
     -- TODO: add information about payments to the blockchain?
   }
+runQuery :: GYTxQueryMonadIO a -> AppM a
+runQuery q = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $ runGYTxQueryMonadIO nid appProviders q
+
+runBuilder ::
+  -- | User's used addresses.
+  [GYAddress] ->
+  -- | User's change address.
+  GYAddress ->
+  -- | Browser wallet's reserved collateral (if set).
+  Maybe GYTxOutRefCbor ->
+  GYTxBuilderMonadIO (GYTxSkeleton v) ->
+  AppM GYTxBody
+runBuilder addrs addr collateral skeleton = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $
+    runGYTxBuilderMonadIO
+      nid
+      appProviders
+      addrs
+      addr
+      ( collateral
+          >>= ( \c ->
+                  Just
+                    ( getTxOutRefHex c,
+                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                    )
+              )
+      )
+      (skeleton >>= buildTxBody)
+
+runGY ::
+  GYSomePaymentSigningKey ->
+  Maybe GYSomeStakeSigningKey ->
+  -- | User's used addresses.
+  [GYAddress] ->
+  -- | User's change address.
+  GYAddress ->
+  -- | Browser wallet's reserved collateral (if set).
+  Maybe GYTxOutRefCbor ->
+  GYTxMonadIO GYTxBody ->
+  AppM GYTxId
+runGY psk ssk addrs addr collateral body = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $
+    runGYTxMonadIO
+      nid
+      appProviders
+      psk
+      ssk
+      addrs
+      addr
+      ( collateral
+          >>= ( \c ->
+                  Just
+                    ( getTxOutRefHex c,
+                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                    )
+              )
+      )
+      (body >>= signAndSubmitConfirmed)

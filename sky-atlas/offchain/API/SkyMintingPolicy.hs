@@ -1,0 +1,19 @@
+module API.SkyMintingPolicy where
+
+import Contract.SkyBridge
+import Contract.SkyMintingPolicy
+import GHC.Stack (HasCallStack)
+import GeniusYield.TxBuilder
+import GeniusYield.Types
+
+skyMintingPolicy' :: SkyMintingParams -> GYScript 'PlutusV2
+skyMintingPolicy' smp = mintingPolicyFromPlutus $ skyMintingPolicyScript smp
+
+skyMintingAddress :: (HasCallStack, GYTxQueryMonad m) => SkyMintingParams -> m GYAddress
+skyMintingAddress smp = scriptAddress $ skyMintingPolicy' smp
+
+bridgeValidator' :: BridgeParams -> GYScript 'PlutusV2
+bridgeValidator' bp = scriptFromPlutus $ bridgeValidatorScript bp
+
+bridgeValidatorAddress :: (HasCallStack, GYTxQueryMonad m) => BridgeParams -> m GYAddress
+bridgeValidatorAddress bp = scriptAddress $ bridgeValidator' bp

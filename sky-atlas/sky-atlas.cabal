@@ -111,6 +111,7 @@ library offchain
     API.Bridge
     API.Topic
     API.Types
+    API.SkyMintingPolicy
 
   build-depends:
     , aeson
@@ -125,6 +126,7 @@ library offchain
     , servant-auth
     , servant-server
     , sky-atlas:common
+    , sky-atlas:onchain
     , text
     , time
 
