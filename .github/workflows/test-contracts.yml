@@ -22,5 +22,5 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run: nix develop --accept-flake-config --command cabal test all
+    - run: nix develop --accept-flake-config --command cabal update && cabal test all
       working-directory: ./sky-atlas
