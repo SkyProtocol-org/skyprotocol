@@ -13,7 +13,6 @@ import Data.Text
 import Data.Time
 import Data.Time.Clock qualified as DTC
 import Data.Time.Clock.POSIX qualified as DTCP
-import GHC.IO.Exception
 import Log
 -- import PlutusTx.Prelude qualified as P
 import PlutusLedgerApi.V1.Time qualified as T (POSIXTime (..))
@@ -35,13 +34,13 @@ type ProtectedTopicAPI =
   )
 
 topicServer :: ServerT TopicAPI AppM
-topicServer = (readTopic :<|> getProof) :<|> (createTopic) -- :<|> addMessage)
+topicServer = (readTopic :<|> getProof) :<|> createTopic -- :<|> addMessage)
 
 readTopic :: TopicId -> MessageId -> AppM BS.ByteString
 readTopic tId mId = do
   stateR <- asks appStateR
   state <- liftIO $ readMVar stateR
-  let SkyDa {..} = view (blockState . skyDa) $ state
+  let SkyDa {..} = view (blockState . skyDa) state
   maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
   case maybeTopic of
     Nothing -> throwError . APIError $ "Can't find topic with id " <> show (toInt tId)

@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 module OffChain.API (apiSpec) where
 
 import API
@@ -5,8 +6,6 @@ import Common
 import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Monad.IO.Class (liftIO)
-import Data.ByteString qualified as BS
-import Data.Text
 import Data.Yaml.Config (loadYamlSettings, useEnv)
 import GeniusYield.GYConfig (withCfgProviders)
 import Log
@@ -17,6 +16,7 @@ import Servant
 import Servant.Client
 import Test.Tasty
 import Test.Tasty.HUnit
+import API.Types
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -59,13 +59,10 @@ closeAPI TestEnv {..} = do
   -- Shutdown the logger
   shutdownLogger $ logger appEnv
 
--- Define Servant client functions
-healthClient :: ClientM Text
-_bridgeClient :: ClientM Text :<|> (Text -> ClientM Text)
-createTopic :: ClientM TopicId
-readTopic :: TopicId -> MessageId -> ClientM BS.ByteString
--- updateTopic :: Text -> ClientM Text
-healthClient :<|> _bridgeClient :<|> (createTopic :<|> readTopic {-:<|> updateTopic-}) = client api
+healthClient :<|> _bridgeClient :<|> ((_readTopic :<|> _getProof) :<|> createTopic) = client api
+
+testUser :: BasicAuthData
+testUser = BasicAuthData "skyAdmin" "1234"
 
 -- NOTE: 'withResource' shares the resource across the 'testGroup' it is applied to
 apiSpec :: TestTree
@@ -78,6 +75,6 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
         res @?= Right "OK",
       testCase "should return TopicId 0 when creating new topic" $ do
         TestEnv {..} <- getTestEnv
-        res <- liftIO $ runClientM createTopic clientEnv
+        res <- liftIO $ runClientM (createTopic testUser) clientEnv
         res @?= Right (topicIdFromInteger 0)
     ]

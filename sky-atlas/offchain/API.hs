@@ -22,7 +22,6 @@ import Control.Concurrent.MVar
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Identity
 import Control.Monad.Reader (runReaderT)
-import Data.ByteString qualified as BS
 import Data.ByteString.Lazy.Char8 qualified as BSL
 import Data.Text (Text)
 import Log
@@ -85,15 +84,13 @@ testEnv appConfig logger appProviders = do
   pure $ AppEnv {..}
 
 testCtx :: Context (BasicAuthCheck User ': '[])
--- ctx :: Context '[BasicAuthCheck User]
 testCtx = authCheck :. EmptyContext
 
 app :: AppEnv -> Application
-app env = serveWithContext api testCtx $ hoistServer api (convertAppM env (logger env)) server
+app env = serveWithContext api testCtx $ hoistServerWithContext api (Proxy @(BasicAuthCheck User ': '[])) (convertAppM env (logger env)) server
 
 authCheck :: BasicAuthCheck User
-authCheck = BasicAuthCheck $ \ (BasicAuthData email password) ->
-  if email == "skyAdmin" && password == "1234" then
-    return $ Authorized (User email testPubKey1)
-  else
-    return $ Unauthorized
+authCheck = BasicAuthCheck $ \ (BasicAuthData username password) ->
+  if username == "skyAdmin" && password == "1234"
+  then return $ Authorized (User (username <> "@skyprotocol.org") testPubKey1)
+  else return $ Unauthorized

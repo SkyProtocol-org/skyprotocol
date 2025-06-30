@@ -22,7 +22,6 @@ import Servant
 import PlutusLedgerApi.V1 (ScriptHash(..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol(..))
 import Control.Monad
-import Data.String (IsString(..))
 import GHC.Stack (HasCallStack)
 import PlutusTx.Prelude (BuiltinByteString)
 
@@ -39,10 +38,7 @@ data CreateBridgeRequest = CreateBridgeRequest
     cbrUsedAddrs :: [GYAddress],
     cbrCollateral :: Maybe GYTxOutRefCbor
   }
-  deriving (Show, Generic)
-
-instance FromJSON CreateBridgeRequest where
-  parseJSON = undefined
+  deriving (Show, Generic, ToJSON, FromJSON)
 
 type BridgeAPI =
   "bridge"

@@ -109,6 +109,7 @@ data User = User
     userPubKey :: PubKey
     -- TODO: add information about payments to the blockchain?
   }
+
 runQuery :: GYTxQueryMonadIO a -> AppM a
 runQuery q = do
   AppEnv {..} <- ask
