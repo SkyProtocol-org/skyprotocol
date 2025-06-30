@@ -1,54 +1,64 @@
-### Terms
-admin - creates minting policy and signs it, bridge
-offerer -
-claimant - used for bounty blueprint
+# General Flow for the Demo Script
 
-### First step: Mint & create bridge using the Admin's keys
+## Terms
+- admin: creates minting policy and signs it, creates bridge
+- offerer: creates bounty contract
+- claimant: publishes data and claims bounty from contract
 
-currency symbol - hash of the sky policy minting
+## Step-by-Step Flow
 
-user's change address - addresses from which to spend your money
+### Mint NFT and create Bridge Contract
 
-payment signing key - look at the MeshJS wallet on how to procure one
+Sky foundation node connects to Cardano node,
+Mint a regular NFT with supply of 1,
+to mark the state of the bridge contract.
+Generate some initial state for the SkyDA and attach it to the UTXO with the NFT.
 
-### Second step: Offer bounty
+- Currency Symbol: hash of the sky policy minting
+- user's change address: addresses from which to spend your money
+- payment signing key: look at the MeshJS wallet on how to procure one
 
-sends 10 ada to bounty validator
-sign with offerrer pkh
+### Offerer creates Bounty contract
 
-### Third step: Offer bounty check
+Offerer connects to Cardano node, creates Bounty validating contract on Cardano,
+putting 10 ADA in it, that will go to claimant's address
+if hash preimage data appears in the DA at given topic before deadline,
+or else will revert to offerer after timeout.
 
-get the address of the validator
-get the utxos
-check for the amount and unit
+Offerer creates a second contract for good measure, with different hash,
+so as to let the second one timeout.
 
-### Fourth step: Update bridge
+### Claimant publishes data on DA
 
-admin updates the bridge
-get the address of validator
-get the hash of minting policy
-call the backend endpoint to update the SkyDa
-call the backend endpoint to update the bridge:
-  create the BridgeRedeemer
-  get the validator utxos
-  get the nft utxo
-  create the updated datum
-  
+Claimant connects to Sky node, publishes hash preimage data as message
+on the DA at the given topic, gets a message ID.
 
-### Fifth step: Claiming bounty
+Claimant connects to Cardano node, watches the chain and waits for the DA bridge to be updated.
 
-get the bridge outputs
-get the nft
-get the bounty outputs & select the first one
-create client redeemer with SkyDataProof
-create Transaction with value from bounty, the script is the bounty validator and the redeemer that we created earlier
+### DA updates Bridge
 
-don't consume the nft by making it a reference input
+Sky node with admin keys connects to Cardano node,
+pushes update of DA state onto the bridge contract.
 
-sign it with the recipient wallet
+### Claimant sees update on Cardano, asks DA for proof
 
-### Sixth step: Verifying bounty claiming
+Claimant see on Cardano node connection that DA bridge state was updated,
+gets new state, waits for full confirmation.
 
-check the length of utxos of bounty validator
+Claimant connects to Sky Node, asks for proof of inclusion of his message at given message ID,
+gets a proof in return that they can check against the Bridge state.
 
+### Claimant claims Bounty
 
+Claimant connects to Cardano node, publishes the proof onto the Bounty contract.
+Contract automatically releases funds to Claimant's address.
+
+Alternatively, second contract times out, and Offerer connect to Cardano node,
+exercises timeout onto the Bounty contract, get funds released back to them.
+
+### Offerer gets data from DA
+
+Offerer connects to Cardano node, sees that the bounty was claimed,
+extracts the proof from the blockchain.
+
+Offerer connects to Sky node for the topic, queries for the data at given messageID.
