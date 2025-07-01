@@ -11,11 +11,11 @@ import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
-import qualified Prelude as HP
 import PlutusTx as P
 import PlutusTx.Functor as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
+import Prelude qualified as HP
 
 ------------------------------------------------------------------------------
 -- Core Data Types
@@ -33,7 +33,8 @@ instance (LiftDato r) => ToByteString (SkyDa r) where
 
 newtype DaMetaData r = DaMetaDataOfTuple {tupleOfDaMetaData :: (DataHash, LiftRef r Committee)}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-  -- deriving (HP.Eq, HP.Show)
+
+-- deriving (HP.Eq, HP.Show)
 
 pattern DaMetaData :: forall r. DataHash -> LiftRef r Committee -> DaMetaData r
 pattern DaMetaData {daSchema, daCommittee} = DaMetaDataOfTuple (daSchema, daCommittee)
@@ -137,7 +138,8 @@ newtype SkyDataPath (r :: Type -> Type)
         TrieMessagePath (TrieMessageNodeRef r (MessageEntry r)),
         LiftRef r (MessageMetaData r)
       )
-  } deriving newtype
+  }
+  deriving newtype
     ( P.Eq,
       P.Show,
       ToByteString,
@@ -225,9 +227,13 @@ insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
                 >>= wrap
             return (SkyDa {skyTopicTrie = skyTopicTrieNew, ..}, Just messageId)
 
-getMessage :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
-  TopicId -> MessageId -> SkyDa r -> e (Maybe (MessageEntry r))
-getMessage topicId messageId da@SkyDa {..} = do
+getMessage ::
+  (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
+  TopicId ->
+  MessageId ->
+  SkyDa r ->
+  e (Maybe (MessageEntry r))
+getMessage topicId messageId SkyDa {..} = do
   topicTrie <- unwrap skyTopicTrie
   maybeTopicEntry <- lookup topicId topicTrie
   case maybeTopicEntry of

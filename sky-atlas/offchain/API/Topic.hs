@@ -30,7 +30,6 @@ type PublicTopicAPI =
 
 type ProtectedTopicAPI =
   ( "create" :> BasicAuth "sky_topic_realm" User :> Post '[JSON] TopicId
-      -- :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
       :<|> "publish_message" :> BasicAuth "sky_topic_realm" User :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
   )
 
@@ -83,7 +82,7 @@ publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
 publishMessage User {..} topicId msgBody = do
   stateW <- asks appStateW
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
-    let da = view (blockState . skyDa) $ state
+    let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
     let (newDa, maybeMessageId) = runIdentity $ C.insertMessage userPubKey timestamp (BuiltinByteString msgBody) topicId da
     return (set (blockState . skyDa) newDa state, maybeMessageId)
@@ -95,7 +94,7 @@ getProof :: TopicId -> MessageId -> AppM BS.ByteString
 getProof topicId messageId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
-  let da = view (bridgeState . bridgedSkyDa) $ state
+  let da = view (bridgeState . bridgedSkyDa) state
   let maybeRmdProof = runIdentity $ getSkyDataProof (topicId, messageId) da :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
   case maybeRmdProof of
     Nothing -> throwError $ APIError "Message not found"
@@ -106,11 +105,11 @@ readMessage :: TopicId -> MessageId -> AppM BS.ByteString
 readMessage topicId msgId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
-  let da = view (blockState . skyDa) $ state
+  let da = view (blockState . skyDa) state
   let maybeMessageEntry = runIdentity $ getMessage topicId msgId da
   case maybeMessageEntry of
     Nothing -> throwError $ APIError "readMessage failed"
     Just (rmd, rd) -> do
-      MessageMetaData poster time <- unwrap rmd
+      MessageMetaDataOfTuple (poster, time) <- unwrap rmd
       message <- unwrap rd
       return . builtinByteStringToByteString . toByteString $ (poster, time, message)

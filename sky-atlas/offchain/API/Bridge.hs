@@ -18,7 +18,6 @@ import GHC.Generics
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
-import Log
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx.Prelude (BuiltinByteString)
