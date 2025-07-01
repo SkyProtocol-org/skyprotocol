@@ -50,8 +50,8 @@ dropPrefix pr s = case splitAt (length pr) s of
 
 data BlockState = BlockState
   { -- | data published on the DA
-    -- Not Implemented Yet:
     _skyDa :: SkyDa HashRef,
+    -- | Not Implemented Yet:
     -- | current topic
     _topic :: (),
     -- | validation for erasure coding
@@ -60,16 +60,18 @@ data BlockState = BlockState
     _superTopic :: (),
     -- | sub-topics that operate under this topic, if any
     _subTopics :: (),
+    -- | payments accepted from publishers but not yet fulfilled
     _publisherPayments :: ()
   }
+
+$(makeLenses ''BlockState)
 
 data BridgeState = BridgeState
   { _bridgedSkyDa :: SkyDa HashRef -- data published on the DA *and* bridged on the blockchain
   }
 
--- payments accepted from publishers but not yet fulfilled
+$(makeLenses ''BridgeState)
 
-$(makeLenses ''BlockState)
 
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment

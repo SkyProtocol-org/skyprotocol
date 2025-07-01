@@ -225,6 +225,17 @@ insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
                 >>= wrap
             return (SkyDa {skyTopicTrie = skyTopicTrieNew, ..}, Just messageId)
 
+getMessage :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
+  TopicId -> MessageId -> SkyDa r -> e (Maybe (MessageEntry r))
+getMessage topicId messageId da@SkyDa {..} = do
+  topicTrie <- unwrap skyTopicTrie
+  maybeTopicEntry <- lookup topicId topicTrie
+  case maybeTopicEntry of
+    Nothing -> return Nothing
+    Just (_, rMessageTrie) -> do
+      messageTrie <- unwrap rMessageTrie
+      lookup messageId messageTrie
+
 -- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProof #-}
 applySkyDataProof :: (HashFunction hf) => SkyDataProof hf -> DataDigest hf -> DataDigest hf

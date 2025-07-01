@@ -59,7 +59,7 @@ closeAPI TestEnv {..} = do
   -- Shutdown the logger
   shutdownLogger $ logger appEnv
 
-healthClient :<|> _bridgeClient :<|> ((_readTopic :<|> _getProof) :<|> createTopic) = client api
+healthClient :<|> _bridgeClient :<|> ((_readTopic :<|> _getProof) :<|> createTopic :<|> publishMessage) = client api
 
 testUser :: BasicAuthData
 testUser = BasicAuthData "skyAdmin" "1234"

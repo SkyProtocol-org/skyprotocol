@@ -20,21 +20,22 @@ import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
 type TopicAPI =
-  "topic" :> (PublicTopicAPI :<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI))
+  "topic" :> (PublicTopicAPI :<|> ProtectedTopicAPI)
 
 type PublicTopicAPI =
   ( "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
   :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html
+  :<|> "read_message" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
   )
 
 type ProtectedTopicAPI =
-  ( "create" :> Post '[JSON] TopicId
+  ( "create" :> BasicAuth "sky_topic_realm" User :> Post '[JSON] TopicId
   -- :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
-  -- :<|> "add_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
+  :<|> "publish_message" :> BasicAuth "sky_topic_realm" User :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
   )
 
 topicServer :: ServerT TopicAPI AppM
-topicServer = (readTopic :<|> getProof) :<|> createTopic -- :<|> addMessage)
+topicServer = (readTopic :<|> getProof :<|> readMessage) :<|> (createTopic :<|> publishMessage)
 
 readTopic :: TopicId -> MessageId -> AppM BS.ByteString
 readTopic tId mId = do
@@ -68,7 +69,6 @@ createTopic _ = do
 
 -- updateTopic _ = throwError $ APIError "Not implemented"
 
-
 utcTimeEpoch :: DTC.UTCTime
 utcTimeEpoch = DTCP.posixSecondsToUTCTime 0
 
@@ -79,8 +79,8 @@ currentPOSIXTime = do
   let (MkFixed nominalDiffTime) = nominalDiffTimeToSeconds $ diffUTCTime utcTime utcTimeEpoch
   return . T.POSIXTime $ nominalDiffTime `div` 1000000000
 
-addMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
-addMessage User {..} topicId msgBody = do
+publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
+publishMessage User {..} topicId msgBody = do
   stateW <- asks appStateW
   maybeMessageId <- liftIO . modifyMVar stateW $ \ state -> do
     let da = view (blockState . skyDa) $ state
@@ -88,11 +88,29 @@ addMessage User {..} topicId msgBody = do
     let (newDa, maybeMessageId) = runIdentity $ C.insertMessage userPubKey timestamp (BuiltinByteString msgBody) topicId da
     return (set (blockState . skyDa) newDa state, maybeMessageId)
   case maybeMessageId of
-    Nothing -> throwError $ APIError "addMessage failed"
+    Nothing -> throwError $ APIError "publishMessage failed"
     Just messageId -> return messageId
 
 getProof :: TopicId -> MessageId -> AppM BS.ByteString
-getProof topicId messageId =
-  -- TODO: get the tophash and skyDa from the Bridge, build a proof relative to THAT
-  -- which means we maintain in the AppState not just the current Da, but the current bridged Da
-  throwError $ APIError "Not implemented"
+getProof topicId messageId = do
+  stateR <- asks appStateR
+  state <- liftIO . readMVar $ stateR
+  let da = view (bridgeState . bridgedSkyDa) $ state
+  let maybeRmdProof = runIdentity $ getSkyDataProof (topicId, messageId) da :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+  case maybeRmdProof of
+    Nothing -> throwError $ APIError "Message not found"
+    Just (rmd, proof) ->
+      return . builtinByteStringToByteString . toByteString $ (rmd, proof)
+
+readMessage :: TopicId -> MessageId -> AppM BS.ByteString
+readMessage topicId msgId = do
+  stateR <- asks appStateR
+  state <- liftIO . readMVar $ stateR
+  let da = view (blockState . skyDa) $ state
+  let maybeMessageEntry = runIdentity $ getMessage topicId msgId da
+  case maybeMessageEntry of
+    Nothing -> throwError $ APIError "readMessage failed"
+    Just (rmd, rd) -> do
+      MessageMetaData poster time <- unwrap rmd
+      message <- unwrap rd
+      return . builtinByteStringToByteString . toByteString $ (poster, time, message)
