@@ -5,8 +5,8 @@ import Common as C
 import Common.OffChain ()
 import Control.Concurrent.MVar
 import Control.Lens
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Reader (asks)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Reader (MonadReader, asks)
 import Data.ByteString qualified as BS
 import Data.Fixed
 import Data.Text
@@ -24,14 +24,14 @@ type TopicAPI =
 
 type PublicTopicAPI =
   ( "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
-  :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html
-  :<|> "read_message" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
+      :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html
+      :<|> "read_message" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
   )
 
 type ProtectedTopicAPI =
   ( "create" :> BasicAuth "sky_topic_realm" User :> Post '[JSON] TopicId
-  -- :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
-  :<|> "publish_message" :> BasicAuth "sky_topic_realm" User :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
+      -- :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
+      :<|> "publish_message" :> BasicAuth "sky_topic_realm" User :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
   )
 
 topicServer :: ServerT TopicAPI AppM
@@ -51,12 +51,12 @@ readTopic tId mId = do
         Nothing -> throwError . APIError $ "Can't find message with id " <> show (toInt mId)
         Just (_mMeta, mData) -> builtinByteStringToByteString <$> unwrap mData
 
-createTopic :: User -> AppM TopicId
+createTopic :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
 createTopic _ = do
   stateW <- asks appStateW
   stateR <- asks appStateR
-  topicId <- liftIO . modifyMVar stateW $ \ state -> do
-    let da = view (blockState . skyDa) $ state
+  topicId <- liftIO . modifyMVar stateW $ \state -> do
+    let da = view (blockState . skyDa) state
     let (newDa, maybeTopicId) = runIdentity $ insertTopic (computeHash (ofHex "1ea7f00d" :: Bytes4)) da
     case maybeTopicId of
       Nothing -> throwError $ userError "Can't add topic"
@@ -82,7 +82,7 @@ currentPOSIXTime = do
 publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
 publishMessage User {..} topicId msgBody = do
   stateW <- asks appStateW
-  maybeMessageId <- liftIO . modifyMVar stateW $ \ state -> do
+  maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) $ state
     timestamp <- currentPOSIXTime
     let (newDa, maybeMessageId) = runIdentity $ C.insertMessage userPubKey timestamp (BuiltinByteString msgBody) topicId da

@@ -1,6 +1,7 @@
+{-# HLINT ignore "Use newtype instead of data" #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-{-# HLINT ignore "Use newtype instead of data" #-}
 module API.Types where
 
 import Common
@@ -10,9 +11,8 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Aeson
 import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BSL
 import Data.Char (toLower)
--- import Data.Text (Text)
-
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GeniusYield.GYConfig
@@ -25,16 +25,22 @@ data AppError
   = APIError String
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
+-- | Function to convert app error to user error that user can send to support
+appErrorToUserError :: AppError -> BSL.ByteString
+appErrorToUserError (APIError _) = "228"
+
 data AppConfig = AppConfig
   { configPort :: Int,
+    -- NOTE: in the future we will only have one path to the keys
+    configAdminKeysPath :: FilePath,
+    configOffererKeysPath :: FilePath,
+    configClaymantKeysPath :: FilePath,
     configLogLevel :: Maybe Text,
-    configTokenName :: Text,
+    -- NOTE: the token name should be base16 encoded(why?)
+    configTokenName :: GYTokenName,
     configAtlas :: GYCoreConfig
   }
   deriving (Show, Generic)
-
--- instance ToJSON AppConfig where
---   toJSON = genericToJSON defaultOptions {fieldLabelModifier = dropPrefix "config"}
 
 instance FromJSON AppConfig where
   parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "config"}
@@ -101,11 +107,11 @@ data AppState = AppState
 $(makeLenses ''AppState)
 
 data CardanoUser = CardanoUser
-  { cuserVerificationKey :: Text,
-    cuserSigningKey :: Text,
-    cuserAddress :: Text
+  { cuserVerificationKey :: GYPubKeyHash,
+    cuserSigningKey :: GYSomePaymentSigningKey,
+    cuserAddress :: GYAddress
   }
-  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  deriving (Eq, Show, Generic)
 
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
@@ -119,8 +125,29 @@ data AppEnv = AppEnv
     logger :: Logger
   }
 
--- TODO: consider integration atlas core monads into the monad stack
-type AppM = ReaderT AppEnv (LogT (ExceptT AppError Handler))
+newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
+  deriving newtype
+    ( Functor,
+      Applicative,
+      Monad,
+      MonadReader AppEnv,
+      MonadError AppError,
+      MonadLog,
+      MonadIO
+    )
+
+-- TODO: setting log level to trace here, for debuggin purposes, better make it an app option later
+runApp :: AppEnv -> AppM a -> IO (Either AppError a)
+runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) Log.LogTrace $ runReaderT m env
+
+nt :: AppEnv -> AppM a -> Handler a
+nt env m = do
+  eitherRes <- liftIO $ runApp env m
+  case eitherRes of
+    Right res -> pure res
+    Left err -> throwError err500 {errBody = "Something went wrong. Please contact support with this error code: " <> appErrorToUserError err}
+
+-- instance MonadRandom AppM => GYTxBuilderMonad AppM where
 
 data User = User
   { userEmail :: BS.ByteString,
