@@ -175,7 +175,6 @@ test-suite offchain-tests
   build-depends:
     , atlas-cardano
     , base
-    , bytestring
     , http-client
     , log-base
     , servant-client
@@ -184,7 +183,6 @@ test-suite offchain-tests
     , sky-atlas:offchain
     , tasty
     , tasty-hunit
-    , text
     , warp
     , yaml
 

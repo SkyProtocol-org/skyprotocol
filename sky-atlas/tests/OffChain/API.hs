@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
+
 module OffChain.API (apiSpec) where
 
 import API
@@ -16,7 +17,6 @@ import Servant
 import Servant.Client
 import Test.Tasty
 import Test.Tasty.HUnit
-import API.Types
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -59,7 +59,8 @@ closeAPI TestEnv {..} = do
   -- Shutdown the logger
   shutdownLogger $ logger appEnv
 
-healthClient :<|> _bridgeClient :<|> ((_readTopic :<|> _getProof) :<|> createTopic :<|> publishMessage) = client api
+-- TODO: add tests for the rest of the endpoints
+healthClient :<|> _bridgeClient :<|> ((_readTopic :<|> _getProof) :<|> createTopic :<|> _publishMessage) = client api
 
 testUser :: BasicAuthData
 testUser = BasicAuthData "skyAdmin" "1234"
