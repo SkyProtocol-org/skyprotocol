@@ -6,7 +6,6 @@ import Cardano.Crypto.DSIGN.Class qualified as DSIGN
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
 import Common.Types
 import Control.Monad (Monad)
-import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusTx as P
@@ -14,7 +13,7 @@ import PlutusTx.Blueprint as P
 import PlutusTx.Builtins as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
-import qualified Prelude as HP
+import Prelude qualified as HP
 
 -- * Types
 
@@ -98,10 +97,11 @@ class (StaticLength hf) => HashFunction hf where
 class (HashFunction hf) => DigestibleRef hf r where
   getDigest :: r a -> Digest hf a
   makeDigestRef :: Digest hf a -> a -> r a
---  | r -> hf
-  digestRef_ :: ToByteString a => Proxy hf -> a -> r a
+
+  --  | r -> hf
+  digestRef_ :: (ToByteString a) => Proxy hf -> a -> r a
   digestRef_ _ a = makeDigestRef @hf (computeDigest @hf a) a
-  lookupDigestRef :: ToByteString a => Digest hf a -> r a
+  lookupDigestRef :: (ToByteString a) => Digest hf a -> r a
   lookupDigestRef d = makeDigestRef d $ lookupDigest d
 
 -- * Instances
@@ -276,7 +276,7 @@ instance (HashFunction hf) => LiftWrapping Identity (DigestMRef hf) where
 -- ** LiftRef
 
 instance (HashFunction hf, DigestibleRef hf r) => DigestibleRef hf (LiftRef r) where
--- instance (HashFunction hf, DigestibleRef hf (r hf)) => DigestibleRef hf (LiftRef (r hf)) where
+  -- instance (HashFunction hf, DigestibleRef hf (r hf)) => DigestibleRef hf (LiftRef (r hf)) where
   getDigest = getDigest . liftref
   makeDigestRef d a = LiftRef $ makeDigestRef d a
 
