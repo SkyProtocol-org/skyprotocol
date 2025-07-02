@@ -60,10 +60,16 @@ closeAPI TestEnv {..} = do
   shutdownLogger $ logger appEnv
 
 -- TODO: add tests for the rest of the endpoints
-healthClient :<|> _bridgeClient :<|> ((_readTopic :<|> _getProof) :<|> createTopic :<|> _publishMessage) = client api
+healthClient
+  :<|> _bridgeClient
+  :<|> ((_readTopic :<|> _getProof :<|> _readMessage)
+    :<|> protectedTopicApi) = client api
+
 
 testUser :: BasicAuthData
 testUser = BasicAuthData "skyAdmin" "1234"
+
+createTopic :<|> _publishTopicMessage = protectedTopicApi testUser
 
 -- NOTE: 'withResource' shares the resource across the 'testGroup' it is applied to
 apiSpec :: TestTree
@@ -76,6 +82,6 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
         res @?= Right "OK",
       testCase "should return TopicId 0 when creating new topic" $ do
         TestEnv {..} <- getTestEnv
-        res <- liftIO $ runClientM (createTopic testUser) clientEnv
+        res <- liftIO $ runClientM createTopic clientEnv
         res @?= Right (topicIdFromInteger 0)
     ]
