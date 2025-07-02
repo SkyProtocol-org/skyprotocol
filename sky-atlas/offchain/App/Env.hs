@@ -1,16 +1,17 @@
 module App.Env where
 
+import App.Error
 import Common
 import Control.Concurrent.MVar
 import Control.Lens
 import Data.Aeson
 import Data.Char (toLower)
 import Data.Text (Text)
+import Data.Text.IO qualified as T
 import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
-import System.Exit (exitFailure)
 
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
@@ -46,23 +47,45 @@ dropPrefix pr s = case splitAt (length pr) s of
     toLowerHead [] = []
     toLowerHead (x : xs) = toLower x : xs
 
+-- | Helper type to read the cardano-cli generated verification key
+data CardanoVerificationKey = VerKey
+  { verKeyType :: String,
+    verKeyDescription :: String,
+    verKeyCborHex :: GYPaymentVerificationKey
+  }
+  deriving (Eq, Show, Generic)
+
+instance FromJSON CardanoVerificationKey where
+  parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "verKey"}
+
+-- | Helper type to read the cardano-cli generated signing key
+data CardanoSigningKey = SigKey
+  { sigKeyType :: String,
+    sigKeyDescription :: String,
+    sigKeyCborHex :: GYPaymentSigningKey
+  }
+  deriving (Eq, Show, Generic)
+
+instance FromJSON CardanoSigningKey where
+  parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "sigKey"}
+
 data CardanoUser = CardanoUser
-  { cuserVerificationKey :: GYPubKeyHash,
+  { cuserVerificationKey :: GYPaymentVerificationKey,
     cuserSigningKey :: GYSomePaymentSigningKey,
     cuserAddress :: GYAddress
   }
   deriving (Eq, Show, Generic)
 
--- TODO: make this an Either SomeError CardanoUser instead
--- e.g. make normal error handling
-getCardanoUser :: FilePath -> IO CardanoUser
+getCardanoUser :: FilePath -> IO (Either AppError CardanoUser)
 getCardanoUser fp = do
-  maybeVerificationKey <- decodeFileStrict $ fp <> "payment.vkey"
-  maybeSigningKey <- decodeFileStrict $ fp <> "payment.skey"
-  maybeAddress <- decodeFileStrict $ fp <> "payment.addr"
-  case (maybeVerificationKey, AGYPaymentSigningKey <$> maybeSigningKey, maybeAddress) of
-    (Just cuserVerificationKey, Just cuserSigningKey, Just cuserAddress) -> pure CardanoUser {..}
-    _ -> exitFailure
+  eitherVerificationKey <- eitherDecodeFileStrict $ fp <> "payment.vkey"
+  eitherSigningKey <- eitherDecodeFileStrict $ fp <> "payment.skey"
+  address <- T.readFile $ fp <> "payment.address"
+  let toLeft = Left . StartupError . show
+      verKey = either toLeft (Right . verKeyCborHex) eitherVerificationKey
+      sigKey = either toLeft (Right . AGYPaymentSigningKey . sigKeyCborHex) eitherSigningKey
+      addr = maybe (Left $ StartupError "can't get address") Right $ addressFromTextMaybe address
+  pure $ CardanoUser <$> verKey <*> sigKey <*> addr
 
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment
@@ -115,7 +138,7 @@ $(makeLenses ''BridgeState)
 $(makeLenses ''AppState)
 $(makeLenses ''BlockState)
 
-initEnv :: AppConfig -> Logger -> GYProviders -> FilePath -> FilePath -> FilePath -> IO AppEnv
+initEnv :: AppConfig -> Logger -> GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
 initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
   let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
       committee = MultiSigPubKey ([undefined, undefined], UInt16 2)
@@ -145,8 +168,11 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
   appStateW <- newMVar appState
   appStateR <- newMVar appState
 
-  appAdmin <- getCardanoUser adminKeys
-  appOfferer <- getCardanoUser offererKeys
-  appClaimant <- getCardanoUser claimantKeys
+  eitherAdmin <- getCardanoUser adminKeys
+  eitherOfferer <- getCardanoUser offererKeys
+  eitherClaimant <- getCardanoUser claimantKeys
 
-  pure $ AppEnv {..}
+  case sequence [eitherAdmin, eitherOfferer, eitherClaimant] of
+    Left err -> pure $ Left err
+    Right [appAdmin, appOfferer, appClaimant] -> pure $ Right AppEnv {..}
+    _ -> pure $ Left $ StartupError "Something wen't wrong when reading keys"

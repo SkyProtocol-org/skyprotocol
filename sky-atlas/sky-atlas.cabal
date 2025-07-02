@@ -114,6 +114,7 @@ library offchain
     API.Types
     App
     App.Env
+    App.Error
 
   build-depends:
     , aeson

@@ -1,7 +1,5 @@
 module App
   ( AppM (..),
-    AppError (..),
-    appErrorToUserError,
     AppConfig (..),
     BlockState (..),
     AppState (..),
@@ -13,29 +11,20 @@ module App
     runBuilder,
     runGY,
     module App.Env,
+    module App.Error,
   )
 where
 
 import API.Types
 import App.Env
+import App.Error
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.Aeson
-import Data.ByteString.Lazy qualified as BSL
-import GHC.Generics (Generic)
 import GeniusYield.GYConfig
 import GeniusYield.TxBuilder hiding (User)
 import GeniusYield.Types
 import Log
 import Servant
-
-data AppError
-  = APIError String
-  deriving (Show, Eq, Generic, ToJSON, FromJSON)
-
--- | Function to convert app error to user error that user can send to support
-appErrorToUserError :: AppError -> BSL.ByteString
-appErrorToUserError (APIError _) = "228"
 
 newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
   deriving newtype

@@ -19,6 +19,7 @@ import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.Client
+import System.Exit (exitFailure)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.Runners (NumThreads (..))
@@ -65,11 +66,18 @@ testEnv appConfig logger appProviders = do
   appStateW <- newMVar appState
   appStateR <- newMVar appState
 
-  appAdmin <- getCardanoUser "config/admin/"
-  appOfferer <- getCardanoUser "config/offerer/"
-  appClaimant <- getCardanoUser "config/claimant/"
+  eitherAdmin <- getCardanoUser "./tests/OffChain/admin/"
+  eitherOfferer <- getCardanoUser "./tests/OffChain/offerer/"
+  eitherClaimant <- getCardanoUser "./tests/OffChain/claimant/"
 
-  pure $ AppEnv {..}
+  case sequence [eitherAdmin, eitherOfferer, eitherClaimant] of
+    Left (StartupError err) -> do
+      putStrLn err
+      exitFailure
+    Right [appAdmin, appOfferer, appClaimant] -> pure AppEnv {..}
+    _ -> do
+      putStrLn "something went very wrong"
+      exitFailure
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -128,7 +136,7 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
     "API Tests"
     [ testGroup
         "Health client"
-        [ testCase "should return OK for health endpoint" $ do
+        [ testCase "health endpoint" $ do
             TestEnv {..} <- getTestEnv
             res <- liftIO $ runClientM healthClient clientEnv
             res @?= Right "OK"
