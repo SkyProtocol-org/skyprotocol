@@ -11,17 +11,14 @@ import Network.HTTP.Types qualified as HttpTypes
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Middleware.Cors
 import System.Environment
-import System.Exit
 
 main :: IO ()
 main = do
   -- TODO: replace with normal args handling in the future
   args <- getArgs
   case args of
-    ["-h"] -> printHelp
-    ["--help"] -> printHelp
-    [_, _, _] -> pure ()
-    _ -> exitFailure
+    [_, _, _] -> putStrLn "Everything is OK, continuing with initialization"
+    _ -> printHelp
 
   -- TODO: temporary for the M4
   let [adminKeys, offererKeys, claimantKeys] = args
