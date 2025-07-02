@@ -74,11 +74,12 @@ data CardanoUser = CardanoUser
   }
   deriving (Eq, Show, Generic)
 
+-- TODO: make this name agnostic e.g. target the extension
 getCardanoUser :: FilePath -> IO (Either AppError CardanoUser)
 getCardanoUser fp = do
   eitherVerificationKey <- eitherDecodeFileStrict $ fp <> "payment.vkey"
   eitherSigningKey <- eitherDecodeFileStrict $ fp <> "payment.skey"
-  address <- T.readFile $ fp <> "payment.address"
+  address <- T.readFile $ fp <> "payment.addr"
   let toLeft = Left . StartupError . show
       verKey = either toLeft (Right . verKeyCborHex) eitherVerificationKey
       sigKey = either toLeft (Right . AGYPaymentSigningKey . sigKeyCborHex) eitherSigningKey
