@@ -1,0 +1,134 @@
+module App
+  ( AppM (..),
+    AppError (..),
+    appErrorToUserError,
+    AppConfig (..),
+    BlockState (..),
+    AppState (..),
+    AppEnv (..),
+    authCheck,
+    nt,
+    runApp,
+    runQuery,
+    runBuilder,
+    runGY,
+    module App.Env,
+  )
+where
+
+import API.Types
+import App.Env
+import Control.Monad.Except
+import Control.Monad.Reader
+import Data.Aeson
+import Data.ByteString.Lazy qualified as BSL
+import GHC.Generics (Generic)
+import GeniusYield.GYConfig
+import GeniusYield.TxBuilder hiding (User)
+import GeniusYield.Types
+import Log
+import Servant
+
+data AppError
+  = APIError String
+  deriving (Show, Eq, Generic, ToJSON, FromJSON)
+
+-- | Function to convert app error to user error that user can send to support
+appErrorToUserError :: AppError -> BSL.ByteString
+appErrorToUserError (APIError _) = "228"
+
+newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
+  deriving newtype
+    ( Functor,
+      Applicative,
+      Monad,
+      MonadReader AppEnv,
+      MonadError AppError,
+      MonadLog,
+      MonadIO
+    )
+
+-- TODO: setting log level to trace here, for debuggin purposes, better make it an app option later
+runApp :: AppEnv -> AppM a -> IO (Either AppError a)
+runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) Log.LogTrace $ runReaderT m env
+
+authCheck :: BasicAuthCheck User
+authCheck = BasicAuthCheck $ \(BasicAuthData username password) ->
+  if username == "skyAdmin" && password == "1234"
+    then return $ Authorized $ User (username <> "@skyprotocol.org")
+    else return Unauthorized
+
+nt :: AppEnv -> AppM a -> Handler a
+nt env m = do
+  eitherRes <- liftIO $ runApp env m
+  case eitherRes of
+    Right res -> pure res
+    Left err -> throwError err500 {errBody = "Something went wrong. Please contact support with this error code: " <> appErrorToUserError err}
+
+-- instance MonadRandom AppM => GYTxBuilderMonad AppM where
+
+runQuery :: GYTxQueryMonadIO a -> AppM a
+runQuery q = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $ runGYTxQueryMonadIO nid appProviders q
+
+runBuilder ::
+  -- | User's used addresses.
+  [GYAddress] ->
+  -- | User's change address.
+  GYAddress ->
+  -- | Browser wallet's reserved collateral (if set).
+  Maybe GYTxOutRefCbor ->
+  GYTxBuilderMonadIO (GYTxSkeleton v) ->
+  AppM GYTxBody
+runBuilder addrs addr collateral skeleton = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $
+    runGYTxBuilderMonadIO
+      nid
+      appProviders
+      addrs
+      addr
+      ( collateral
+          >>= ( \c ->
+                  Just
+                    ( getTxOutRefHex c,
+                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                    )
+              )
+      )
+      (skeleton >>= buildTxBody)
+
+runGY ::
+  GYSomePaymentSigningKey ->
+  Maybe GYSomeStakeSigningKey ->
+  -- | User's used addresses.
+  [GYAddress] ->
+  -- | User's change address.
+  GYAddress ->
+  -- | Browser wallet's reserved collateral (if set).
+  Maybe GYTxOutRefCbor ->
+  GYTxMonadIO GYTxBody ->
+  AppM GYTxId
+runGY psk ssk addrs addr collateral body = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $
+    runGYTxMonadIO
+      nid
+      appProviders
+      psk
+      ssk
+      addrs
+      addr
+      ( collateral
+          >>= ( \c ->
+                  Just
+                    ( getTxOutRefHex c,
+                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                    )
+              )
+      )
+      (body >>= signAndSubmitConfirmed)

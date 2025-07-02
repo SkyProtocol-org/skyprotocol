@@ -6,6 +6,7 @@ import Cardano.Crypto.DSIGN.Class qualified as DSIGN
 import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
 import Common.Types
 import Control.Monad (Monad)
+import Data.Aeson
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusTx as P
@@ -279,6 +280,13 @@ instance (HashFunction hf, DigestibleRef hf r) => DigestibleRef hf (LiftRef r) w
   -- instance (HashFunction hf, DigestibleRef hf (r hf)) => DigestibleRef hf (LiftRef (r hf)) where
   getDigest = getDigest . liftref
   makeDigestRef d a = LiftRef $ makeDigestRef d a
+
+-- ** SecKey
+
+instance FromJSON SecKey where
+  parseJSON v = do
+    k <- parseJSON v
+    return $ SecKey $ ofHex k
 
 -- ** PubKeyHash
 

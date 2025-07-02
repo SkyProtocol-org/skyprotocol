@@ -112,6 +112,8 @@ library offchain
     API.SkyMintingPolicy
     API.Topic
     API.Types
+    App
+    App.Env
 
   build-depends:
     , aeson

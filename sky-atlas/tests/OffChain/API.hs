@@ -3,12 +3,16 @@
 module OffChain.API (apiSpec) where
 
 import API
+import App
 import Common
 import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
+import Control.Concurrent.MVar
 import Control.Monad.IO.Class (liftIO)
+import Data.Functor.Identity
 import Data.Yaml.Config (loadYamlSettings, useEnv)
 import GeniusYield.GYConfig (withCfgProviders)
+import GeniusYield.Types
 import Log
 import Log.Backend.LogList
 import Network.HTTP.Client (defaultManagerSettings, newManager)
@@ -17,6 +21,54 @@ import Servant
 import Servant.Client
 import Test.Tasty
 import Test.Tasty.HUnit
+
+testSecKey1 :: SecKey
+testSecKey1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
+
+testSecKey2 :: SecKey
+testSecKey2 = ofHex "B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F"
+
+testPubKey1 :: PubKey
+testPubKey1 = derivePubKey testSecKey1
+
+testPubKey2 :: PubKey
+testPubKey2 = derivePubKey testSecKey2
+
+testEnv :: AppConfig -> Logger -> GYProviders -> IO AppEnv
+testEnv appConfig logger appProviders = do
+  let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
+      committee = MultiSigPubKey ([testPubKey1, testPubKey2], UInt16 2)
+      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
+      _blockState =
+        BlockState
+          { _skyDa,
+            _topic = (),
+            _erasureCoding = (),
+            _superTopic = (),
+            _subTopics = (),
+            _publisherPayments = ()
+          }
+      appState =
+        AppState
+          { _blockState,
+            _oldBlockQueue = (),
+            _partialSignatures = (),
+            _bridgeState = BridgeState _skyDa,
+            _stake = (),
+            _peers = (),
+            _clients = (),
+            _subscriberPayments = (),
+            _auctions = (),
+            _longTermStorage = ()
+          }
+  appStateW <- newMVar appState
+  appStateR <- newMVar appState
+
+  appAdmin <- getCardanoUser "config/admin/"
+  appOfferer <- getCardanoUser "config/offerer/"
+  appClaimant <- getCardanoUser "config/claimant/"
+
+  pure $ AppEnv {..}
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -62,9 +114,9 @@ closeAPI TestEnv {..} = do
 -- TODO: add tests for the rest of the endpoints
 healthClient
   :<|> _bridgeClient
-  :<|> ((_readTopic :<|> _getProof :<|> _readMessage)
-    :<|> protectedTopicApi) = client api
-
+  :<|> ( (_readTopic :<|> _getProof :<|> _readMessage)
+           :<|> protectedTopicApi
+         ) = client api
 
 testUser :: BasicAuthData
 testUser = BasicAuthData "skyAdmin" "1234"

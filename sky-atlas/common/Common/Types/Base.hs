@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -10,7 +9,6 @@ import Data.ByteString qualified as BS
 import Data.Function ((&))
 import Data.String (IsString, String, fromString)
 import Data.Text (pack, unpack)
-import qualified Prelude as HP
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
@@ -21,6 +19,7 @@ import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
 import Text.Hex (decodeHex, encodeHex)
+import Prelude qualified as HP
 
 -- * Types
 
@@ -179,10 +178,10 @@ class FromByteString a where
   --  fromByteString = fromJust . maybeFromByteString
   byteStringIn :: IsTerminal -> ByteStringReader a
 
---  ??? THIS CAUSES HAVOC IN THE PLUTUS COMPILER, WHY???
---  {-# INLINEABLE maybeFromByteString__ #-}
---  maybeFromByteString__ :: BuiltinByteString -> Maybe a
---  maybeFromByteString__ = maybeFromByteStringIn
+  --  ??? THIS CAUSES HAVOC IN THE PLUTUS COMPILER, WHY???
+  --  {-# INLINEABLE maybeFromByteString__ #-}
+  --  maybeFromByteString__ :: BuiltinByteString -> Maybe a
+  --  maybeFromByteString__ = maybeFromByteStringIn
 
   {-# MINIMAL byteStringIn #-}
 
@@ -190,7 +189,10 @@ class FromByteString a where
    (see CIP-123, compare to CLHS integer-length) -}
 class BitLogic a where
   bitLength :: a -> Integer
-  lowestBitClear :: a -> Integer -- ^ NB: returns nBits for allBits, but -1 for -1 for Integers.
+  lowestBitClear ::
+    a ->
+    -- | NB: returns nBits for allBits, but -1 for -1 for Integers.
+    Integer
   isBitSet :: Integer -> a -> Bool
   lowBitsMask :: Integer -> a
   logicalOr :: a -> a -> a
@@ -208,7 +210,8 @@ type Dato d =
     P.FromData d,
     P.UnsafeFromData d,
     P.Show d,
-    P.Eq d)
+    P.Eq d
+  )
 
 -- * Instances
 
@@ -340,16 +343,22 @@ instance (StaticLength len) => BitLogic (FixedLengthByteString len) where
                   else
                     shiftByteString (getFixedLengthByteString fb) i
 
-instance (StaticLength len) =>
-  P.HasBlueprintSchema (FixedLengthByteString len) referencedTypes where
+instance
+  (StaticLength len) =>
+  P.HasBlueprintSchema (FixedLengthByteString len) referencedTypes
+  where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance (StaticLength len) =>
-  P.FromData (FixedLengthByteString len) where
+instance
+  (StaticLength len) =>
+  P.FromData (FixedLengthByteString len)
+  where
   fromBuiltinData d = fromBuiltinData d <&> fromByteString
 
-instance (StaticLength len) =>
-  P.UnsafeFromData (FixedLengthByteString len) where
+instance
+  (StaticLength len) =>
+  P.UnsafeFromData (FixedLengthByteString len)
+  where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** BuiltinByteString
@@ -529,7 +538,9 @@ instance (StaticLength len) => P.Eq (FixedLengthInteger len) where
 
 instance (StaticLength len) => P.Show (FixedLengthInteger len) where
   showsPrec prec (FixedLengthInteger n) =
-    showApp prec "FixedLengthInteger"
+    showApp
+      prec
+      "FixedLengthInteger"
       [showString "@L" . showArg (staticLength $ Proxy @len), showArg n]
 
 instance (StaticLength len) => Partial (FixedLengthInteger len) where
@@ -579,8 +590,10 @@ instance (StaticLength len) => P.FromData (FixedLengthInteger len) where
 instance (StaticLength len) => P.UnsafeFromData (FixedLengthInteger len) where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance (StaticLength len) =>
-  P.HasBlueprintSchema (FixedLengthInteger len) referencedTypes where
+instance
+  (StaticLength len) =>
+  P.HasBlueprintSchema (FixedLengthInteger len) referencedTypes
+  where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** VariableLengthInteger
@@ -764,7 +777,8 @@ instance (ConvertTo a b, FromByteString a) => FromByteString (As a b) where
   byteStringIn x = As . convertTo @a @b <$> byteStringIn x
 
 instance (ConvertTo a b, P.FromData a) => P.FromData (As a b) where
-  fromBuiltinData x =  As . convertTo @a @b <$>  fromBuiltinData x
+  fromBuiltinData x = As . convertTo @a @b <$> fromBuiltinData x
+
 instance (ConvertTo a b, P.UnsafeFromData a) => P.UnsafeFromData (As a b) where
   unsafeFromBuiltinData = As . convertTo @a @b . unsafeFromBuiltinData
 
@@ -895,10 +909,10 @@ fromByteStringIn_ :: (IsTerminal -> ByteStringReader a) -> P.BuiltinByteString -
 fromByteStringIn_ bsIn = fromJust . maybeFromByteStringIn_ bsIn
 
 {-# INLINEABLE fromByteStringIn #-}
-fromByteStringIn :: FromByteString a => P.BuiltinByteString -> a
+fromByteStringIn :: (FromByteString a) => P.BuiltinByteString -> a
 fromByteStringIn = fromByteStringIn_ byteStringIn
 
-maybeFromByteStringIn :: FromByteString a => P.BuiltinByteString -> Maybe a
+maybeFromByteStringIn :: (FromByteString a) => P.BuiltinByteString -> Maybe a
 maybeFromByteStringIn = maybeFromByteStringIn_ byteStringIn
 
 byteStringCursor :: P.BuiltinByteString -> ByteStringCursor
@@ -957,4 +971,3 @@ bHex = hexOf
 
 hexB :: String -> P.BuiltinByteString
 hexB = ofHex
-

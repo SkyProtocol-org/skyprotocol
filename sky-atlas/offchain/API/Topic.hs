@@ -1,6 +1,7 @@
 module API.Topic (TopicAPI, topicServer) where
 
 import API.Types
+import App
 import Common as C
 import Common.OffChain ()
 import Control.Concurrent.MVar
@@ -30,11 +31,11 @@ type PublicTopicAPI =
 
 type ProtectedTopicAPI =
   ( "create" :> Post '[JSON] TopicId
-  :<|> "publish_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
+      :<|> "publish_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
   )
 
 topicServer :: ServerT TopicAPI AppM
-topicServer =  unprotectedServer :<|> protectedServer
+topicServer = unprotectedServer :<|> protectedServer
   where
     unprotectedServer = readTopic :<|> getProof :<|> readMessage
     protectedServer u = createTopic u :<|> publishMessage u
@@ -54,7 +55,7 @@ readTopic tId mId = do
         Just (_mMeta, mData) -> builtinByteStringToByteString <$> unwrap mData
 
 createTopic :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
-createTopic _ = do
+createTopic _user = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   topicId <- liftIO . modifyMVar stateW $ \state -> do
@@ -80,12 +81,13 @@ currentPOSIXTime = do
   return . T.POSIXTime $ nominalDiffTime `div` 1000000000
 
 publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
-publishMessage User {..} topicId msgBody = do
+publishMessage _user topicId msgBody = do
   stateW <- asks appStateW
+  userSecKey <- asks $ configUserSecKey . appConfig
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
-    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage userPubKey timestamp (BuiltinByteString msgBody) topicId da
+    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage (derivePubKey userSecKey) timestamp (BuiltinByteString msgBody) topicId da
     return (set (blockState . skyDa) newDa state, maybeMessageId)
   case maybeMessageId of
     Nothing -> throwError $ APIError "publishMessage failed"

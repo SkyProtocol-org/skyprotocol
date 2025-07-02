@@ -1,5 +1,6 @@
 port: 8080
 tokenName: "SkyBridge"
+userPubKey: ""
 adminKeysPath: ""
 offererKeysPath: ""
 claymantKeysPath: ""
