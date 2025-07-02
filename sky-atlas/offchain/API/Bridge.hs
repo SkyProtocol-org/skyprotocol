@@ -1,7 +1,3 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use newtype instead of data" #-}
-
 module API.Bridge (BridgeAPI, bridgeServer) where
 
 import API.SkyMintingPolicy
@@ -42,7 +38,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
 
       body <-
         runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral $
-          createBridge cbrAmount (configTokenName appConfig) cbrSigner topHash
+          createBridge cbrAmount (configTokenName appConfig) (pubKeyHash $ cuserVerificationKey appAdmin) topHash
 
       void $ runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
 

@@ -1,12 +1,9 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
-
 module API
   ( API,
     api,
     server,
-    module API.Types,
     app,
+    User (..),
   )
 where
 

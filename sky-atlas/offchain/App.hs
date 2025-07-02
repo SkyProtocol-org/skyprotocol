@@ -20,6 +20,7 @@ import App.Env
 import App.Error
 import Control.Monad.Except
 import Control.Monad.Reader
+import Data.Maybe (fromMaybe)
 import GeniusYield.GYConfig
 import GeniusYield.TxBuilder hiding (User)
 import GeniusYield.Types
@@ -37,9 +38,8 @@ newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
       MonadIO
     )
 
--- TODO: setting log level to trace here, for debuggin purposes, better make it an app option later
 runApp :: AppEnv -> AppM a -> IO (Either AppError a)
-runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) Log.LogTrace $ runReaderT m env
+runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) (fromMaybe Log.LogTrace $ configLogLevel $ appConfig env) $ runReaderT m env
 
 authCheck :: BasicAuthCheck User
 authCheck = BasicAuthCheck $ \(BasicAuthData username password) ->
@@ -52,7 +52,7 @@ nt env m = do
   eitherRes <- liftIO $ runApp env m
   case eitherRes of
     Right res -> pure res
-    Left err -> throwError err500 {errBody = "Something went wrong. Please contact support with this error code: " <> appErrorToUserError err}
+    Left err -> throwError err500 {errBody = "Something went wrong. Please contact support with this information: " <> appErrorToUserError err}
 
 -- instance MonadRandom AppM => GYTxBuilderMonad AppM where
 

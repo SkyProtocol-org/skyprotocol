@@ -6,13 +6,13 @@ import Control.Concurrent.MVar
 import Control.Lens
 import Data.Aeson
 import Data.Char (toLower)
-import Data.Text (Text)
 import Data.Text.IO qualified as T
 import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
 
+-- TODO: add updatable whitelist for users here or in the AppState
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
     appProviders :: GYProviders,
@@ -21,15 +21,13 @@ data AppEnv = AppEnv
     appOfferer :: CardanoUser,
     appStateW :: MVar AppState, -- Write copy, lock can be held a long time
     appStateR :: MVar AppState, -- Read copy, lock held very briefly but slightly out-of-date (double buffering / "MVCC")
-    -- TODO: add updatable whitelist for users here or in the AppState
     logger :: Logger
   }
 
 data AppConfig = AppConfig
   { configPort :: Int,
     configUserSecKey :: SecKey,
-    configLogLevel :: Maybe Text,
-    -- NOTE: the token name should be base16 encoded(why?)
+    configLogLevel :: Maybe LogLevel,
     configTokenName :: GYTokenName,
     configAtlas :: GYCoreConfig
   }
@@ -132,8 +130,8 @@ data BridgeState = BridgeState
   { _bridgedSkyDa :: SkyDa HashRef -- data published on the DA *and* bridged on the blockchain
   }
 
--- TODO: the use of TemplateHaskell is messing with compiler and order of definition.
--- try to replace this with generics
+-- TODO: the use of TemplateHaskell is messing with compilers order of definition.
+-- need to replace this with generics
 $(makeLenses ''BridgeState)
 $(makeLenses ''AppState)
 $(makeLenses ''BlockState)
@@ -175,4 +173,4 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
   case sequence [eitherAdmin, eitherOfferer, eitherClaimant] of
     Left err -> pure $ Left err
     Right [appAdmin, appOfferer, appClaimant] -> pure $ Right AppEnv {..}
-    _ -> pure $ Left $ StartupError "Something wen't wrong when reading keys"
+    _ -> pure $ Left $ StartupError "Something wen't wrong when initializing environment"

@@ -1,9 +1,10 @@
 port: 8080
+# Should be base16 encoded(why?)
 tokenName: "SkyBridge"
+# Could be one of "trace", "attention" of "info"
+# By default is "trace"
+logLevel: "trace"
 userPubKey: ""
-adminKeysPath: ""
-offererKeysPath: ""
-claymantKeysPath: ""
 
 atlas:
   coreProvider:
