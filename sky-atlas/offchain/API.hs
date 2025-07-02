@@ -84,13 +84,12 @@ testEnv appConfig logger appProviders = do
           }
   appStateW <- newMVar appState
   appStateR <- newMVar appState
-  appAdmin <- getCardanoUser
-  appClaimant <- getCardanoUser
-  appOfferer <- getCardanoUser
+
+  appAdmin <- getCardanoUser "config/admin/"
+  appOfferer <- getCardanoUser "config/offerer/"
+  appClaimant <- getCardanoUser "config/claimant/"
+  
   pure $ AppEnv {..}
-  where
-    getCardanoUser :: IO CardanoUser
-    getCardanoUser = undefined
 
 testCtx :: Context (BasicAuthCheck User ': '[])
 testCtx = authCheck :. EmptyContext

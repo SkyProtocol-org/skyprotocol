@@ -113,6 +113,9 @@ data CardanoUser = CardanoUser
   }
   deriving (Eq, Show, Generic)
 
+getCardanoUser :: FilePath -> IO CardanoUser
+getCardanoUser _fp = undefined
+
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
     appProviders :: GYProviders,

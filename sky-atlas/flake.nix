@@ -31,7 +31,7 @@
             };
 
             nativeBuildInputs = [ autoPatchelfHook ];
-            builInputs = [ zlib ];
+            buildInputs = [ zlib ];
 
             sourceRoot = ".";
 

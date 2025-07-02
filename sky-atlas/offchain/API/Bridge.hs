@@ -22,6 +22,7 @@ import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx.Prelude (BuiltinByteString)
 import Servant
+import Data.Maybe (fromMaybe)
 
 type BridgeAPI =
   "bridge"
@@ -40,62 +41,19 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       let SkyDa {..} = view (blockState . skyDa) state
           topHash = toByteString $ computeDigest @Blake2b_256 $ SkyDa {..}
 
-      body <-
-        runBuilder
-          cbrUsedAddrs
-          cbrChangeAddr
-          cbrCollateral
-          $ createBridge (configTokenName appConfig) cbrAmount (cuserVerificationKey appAdmin) topHash
+      body <- runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral
+        $ createBridge cbrAmount (configTokenName appConfig) cbrSigner topHash
+
       void $ runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
 
     readBridgeH = throwError $ APIError "Unimplemented"
-    updateBridgeH _ = do
-      throwError $ APIError "Unimplemented"
-
-createBridge ::
-  (HasCallStack, GYTxBuilderMonad m) =>
-  GYTokenName ->
-  -- | Amount to mint
-  Integer ->
-  -- | Minting policy signer
-  GYPubKeyHash ->
-  -- | Top hash
-  BuiltinByteString ->
-  m (GYTxSkeleton 'PlutusV2)
-createBridge tokenName amount mintSigner topHash = do
-  let bridgeNFTDatum = BridgeNFTDatum topHash
-      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus mintSigner
-      skyToken = GYToken (mintingPolicyId skyPolicy) tokenName
-      -- should be at least 1
-      amt = toInteger (max 1 amount)
-      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-
-  bvAddr <- bridgeValidatorAddress $ BridgeParams curSym
-
-  -- skeleton for minting transaction
-  let mintSkeleton =
-        mustMint @'PlutusV2 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName amt
-          <> mustHaveOutput
-            ( GYTxOut
-                { -- recipient is the bridge validator
-                  gyTxOutAddress = bvAddr,
-                  gyTxOutValue = valueSingleton skyToken amt,
-                  gyTxOutDatum = Just (datumFromPlutusData bridgeNFTDatum, GYTxOutUseInlineDatum),
-                  gyTxOutRefS = Nothing
-                }
-            )
-          <> mustBeSignedBy mintSigner
-  pure mintSkeleton
-
-updateBridge ::
-  (HasCallStack, GYTxMonad m) =>
-  m ()
-updateBridge = do
-  pure ()
+    updateBridgeH _ = throwError $ APIError "Unimplemented"
 
 data CreateBridgeRequest = CreateBridgeRequest
-  { -- | Make it optional, with default 1
-    cbrAmount :: Integer,
+  { -- Admin mints tokens, creates bridge
+    cbrSigner :: GYPubKeyHash,
+    -- | Make it optional, with default 1
+    cbrAmount :: Maybe Integer,
     -- | wtf is this?
     cbrChangeAddr :: GYAddress,
     -- | compatibility with non-single address wallets
@@ -103,3 +61,42 @@ data CreateBridgeRequest = CreateBridgeRequest
     cbrCollateral :: Maybe GYTxOutRefCbor
   }
   deriving (Show, Generic, ToJSON, FromJSON)
+
+createBridge :: (HasCallStack, GYTxBuilderMonad m)
+  => -- | Amount to mint
+     Maybe Integer ->
+     GYTokenName ->
+     -- | Minting policy signer
+     GYPubKeyHash ->
+     -- | Top hash
+     BuiltinByteString ->
+     m (GYTxSkeleton 'PlutusV2)
+createBridge amount tokenName mintSigner topHash = do
+      let bridgeNFTDatum = BridgeNFTDatum topHash
+          skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus mintSigner
+          skyToken = GYToken (mintingPolicyId skyPolicy) tokenName
+          -- should be at least 1
+          amt = fromMaybe 1 amount
+          curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+
+      bvAddr <- bridgeValidatorAddress $ BridgeParams curSym
+
+      -- skeleton for minting transaction
+      let mintSkeleton =
+            mustMint @'PlutusV2 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName amt
+              <> mustHaveOutput
+                ( GYTxOut
+                    -- recipient is the bridge validator
+                    { gyTxOutAddress = bvAddr,
+                      gyTxOutValue = valueSingleton skyToken amt,
+                      gyTxOutDatum = Just (datumFromPlutusData bridgeNFTDatum, GYTxOutUseInlineDatum),
+                      gyTxOutRefS = Nothing
+                    }
+                )
+              <> mustBeSignedBy mintSigner
+      pure mintSkeleton
+
+updateBridge :: (HasCallStack, GYTxMonad m)
+  => m ()
+updateBridge = do
+  pure ()

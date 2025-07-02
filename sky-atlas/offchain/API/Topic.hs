@@ -20,7 +20,7 @@ import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
 type TopicAPI =
-  "topic" :> (PublicTopicAPI :<|> ProtectedTopicAPI)
+  "topic" :> (PublicTopicAPI :<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI))
 
 type PublicTopicAPI =
   ( "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
@@ -29,12 +29,15 @@ type PublicTopicAPI =
   )
 
 type ProtectedTopicAPI =
-  ( "create" :> BasicAuth "sky_topic_realm" User :> Post '[JSON] TopicId
-      :<|> "publish_message" :> BasicAuth "sky_topic_realm" User :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
+  ( "create" :> Post '[JSON] TopicId
+  :<|> "publish_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
   )
 
 topicServer :: ServerT TopicAPI AppM
-topicServer = (readTopic :<|> getProof :<|> readMessage) :<|> (createTopic :<|> publishMessage)
+topicServer =  unprotectedServer :<|> protectedServer
+  where
+    unprotectedServer = readTopic :<|> getProof :<|> readMessage
+    protectedServer u = createTopic u :<|> publishMessage u
 
 readTopic :: TopicId -> MessageId -> AppM BS.ByteString
 readTopic tId mId = do
@@ -65,8 +68,6 @@ createTopic _ = do
         pure (newState, topicId)
   logInfo_ $ "Created topic with id " <> pack (show $ toInt topicId)
   return topicId
-
--- updateTopic _ = throwError $ APIError "Not implemented"
 
 utcTimeEpoch :: DTC.UTCTime
 utcTimeEpoch = DTCP.posixSecondsToUTCTime 0
