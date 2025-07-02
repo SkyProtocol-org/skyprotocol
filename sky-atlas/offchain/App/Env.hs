@@ -10,6 +10,7 @@ import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
+import System.Exit (exitFailure)
 
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
@@ -52,8 +53,16 @@ data CardanoUser = CardanoUser
   }
   deriving (Eq, Show, Generic)
 
+-- TODO: make this an Either SomeError CardanoUser instead
+-- e.g. make normal error handling
 getCardanoUser :: FilePath -> IO CardanoUser
-getCardanoUser _fp = undefined
+getCardanoUser fp = do
+  maybeVerificationKey <- decodeFileStrict $ fp <> "payment.vkey"
+  maybeSigningKey <- decodeFileStrict $ fp <> "payment.skey"
+  maybeAddress <- decodeFileStrict $ fp <> "payment.addr"
+  case (maybeVerificationKey, AGYPaymentSigningKey <$> maybeSigningKey, maybeAddress) of
+    (Just cuserVerificationKey, Just cuserSigningKey, Just cuserAddress) -> pure CardanoUser {..}
+    _ -> exitFailure
 
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment
@@ -107,4 +116,37 @@ $(makeLenses ''AppState)
 $(makeLenses ''BlockState)
 
 initEnv :: AppConfig -> Logger -> GYProviders -> FilePath -> FilePath -> FilePath -> IO AppEnv
-initEnv = undefined
+initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
+  let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
+      committee = MultiSigPubKey ([undefined, undefined], UInt16 2)
+      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
+      _blockState =
+        BlockState
+          { _skyDa,
+            _topic = (),
+            _erasureCoding = (),
+            _superTopic = (),
+            _subTopics = (),
+            _publisherPayments = ()
+          }
+      appState =
+        AppState
+          { _blockState,
+            _oldBlockQueue = (),
+            _partialSignatures = (),
+            _bridgeState = BridgeState _skyDa,
+            _stake = (),
+            _peers = (),
+            _clients = (),
+            _subscriberPayments = (),
+            _auctions = (),
+            _longTermStorage = ()
+          }
+  appStateW <- newMVar appState
+  appStateR <- newMVar appState
+
+  appAdmin <- getCardanoUser adminKeys
+  appOfferer <- getCardanoUser offererKeys
+  appClaimant <- getCardanoUser claimantKeys
+
+  pure $ AppEnv {..}
