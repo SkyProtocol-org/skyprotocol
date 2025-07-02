@@ -21,6 +21,7 @@ import Servant
 import Servant.Client
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.Runners (NumThreads (..))
 
 testSecKey1 :: SecKey
 testSecKey1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
@@ -114,26 +115,40 @@ closeAPI TestEnv {..} = do
 -- TODO: add tests for the rest of the endpoints
 healthClient
   :<|> _bridgeClient
-  :<|> ( (_readTopic :<|> _getProof :<|> _readMessage)
-           :<|> protectedTopicApi
-         ) = client api
+  :<|> (publicTopicApi :<|> protectedTopicApi) =
+    client api
 
 testUser :: BasicAuthData
 testUser = BasicAuthData "skyAdmin" "1234"
-
-createTopic :<|> _publishTopicMessage = protectedTopicApi testUser
 
 -- NOTE: 'withResource' shares the resource across the 'testGroup' it is applied to
 apiSpec :: TestTree
 apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
   testGroup
     "API Tests"
-    [ testCase "should return OK for health endpoint" $ do
-        TestEnv {..} <- getTestEnv
-        res <- liftIO $ runClientM healthClient clientEnv
-        res @?= Right "OK",
-      testCase "should return TopicId 0 when creating new topic" $ do
-        TestEnv {..} <- getTestEnv
-        res <- liftIO $ runClientM createTopic clientEnv
-        res @?= Right (topicIdFromInteger 0)
+    [ testGroup
+        "Health client"
+        [ testCase "should return OK for health endpoint" $ do
+            TestEnv {..} <- getTestEnv
+            res <- liftIO $ runClientM healthClient clientEnv
+            res @?= Right "OK"
+        ],
+      -- NOTE: this ensures, that the tests in this test group run in sequence
+      localOption (NumThreads 1) $
+        testGroup "Topic client" $
+          let createTopic :<|> publishMessage = protectedTopicApi testUser
+              readTopic :<|> _getProof :<|> _readMessage = publicTopicApi
+           in [ testCase "should return TopicId 0 when creating new topic in empty da" $ do
+                  TestEnv {..} <- getTestEnv
+                  res <- liftIO $ runClientM createTopic clientEnv
+                  res @?= Right (topicIdFromInteger 0),
+                testCase "should return MessageId 0 when creating new message in an empty da with 1 topic" $ do
+                  TestEnv {..} <- getTestEnv
+                  res <- liftIO $ flip runClientM clientEnv $ publishMessage (topicIdFromInteger 0) "keklolarbidol"
+                  res @?= Right (messageIdFromInteger 0),
+                testCase "should return the same message we published in the previous test" $ do
+                  TestEnv {..} <- getTestEnv
+                  res <- liftIO $ flip runClientM clientEnv $ readTopic (topicIdFromInteger 0) (messageIdFromInteger 0)
+                  res @?= Right "keklolarbidol"
+              ]
     ]

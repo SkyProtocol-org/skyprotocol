@@ -111,6 +111,9 @@ newtype MessageId = MessageId {getMessageId :: Bytes8}
       HP.Eq
     )
 
+messageIdFromInteger :: Integer -> MessageId
+messageIdFromInteger = fromInt
+
 instance TrieKey MessageId
 
 instance TrieHeightKey Byte MessageId
