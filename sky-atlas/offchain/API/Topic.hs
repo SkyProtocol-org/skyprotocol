@@ -83,11 +83,10 @@ currentPOSIXTime = do
 publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
 publishMessage _user topicId msgBody = do
   stateW <- asks appStateW
-  userSecKey <- asks $ configUserSecKey . appConfig
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
-    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage (derivePubKey userSecKey) timestamp (BuiltinByteString msgBody) topicId da
+    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString msgBody) topicId da
     return (set (blockState . skyDa) newDa state, maybeMessageId)
   case maybeMessageId of
     Nothing -> throwError $ APIError "publishMessage failed"
@@ -113,6 +112,6 @@ readMessage topicId msgId = do
   case maybeMessageEntry of
     Nothing -> throwError $ APIError "readMessage failed"
     Just (rmd, rd) -> do
-      MessageMetaDataOfTuple (poster, time) <- unwrap rmd
+      MessageMetaData time <- unwrap rmd
       message <- unwrap rd
-      return . builtinByteStringToByteString . toByteString $ (poster, time, message)
+      return . builtinByteStringToByteString . toByteString $ (time, message)

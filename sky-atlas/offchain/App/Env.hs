@@ -26,7 +26,6 @@ data AppEnv = AppEnv
 
 data AppConfig = AppConfig
   { configPort :: Int,
-    configUserSecKey :: SecKey,
     configLogLevel :: Maybe LogLevel,
     configTokenName :: GYTokenName,
     configAtlas :: GYCoreConfig

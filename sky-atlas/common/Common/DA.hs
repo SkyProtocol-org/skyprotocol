@@ -59,13 +59,8 @@ type MessageTrie r = Trie r Byte MessageId (MessageEntry r)
 type MessageEntry r = (LiftRef r (MessageMetaData r), LiftRef r (MessageData r))
 
 newtype MessageMetaData (r :: Type -> Type)
-  = MessageMetaDataOfTuple {tupleOfMessageMetaData :: (PubKey, POSIXTime)}
+  = MessageMetaData {getMessageMetaData :: POSIXTime}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-
-pattern MessageMetaData :: PubKey -> POSIXTime -> MessageMetaData r
-pattern MessageMetaData {messagePoster, messageTime} = MessageMetaDataOfTuple (messagePoster, messageTime)
-
-{-# COMPLETE MessageMetaData #-}
 
 type MessageData (r :: Type -> Type) = BuiltinByteString
 
@@ -202,13 +197,12 @@ insertTopic newTopicSchema da@SkyDa {..} =
 
 insertMessage ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
-  PubKey ->
   POSIXTime ->
   BuiltinByteString ->
   TopicId ->
   SkyDa r ->
   e (SkyDa r, Maybe MessageId)
-insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
+insertMessage timestamp newMessage topicId da@SkyDa {..} =
   do
     oldTopicTrie <- unwrap skyTopicTrie
     oldMaybeTopicEntry <- lookup topicId oldTopicTrie
@@ -216,7 +210,7 @@ insertMessage poster timestamp newMessage topicId da@SkyDa {..} =
       Nothing -> return (da, Nothing)
       Just (rTopicMetaData, rOldMessageTrie) -> do
         oldMessageTrie <- unwrap rOldMessageTrie
-        rNewMessageMetaData <- wrap $ MessageMetaData poster timestamp
+        rNewMessageMetaData <- wrap $ MessageMetaData timestamp
         rNewMessageData <- wrap newMessage
         newMessageId <- nextIndex oldMessageTrie
         case newMessageId of
