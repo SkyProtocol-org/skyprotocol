@@ -4,19 +4,18 @@ tokenName: "SkyBridge"
 # Could be one of "trace", "attention" of "info"
 # By default is "trace"
 logLevel: "trace"
-userPubKey: ""
 
 atlas:
   coreProvider:
     # For Maestro, maestroToken holds the api key and
     # turboSubmit field dictates whether the transactions
     # are to be submitted via their turbo submit endpoint.
-    maestroToken: ""
+    maestroToken: "XXX EDIT THIS XXX"
     turboSubmit: false
   # Specifies your network and must be one of
   # mainnet, preprod, preview, testnet (for legacy testnet)
   # & privnet (for local private network).
-  networkId: ""
+  networkId: "XXX EDIT THIS XXX"
   logging:
     - type:
         tag: "stderr"
