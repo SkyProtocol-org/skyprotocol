@@ -151,7 +151,7 @@ timestamp1 :: POSIXTime
 timestamp1 = 455155200000 -- June 4th 1989
 
 msgMeta1 :: MessageMetaData HashRef
-msgMeta1 = MessageMetaData pk1 timestamp1
+msgMeta1 = MessageMetaData timestamp1
 
 msg1 :: BuiltinByteString
 msg1 = stringToBuiltinByteString "Hello, World!"
@@ -172,8 +172,8 @@ daSpec :: TestTree
 daSpec = testGroup "simple tests for SkyDA"
   let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa HashRef
       (da1, Just topic0) = runIdentity $ insertTopic topicSchema0 da0
-      (da2, Just msg1i) = runIdentity $ insertMessage pk1 timestamp1 msg1 topic0 da1
-      (da3, _) = runIdentity $ insertMessage pk1 timestamp1 msg2 topic0 da2
+      (da2, Just msg1i) = runIdentity $ insertMessage timestamp1 msg1 topic0 da1
+      (da3, _) = runIdentity $ insertMessage timestamp1 msg2 topic0 da2
       Just (msg1b, proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
   in
   [ -- Create an empty SkyDA, check its digest
@@ -199,13 +199,13 @@ daSpec = testGroup "simple tests for SkyDA"
       (triePathKey . pathMessageTriePath $ proof1) == msg1i @?= True
 
   , let (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
-        (da11, Just msg3i) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+        (da11, Just msg3i) = runIdentity $ insertMessage timestamp1 msg3 topic1 da10
         Just (msg3b, _proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
     in testCase "msg3 matches" $ do
       msg3b == LiftRef (digestRef msg3) @?= True
 
   , let (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
-        (da11, Just msg3i) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+        (da11, Just msg3i) = runIdentity $ insertMessage timestamp1 msg3 topic1 da10
         Just (msg3b, proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
         l3d = (castDigest . getDigest . liftref $ msg3b) :: DataHash
         topHash3 = computeHash da11 :: DataHash
@@ -218,12 +218,12 @@ daSpec = testGroup "simple tests for SkyDA"
 
   , let topHash1 = computeHash da3 :: DataHash
         (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
-        (da11, Just _msg3i) = runIdentity $ insertMessage pk1 timestamp1 msg3 topic1 da10
+        (da11, Just _msg3i) = runIdentity $ insertMessage timestamp1 msg3 topic1 da10
         topHash3 = computeHash da11 :: DataHash
     in testCase "hashes differ" $ do
       topHash1 == topHash3 @?= False
-      topHash1 `shouldBeHex` "f889a9fec14bad5dfd59bd560a6d7626f11f048a194f813a8b090745ed243253"
-      topHash3 `shouldBeHex` "c0bd8a731290df2fe149240c8271e56182b9d211ab8b9e5ba4ea7073af9dbc8a"
+      topHash1 `shouldBeHex` "d06aed04494431af51e7bb5b08af4c8652392f38de2c82793689874131796fd7"
+      topHash3 `shouldBeHex` "15bdb37f0ca57026161993a51674fb346fc114237a45339adac5e58940c5118b"
 
   , let topHash1 = computeHash da3 :: DataHash
         topHash1Sig1 = SingleSig (pk1, signMessage sk1 topHash1)

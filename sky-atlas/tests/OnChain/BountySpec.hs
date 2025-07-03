@@ -66,7 +66,7 @@ createTestDaAndProof =
       timestamp = POSIXTime 455155200000 -- June 4th 1989
       da0 = runIdentity $ initDa daSchema committee :: SkyDa HashRef
       (da1, Just topicId) = runIdentity $ insertTopic topicSchema da0
-      (da2, Just messageId) = runIdentity $ insertMessage pk1 timestamp testMessage topicId da1
+      (da2, Just messageId) = runIdentity $ insertMessage timestamp testMessage topicId da1
       Just (_messageRef, proof) = runIdentity $ getSkyDataProof (topicId, messageId) da2 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
       topHash = computeHash da2
   in (da2, topicId, messageId, proof, topHash)
@@ -90,7 +90,7 @@ createInvalidProof =
       wrongMessage = "Wrong message content"
       da0 = runIdentity $ initDa daSchema committee :: SkyDa HashRef
       (da1, Just topicId) = runIdentity $ insertTopic topicSchema da0
-      (da2, Just messageId) = runIdentity $ insertMessage pk1 timestamp wrongMessage topicId da1
+      (da2, Just messageId) = runIdentity $ insertMessage timestamp wrongMessage topicId da1
       Just (_messageRef, proof) = runIdentity $ getSkyDataProof (topicId, messageId) da2 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
   in proof
 
