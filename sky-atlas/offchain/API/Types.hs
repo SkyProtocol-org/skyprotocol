@@ -18,4 +18,17 @@ data CreateBridgeRequest = CreateBridgeRequest
     cbrUsedAddrs :: [GYAddress],
     cbrCollateral :: Maybe GYTxOutRefCbor
   }
-  deriving (Show, Generic, ToJSON, FromJSON)
+  deriving (Show, Generic)
+
+instance FromJSON CreateBridgeRequest where
+  parseJSON = withObject "CreateBridgeRequest" $ \v -> do
+    cbrAmount <- v .:? "amount"
+    changeAddr <- v .: "changeAddr"
+    usedAddrs <- v .: "usedAddrs"
+    cbrCollateral <- v .:? "collateral"
+    let cbrChangeAddr = unsafeAddressFromText changeAddr
+        cbrUsedAddrs = fmap unsafeAddressFromText usedAddrs
+    pure CreateBridgeRequest {..}
+
+-- instance FromJSON CreateBridgeRequest where
+--   parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "cbr"}

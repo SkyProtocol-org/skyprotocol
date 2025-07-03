@@ -5,12 +5,12 @@ import Common
 import Control.Concurrent.MVar
 import Control.Lens
 import Data.Aeson
-import Data.Char (toLower)
 import Data.Text.IO qualified as T
 import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
+import Utils
 
 -- TODO: add updatable whitelist for users here or in the AppState
 data AppEnv = AppEnv
@@ -34,15 +34,6 @@ data AppConfig = AppConfig
 
 instance FromJSON AppConfig where
   parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "config"}
-
-dropPrefix :: String -> String -> String
-dropPrefix pr s = case splitAt (length pr) s of
-  (p, rest) | p == pr -> toLowerHead rest
-  _ -> s
-  where
-    toLowerHead :: String -> String
-    toLowerHead [] = []
-    toLowerHead (x : xs) = toLower x : xs
 
 -- | Helper type to read the cardano-cli generated verification key
 data CardanoVerificationKey = VerKey

@@ -42,7 +42,7 @@ common plutus-ghc-options
   -- so unfoldings are present even when compiled without optmizations
   ghc-options:
     -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -Wno-partial-type-signatures
+    -Wno-partial-type-signatures -fno-strictness
 
   -- expose all unfoldings, so plutustx compiler can do its job
   ghc-options:
@@ -115,6 +115,7 @@ library offchain
     App
     App.Env
     App.Error
+    Utils
 
   build-depends:
     , aeson
