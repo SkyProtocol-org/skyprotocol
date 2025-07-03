@@ -38,5 +38,9 @@ TAGS
 .direnv/
 */dist-newstyle/*
 
+# config and other sensitive data
 local-test.yaml
 */soft/*
+*.vkey
+*.skey
+*.addr
