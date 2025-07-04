@@ -10,6 +10,7 @@ import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Utils
 
 -- TODO: add updatable whitelist for users here or in the AppState
@@ -127,41 +128,50 @@ $(makeLenses ''BridgeState)
 $(makeLenses ''AppState)
 $(makeLenses ''BlockState)
 
+initBlockState :: SkyDa HashRef -> BlockState
+initBlockState da =
+  BlockState
+    { _skyDa = da,
+      _topic = (),
+      _erasureCoding = (),
+      _superTopic = (),
+      _subTopics = (),
+      _publisherPayments = ()
+    }
+
+initAppState :: BlockState -> BridgeState -> AppState
+initAppState blockS bridgeS =
+  AppState
+    { _blockState = blockS,
+      _oldBlockQueue = (),
+      _partialSignatures = (),
+      _bridgeState = bridgeS,
+      _stake = (),
+      _peers = (),
+      _clients = (),
+      _subscriberPayments = (),
+      _auctions = (),
+      _longTermStorage = ()
+    }
+
 initEnv :: AppConfig -> Logger -> GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
 initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
-  let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
-      committee = MultiSigPubKey ([undefined, undefined], UInt16 2)
-      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
-      _blockState =
-        BlockState
-          { _skyDa,
-            _topic = (),
-            _erasureCoding = (),
-            _superTopic = (),
-            _subTopics = (),
-            _publisherPayments = ()
-          }
-      appState =
-        AppState
-          { _blockState,
-            _oldBlockQueue = (),
-            _partialSignatures = (),
-            _bridgeState = BridgeState _skyDa,
-            _stake = (),
-            _peers = (),
-            _clients = (),
-            _subscriberPayments = (),
-            _auctions = (),
-            _longTermStorage = ()
-          }
-  appStateW <- newMVar appState
-  appStateR <- newMVar appState
-
   eitherAdmin <- getCardanoUser adminKeys
   eitherOfferer <- getCardanoUser offererKeys
   eitherClaimant <- getCardanoUser claimantKeys
 
   case sequence [eitherAdmin, eitherOfferer, eitherClaimant] of
     Left err -> pure $ Left err
-    Right [appAdmin, appOfferer, appClaimant] -> pure $ Right AppEnv {..}
+    Right [appAdmin, appOfferer, appClaimant] -> do
+      let adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
+          adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+      let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
+          committee = MultiSigPubKey ([adminPubKey], UInt16 1)
+          _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
+          _blockState = initBlockState _skyDa
+          appState = initAppState _blockState $ BridgeState _skyDa
+
+      appStateW <- newMVar appState
+      appStateR <- newMVar appState
+      pure $ Right AppEnv {..}
     _ -> pure $ Left $ StartupError "Something wen't wrong when initializing environment"
