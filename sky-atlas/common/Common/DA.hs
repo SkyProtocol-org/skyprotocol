@@ -58,6 +58,7 @@ type MessageTrie r = Trie r Byte MessageId (MessageEntry r)
 
 type MessageEntry r = (LiftRef r (MessageMetaData r), LiftRef r (MessageData r))
 
+-- TODO: add message length in the metadata
 newtype MessageMetaData (r :: Type -> Type)
   = MessageMetaData {getMessageMetaData :: POSIXTime}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)

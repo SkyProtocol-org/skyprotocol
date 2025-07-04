@@ -99,6 +99,9 @@ startAPI = do
     -- start the app
     appThreadId <- forkIO $ run (configPort config) $ app appEnv
     -- Give the server some time to start
+    {- TODO: have the server print something or execute something we can recognize
+       that won't be just confused with logging, to signal that it's ready,
+       after it starts listening. Then we can wait for that message here instead of sleeping -}
     threadDelay 1000000
 
     -- initialize http client

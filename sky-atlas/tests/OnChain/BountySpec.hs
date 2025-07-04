@@ -6,11 +6,8 @@ module OnChain.BountySpec (bountySpec) where
 import Common
 import Contract.Bounty (DecodedClientParams(..), ClientRedeemer(..), validateClaimBounty, validateTimeout, getDecodedClientParams)
 import Data.Functor.Identity (Identity(..))
-import PlutusLedgerApi.V1.Interval (Interval (..), strictLowerBound, strictUpperBound)
-import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V2
 import PlutusTx.Prelude
-import PlutusTx.Builtins.Internal (BuiltinByteString(..))
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -65,14 +62,21 @@ createTestDaAndProof =
       topicSchema = computeHash @Bytes4 $ ofHex "1ea7f00d"
       timestamp = POSIXTime 455155200000 -- June 4th 1989
       da0 = runIdentity $ initDa daSchema committee :: SkyDa HashRef
-      (da1, Just topicId) = runIdentity $ insertTopic topicSchema da0
-      (da2, Just messageId) = runIdentity $ insertMessage timestamp testMessage topicId da1
-      Just (_messageRef, proof) = runIdentity $ getSkyDataProof (topicId, messageId) da2 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+      (da1, maybeTopicId) = runIdentity $ insertTopic topicSchema da0
+      topicId = fromJust maybeTopicId
+      (da2, maybeMessageId) = runIdentity $ insertMessage timestamp testMessage topicId da1
+      messageId = fromJust maybeMessageId
+      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProof (topicId, messageId) da2 :: (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
       topHash = computeHash da2
   in (da2, topicId, messageId, proof, topHash)
 
 -- Extract test components
-(testDa, testTopicIdFromDa, testMessageId, testProof, testTopHash) = createTestDaAndProof
+_testDa :: SkyDa HashRef
+testTopicIdFromDa :: TopicId
+testMessageId :: MessageId
+testProof :: SkyDataProof Blake2b_256
+testTopHash :: DataHash
+(_testDa, testTopicIdFromDa, testMessageId, testProof, testTopHash) = createTestDaAndProof
 
 -- Type annotations for clarity
 testProofTyped :: SkyDataProof Blake2b_256
@@ -89,9 +93,11 @@ createInvalidProof =
       timestamp = POSIXTime 455155200000
       wrongMessage = "Wrong message content"
       da0 = runIdentity $ initDa daSchema committee :: SkyDa HashRef
-      (da1, Just topicId) = runIdentity $ insertTopic topicSchema da0
-      (da2, Just messageId) = runIdentity $ insertMessage timestamp wrongMessage topicId da1
-      Just (_messageRef, proof) = runIdentity $ getSkyDataProof (topicId, messageId) da2 :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+      (da1, maybeTopicId) = runIdentity $ insertTopic topicSchema da0
+      topicId = fromJust maybeTopicId
+      (da2, maybeMessageId) = runIdentity $ insertMessage timestamp wrongMessage topicId da1
+      messageId = fromJust maybeMessageId
+      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProof (topicId, messageId) da2 :: (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
   in proof
 
 invalidProof :: SkyDataProof Blake2b_256
