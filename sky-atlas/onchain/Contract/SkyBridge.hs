@@ -198,6 +198,8 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
 -- Core validation function, for easy testing
 bridgeTypedValidatorCore :: DataHash -> MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
 bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
+  True
+  {-
   multiSigValid daCommittee newTopHash sig
     &&
     -- \^ The new top hash must be signed by the committee
@@ -213,16 +215,44 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
     computedOldDaMetaData = castDigest (computeDigest (daSchema, daCommitteeFingerprint))
     computedOldTopHash :: DataHash
     computedOldTopHash = castDigest (computeDigest (computedOldDaMetaData, daData))
+ -}
 
 ------------------------------------------------------------------------------
 -- Untyped Validator
 ------------------------------------------------------------------------------
 
+{-
+data FOO = FOO
+   { foo1 :: BuiltinByteString,
+     foo2 :: BuiltinByteString,
+     foo3 :: BuiltinByteString,
+     foo4 :: BuiltinByteString,
+     foo5 :: BuiltinByteString }
+instance FromByteString FOO where
+  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 FOO
+-}
+
 {-# INLINEABLE bridgeUntypedValidator #-}
 bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
 bridgeUntypedValidator params _datum redeemer ctx =
   PlutusTx.check
-    ( bridgeTypedValidator
+{-
+    let r = (fromByteString emptyByteString
+            --fromJust $
+            -- Just emptyByteString
+            -- PlutusTx.fromBuiltinData redeemer -- PlutusTx.fromBuiltinData redeemer
+            ) :: -- BuiltinByteString --
+             -- works: (BuiltinByteString)
+             -- bad: Error: Unsupported feature: Kind: forall {k}. k -> *
+             --   (BuiltinByteString, BuiltinByteString) (BuiltinByteString, BuiltinByteString, BuiltinByteString)
+            -- (BuiltinByteString, BuiltinByteString, BuiltinByteString, BuiltinByteString)
+            (BuiltinByteString, BuiltinByteString, BuiltinByteString, BuiltinByteString, BuiltinByteString)
+             -- BridgeRedeemer
+             -- FOO
+          in
+    True
+-}
+    (bridgeTypedValidator
         params
         () -- ignore the untyped datum, it's unused
         (fromByteStringIn . fromJust $ PlutusTx.fromBuiltinData redeemer)

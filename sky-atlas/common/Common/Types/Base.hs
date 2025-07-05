@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wincomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -952,11 +953,11 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
-fromJust Nothing = traceError "fromJust Nothing"
+--fromJust Nothing = traceError "fromJust Nothing" -- Plutus can't compile that!!!
 
 -- | Generic failure
 failNow :: a
-failNow = traceError "FOO"
+failNow = fromJust Nothing -- traceError "FOO" -- Plutus can't compile that!!!
 
 -- ** For testing and debugging purposes
 

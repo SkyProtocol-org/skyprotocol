@@ -19,14 +19,6 @@ and that the cachix daemon is running (somehow Yaroslav had to `cachix daemon ru
 nix build
 ```
 
-#### Configuration
-For node to work you should have a Maestro account and config the node accordingly:
-
-1) Get the Maestro API token (refer to [Setting up the provider](docs/Providers.md))
-2) Generate keys for the tests as below
-3) Copy the `config/example-config.yaml` to the `config/local-test.yaml` and configure appropriately
-   (the config fields have docs in comments, see immediately above the two `EDIT THIS` comments)
-
 #### Generating keys for the tests
 Generate the verification and signing key as well as payment address
 
@@ -46,13 +38,38 @@ done
 )
 ```
 
-Note: we're targeting cardano preview network for now, so we use the testnet magic number, 2.
+Note: we're targeting cardano preview network for now, so we use the testnet magic number, `2`.
 
-You should do this 2 steps 3 times for admin, offerer and claimant. Each set should be in it's own folder with the names specified in the command.
+#### Get ADA tokens on the preview network
+
+Get each of your admin addresses:
+```
+for i in tests/OffChain/*/payment.addr ; do
+  cat $i ; echo ;
+done
+```
+
+Use each of these addresses to get funds at the faucet:
+https://faucet.preview.world.dev.cardano.org/basic-faucet
+
+You may have to wait a few minutes between attempts, and/or
+you can send funds from one address to the others (TODO: explain how).
+
+You can view that the addresses were funded by using the explorer at:
+https://preview.cexplorer.io/
+
+#### Configuration
+
+For node to work you should have a Maestro account and config the node accordingly:
+
+1) Get the Maestro API token (refer to [Setting up the provider](docs/Providers.md))
+2) Generate keys for the tests as below
+3) Copy the `config/example-config.yaml` to the `config/local-test.yaml` and configure appropriately
+   (the config fields have docs in comments, see immediately above the two `EDIT THIS` comments)
 
 #### Running
 ```
-  nix run -- [path-to-admin-keys] [path-to-offerer-keys] [path-to-claimant-keys]
+nix run -- tests/OffChain/admin/ tests/OffChain/offerer/ tests/OffChain/claimant/
 ```
 
 This should compile everything and run the node locally.

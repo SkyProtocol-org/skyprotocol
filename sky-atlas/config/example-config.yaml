@@ -1,6 +1,6 @@
 port: 8080
 # Should be base16 encoded(why?)
-tokenName: "SkyBridge"
+tokenName: "536b79427269646765"
 # Could be one of "trace", "attention" of "info"
 # By default is "trace"
 logLevel: "trace"
