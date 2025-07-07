@@ -10,12 +10,10 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
 import Data.ByteString qualified as BS
 import Data.Fixed
-import Data.Text
 import Data.Time
 import Data.Time.Clock qualified as DTC
 import Data.Time.Clock.POSIX qualified as DTCP
 import Log
--- import PlutusTx.Prelude qualified as P
 import PlutusLedgerApi.V1.Time qualified as T (POSIXTime (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
@@ -67,7 +65,7 @@ createTopic _user = do
         let newState = set (blockState . skyDa) newDa state
         modifyMVar_ stateR . const . return $ newState
         pure (newState, topicId)
-  logInfo_ $ "Created topic with id " <> pack (show $ toInt topicId)
+  logTrace "Created topic " topicId
   return topicId
 
 utcTimeEpoch :: DTC.UTCTime
@@ -83,14 +81,19 @@ currentPOSIXTime = do
 publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
 publishMessage _user topicId msgBody = do
   stateW <- asks appStateW
+  stateR <- asks appStateR
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
     let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString msgBody) topicId da
-    return (set (blockState . skyDa) newDa state, maybeMessageId)
+    let newState = (set (blockState . skyDa) newDa state, maybeMessageId)
+    modifyMVar_ stateR . const . return $ fst newState
+    return newState
   case maybeMessageId of
     Nothing -> throwError $ APIError "publishMessage failed"
-    Just messageId -> return messageId
+    Just messageId -> do
+      logTrace "Published message" messageId
+      return messageId
 
 getProof :: TopicId -> MessageId -> AppM BS.ByteString
 getProof topicId messageId = do

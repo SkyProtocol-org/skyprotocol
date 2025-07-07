@@ -22,7 +22,6 @@ import Servant.Client
 import System.Exit (exitFailure)
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.Runners (NumThreads (..))
 
 testSecKey1 :: SecKey
 testSecKey1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
@@ -41,28 +40,8 @@ testEnv appConfig logger appProviders = do
   let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
       committee = MultiSigPubKey ([testPubKey1, testPubKey2], UInt16 2)
       _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
-      _blockState =
-        BlockState
-          { _skyDa,
-            _topic = (),
-            _erasureCoding = (),
-            _superTopic = (),
-            _subTopics = (),
-            _publisherPayments = ()
-          }
-      appState =
-        AppState
-          { _blockState,
-            _oldBlockQueue = (),
-            _partialSignatures = (),
-            _bridgeState = BridgeState _skyDa,
-            _stake = (),
-            _peers = (),
-            _clients = (),
-            _subscriberPayments = (),
-            _auctions = (),
-            _longTermStorage = ()
-          }
+      _blockState = initBlockState _skyDa
+      appState = initAppState _blockState $ BridgeState _skyDa
   appStateW <- newMVar appState
   appStateR <- newMVar appState
 
@@ -145,21 +124,20 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
             res @?= Right "OK"
         ],
       -- NOTE: this ensures, that the tests in this test group run in sequence
-      localOption (NumThreads 1) $
-        testGroup "Topic client" $
-          let createTopic :<|> publishMessage = protectedTopicApi testUser
-              readTopic :<|> _getProof :<|> _readMessage = publicTopicApi
-           in [ testCase "should return TopicId 0 when creating new topic in empty da" $ do
-                  TestEnv {..} <- getTestEnv
-                  res <- liftIO $ runClientM createTopic clientEnv
-                  res @?= Right (topicIdFromInteger 0),
-                testCase "should return MessageId 0 when creating new message in an empty da with 1 topic" $ do
-                  TestEnv {..} <- getTestEnv
-                  res <- liftIO $ flip runClientM clientEnv $ publishMessage (topicIdFromInteger 0) "keklolarbidol"
-                  res @?= Right (messageIdFromInteger 0),
-                testCase "should return the same message we published in the previous test" $ do
-                  TestEnv {..} <- getTestEnv
-                  res <- liftIO $ flip runClientM clientEnv $ readTopic (topicIdFromInteger 0) (messageIdFromInteger 0)
-                  res @?= Right "keklolarbidol"
-              ]
+      sequentialTestGroup "Topic client" AllFinish $
+        let createTopic :<|> publishMessage = protectedTopicApi testUser
+            readTopic :<|> _getProof :<|> _readMessage = publicTopicApi
+         in [ testCase "should return TopicId 0 when creating new topic in empty da" $ do
+                TestEnv {..} <- getTestEnv
+                res <- liftIO $ runClientM createTopic clientEnv
+                res @?= Right (topicIdFromInteger 0),
+              testCase "should return MessageId 0 when creating new message in an empty da with 1 topic" $ do
+                TestEnv {..} <- getTestEnv
+                res <- liftIO $ flip runClientM clientEnv $ publishMessage (topicIdFromInteger 0) "keklolarbidol"
+                res @?= Right (messageIdFromInteger 0),
+              testCase "should return the same message we published in the previous test" $ do
+                TestEnv {..} <- getTestEnv
+                res <- liftIO $ flip runClientM clientEnv $ readTopic (topicIdFromInteger 0) (messageIdFromInteger 0)
+                res @?= Right "keklolarbidol"
+            ]
     ]
