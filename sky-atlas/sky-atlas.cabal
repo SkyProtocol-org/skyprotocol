@@ -201,7 +201,9 @@ test-suite onchain-tests
     OnChain.ContractSpec
 
   build-depends:
+    , atlas-cardano
     , base
+    , extra
     , plutus-ledger-api
     , plutus-tx
     , sky-atlas:common
