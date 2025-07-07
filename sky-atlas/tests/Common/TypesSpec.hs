@@ -99,7 +99,7 @@ typesSpec = testGroup "SkyBase" $
         PS.show (UInt16 0xf00d) @?= "61453"
         PS.show (toUInt16 0xbad) @?= "2989"
         PS.show (maybeFromInt 0x11111 :: Maybe UInt16) @?= "Nothing"
-    , testCase "serialization 3" $ PS.show (toUInt32 0x10ffff) @?= "FixedLengthInteger @L4 1114111"
+    , testCase "serialization 3" $ PS.show (toUInt32 0x10ffff) @?= "1114111"
     , testCase "serialization 4" $ PS.show (fromInt 0x5678901234567890 :: Bytes8) @?= "5678901234567890"
     , testCase "serialization 5" $ do
         let unicodeMax :: Integer

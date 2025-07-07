@@ -30,5 +30,16 @@ instance FromJSON CreateBridgeRequest where
         cbrUsedAddrs = fmap unsafeAddressFromText usedAddrs
     pure CreateBridgeRequest {..}
 
+instance ToJSON CreateBridgeRequest where
+  toJSON CreateBridgeRequest {..} =
+    object $
+      (case cbrAmount of
+         Just am -> ["amount" .= am]
+         Nothing -> [])
+      <> ["changeAddr" .=  addressToText cbrChangeAddr
+        , "usedAddrs" .= fmap addressToText cbrUsedAddrs
+        , "collateral" .= cbrCollateral
+      ]
+
 -- instance FromJSON CreateBridgeRequest where
 --   parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "cbr"}
