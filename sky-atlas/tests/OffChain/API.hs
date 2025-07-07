@@ -38,9 +38,9 @@ testPubKey2 = derivePubKey testSecKey2
 
 testEnv :: AppConfig -> Logger -> GYProviders -> IO AppEnv
 testEnv appConfig logger appProviders = do
-  let daSchema = computeHash (ofHex "deadbeef" :: Bytes4)
+  let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
       committee = MultiSigPubKey ([testPubKey1, testPubKey2], UInt16 2)
-      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa HashRef
+      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
       _blockState =
         BlockState
           { _skyDa,

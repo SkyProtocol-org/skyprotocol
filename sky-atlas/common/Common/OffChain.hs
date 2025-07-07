@@ -13,7 +13,7 @@ import Text.Read (readEither)
 import Prelude
 
 instance ToJSON Bytes8 where
-  toJSON (FixedLengthByteString s) = toJSON $ toInt s
+  toJSON (Bytes8 s) = toJSON $ toInt s
 
 instance FromJSON Bytes8 where
   parseJSON a = fromInt <$> parseJSON a

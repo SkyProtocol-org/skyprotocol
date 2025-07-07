@@ -93,7 +93,7 @@ data TriePath h k d = (TrieHeightKey h k) => TriePath
     triePathOthers :: [d]
   }
 
-type TrieProof h k hf = TriePath h k (DataDigest hf)
+type TrieProof h k d = TriePath h k d
 
 -- * Typeclasses
 
@@ -797,11 +797,11 @@ listOf = zipperOf >=> flip appendListOfZipper []
 
 -- TODO: have merkle proofs of Non-Inclusion, by showing the last not before Empty.
 getMerkleProof ::
-  (TrieHeightKey h k, LiftWrapping e (r hf), DigestibleRef hf (r hf), LiftDato (r hf), Dato c) =>
+  (TrieHeightKey h k, LiftWrapping e r, DigestibleRef d r, LiftDato r, IsHash d, Dato c) =>
   k ->
-  Trie (r hf) h k c ->
-  e (TrieProof h k hf)
-getMerkleProof k t = zipperOf t >>= refocus k >>= zipPath -. fmap (liftref -. getDigest -. castDigest) -. return
+  Trie r h k c ->
+  e (TrieProof h k d)
+getMerkleProof k t = zipperOf t >>= refocus k >>= zipPath -. fmap (liftref -. refDigest) -. return
 
 applyTrieStep :: (TrieHeightKey h k) => TrieStep h k t -> t -> TrieNodeF h k () t
 applyTrieStep s t = case s of
@@ -811,13 +811,10 @@ applyTrieStep s t = case s of
 
 {-# INLINEABLE digestTrieStep #-}
 digestTrieStep ::
-  (TrieHeightKey h k, HashFunction hf) =>
-  TrieStep h k (DataDigest hf) ->
-  DataDigest hf ->
-  DataDigest hf
+  (TrieHeightKey h k, IsHash d) => TrieStep h k d -> d -> d
 digestTrieStep s h = computeDigest . toByteString $ applyTrieStep s h
 
-applyMerkleProof :: (TrieHeightKey h k, HashFunction hf, Monad e) => DataDigest hf -> TrieProof h k hf -> e (DataDigest hf)
+applyMerkleProof :: (TrieHeightKey h k, Monad e, IsHash d) => d -> TriePath h k d -> e d
 applyMerkleProof leafDigest proof =
   zipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof)
     >>= \(Zip d (TriePath hh _ _ _)) -> return . computeDigest . toByteString $ TrieTop hh d

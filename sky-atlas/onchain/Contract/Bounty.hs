@@ -42,13 +42,13 @@ data DecodedClientParams = DecodedClientParams
     -- | ID of topic in which data must be published
     bountyTopicId :: TopicId,
     -- | Hash of data that must be proven to be present in DA
-    bountyMessageHash :: DataHash,
+    bountyMessageHash :: Hash,
     bountyDeadline :: POSIXTime
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-getDecodedClientParams :: DecodedClientParams -> (CurrencySymbol, PubKeyHash, PubKeyHash, TopicId, DataHash, POSIXTime)
+getDecodedClientParams :: DecodedClientParams -> (CurrencySymbol, PubKeyHash, PubKeyHash, TopicId, Hash, POSIXTime)
 getDecodedClientParams (DecodedClientParams a b c d e f) = (a, b, c, d, e, f)
 
 instance FromByteString DecodedClientParams where
@@ -81,7 +81,7 @@ instance FromByteString ClientRedeemer where
 ------------------------------------------------------------------------------
 
 -- Separating validation logic to make for easy testing
-validateClaimBounty :: POSIXTime -> Interval POSIXTime -> DataHash -> TopicId -> SkyDataProof Blake2b_256 -> DataHash -> Bool
+validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProof Blake2b_256 -> Hash -> Bool
 validateClaimBounty
   bountyDeadline
   txValidRange
@@ -134,7 +134,7 @@ clientTypedValidator DecodedClientParams {..} () redeemer ctx =
         && allPaidToCredential bountyOffererPubKeyHash
   where
     -- DA Top hash stored in NFT
-    daTopHash :: DataHash
+    daTopHash :: Hash
     daTopHash = case getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx of
       Nothing -> PlutusTx.traceError "bridge NFT not found"
       Just (BridgeNFTDatum topHash) -> fromByteString topHash

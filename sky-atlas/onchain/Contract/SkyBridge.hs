@@ -34,7 +34,7 @@ import PlutusTx.Prelude qualified as PlutusTx
 ------------------------------------------------------------------------------
 
 newtype BridgeNFTDatum = BridgeNFTDatum
-  { bridgeNFTTopHash :: BuiltinByteString -- DataHash
+  { bridgeNFTTopHash :: BuiltinByteString -- Hash
   }
   deriving (Eq, FromByteString, ToByteString) via BuiltinByteString
   deriving stock (Generic)
@@ -62,10 +62,10 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 ------------------------------------------------------------------------------
 
 data BridgeRedeemer = UpdateBridge
-  { bridgeSchema :: BuiltinByteString, -- DataHash,
+  { bridgeSchema :: BuiltinByteString, -- Hash,
     bridgeCommittee :: BuiltinByteString, -- MultiSigPubKey,
-    bridgeOldRootHash :: BuiltinByteString, -- DataHash,
-    bridgeNewTopHash :: BuiltinByteString, -- DataHash,
+    bridgeOldRootHash :: BuiltinByteString, -- Hash,
+    bridgeNewTopHash :: BuiltinByteString, -- Hash,
     bridgeSig :: BuiltinByteString -- MultiSig -- signature over new top hash
   }
   deriving stock (Generic)
@@ -178,14 +178,14 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
     newBridgeNFTDatum :: BridgeNFTDatum
     newBridgeNFTDatum = fromJust $ getBridgeNFTDatumFromTxOut ownOutput ctx
 
-    oldNFTTopHash :: DataHash
+    oldNFTTopHash :: Hash
     oldNFTTopHash = fromByteString . bridgeNFTTopHash $ oldBridgeNFTDatum
 
-    newNFTTopHash :: DataHash
+    newNFTTopHash :: Hash
     newNFTTopHash = fromByteString . bridgeNFTTopHash $ newBridgeNFTDatum
 
     -- The output NFT UTXO's datum must match the new values for the root hashes
-    nftUpdated :: DataHash -> Bool
+    nftUpdated :: Hash -> Bool
     nftUpdated newTopHash =
       newNFTTopHash == newTopHash
 
@@ -196,7 +196,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
        in assetClassValueOf (txOutValue ownOutput) assetClass == 1
 
 -- Core validation function, for easy testing
-bridgeTypedValidatorCore :: DataHash -> MultiSigPubKey -> DataHash -> DataHash -> MultiSig -> DataHash -> Bool
+bridgeTypedValidatorCore :: Hash -> MultiSigPubKey -> Hash -> Hash -> MultiSig -> Hash -> Bool
 bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
   True
   {-
@@ -211,9 +211,9 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
 
     daCommitteeFingerprint :: Hash Committee
     daCommitteeFingerprint = computeDigest daCommittee
-    computedOldDaMetaData :: DataHash
+    computedOldDaMetaData :: Hash
     computedOldDaMetaData = castDigest (computeDigest (daSchema, daCommitteeFingerprint))
-    computedOldTopHash :: DataHash
+    computedOldTopHash :: Hash
     computedOldTopHash = castDigest (computeDigest (computedOldDaMetaData, daData))
  -}
 

@@ -47,22 +47,20 @@ instance Arbitrary Byte where
 instance Arbitrary UInt16 where
   arbitrary = genUInt 2 >>= return . UInt16
 
-instance (StaticLength len) =>
-  Arbitrary (FixedLengthInteger len) where
-  arbitrary = genUInt (staticLength $ Proxy @len) >>= return . FixedLengthInteger
+instance Arbitrary UInt32 where
+  arbitrary = genUInt 4 >>= return . UInt32
 
-instance
-  (StaticLength len) =>
-  GS.Show (FixedLengthInteger len) where
-  show = GS.show . PS.show
+instance Arbitrary UInt64 where
+  arbitrary = genUInt 8 >>= return . UInt64
 
-instance (StaticLength len) => Arbitrary (FixedLengthByteString len) where
-  arbitrary = genByteString (staticLength $ Proxy @len) >>= return . FixedLengthByteString
+instance Arbitrary Bytes4 where
+  arbitrary = genByteString 4 >>= return . Bytes4
+
+instance Arbitrary Bytes8 where
+  arbitrary = genByteString 8 >>= return . Bytes8
 
 instance Arbitrary BuiltinByteString where
   arbitrary = choose (0, 31) >>= genByteString
-
-instance GB.Eq UInt64 where (==) = (P.==)
 
 instance Exception String where
 
@@ -181,7 +179,7 @@ typesSpec = testGroup "SkyBase" $
    , testCase "lowestBitClear 2" $ do
        map (lowestBitClear . toByte :: Integer -> Integer) [0..255] @?= lbbyte
    , testCase "lowestBitClear 3" $ do
-       map (lowestBitClear @(FixedLengthByteString L1) . fromInt :: Integer -> Integer) [0..255] @?= lbbyte
+       map (lowestBitClear . toBytes4 . fromInt :: Integer -> Integer) [0..255] @?= lbbyte
 {-      map (\(n :: Integer) -> (n,
                                exponential 2 0,
                                n `quotient` 2,

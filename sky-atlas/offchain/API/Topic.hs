@@ -60,7 +60,7 @@ createTopic _user = do
   stateR <- asks appStateR
   topicId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
-    let (newDa, maybeTopicId) = runIdentity $ insertTopic (computeHash (ofHex "1ea7f00d" :: Bytes4)) da
+    let (newDa, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
     case maybeTopicId of
       Nothing -> throwError $ userError "Can't add topic"
       Just topicId -> do
@@ -97,7 +97,7 @@ getProof topicId messageId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
   let da = view (bridgeState . bridgedSkyDa) state
-  let maybeRmdProof = runIdentity $ getSkyDataProof (topicId, messageId) da :: Maybe (LiftRef HashRef BuiltinByteString, SkyDataProof Blake2b_256)
+  let maybeRmdProof = runIdentity $ getSkyDataProof (topicId, messageId) da :: Maybe (LiftRef (HashRef Hash) BuiltinByteString, SkyDataProof Hash)
   case maybeRmdProof of
     Nothing -> throwError $ APIError "Message not found"
     Just (rmd, proof) ->

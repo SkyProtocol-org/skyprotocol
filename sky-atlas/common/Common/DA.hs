@@ -31,12 +31,12 @@ data SkyDa r = SkyDa
 instance (LiftDato r) => ToByteString (SkyDa r) where
   byteStringOut SkyDa {..} isTerminal s = byteStringOut skyMetaData NonTerminal $ byteStringOut skyTopicTrie isTerminal s
 
-newtype DaMetaData r = DaMetaDataOfTuple {tupleOfDaMetaData :: (DataHash, LiftRef r Committee)}
+newtype DaMetaData r = DaMetaDataOfTuple {tupleOfDaMetaData :: (Hash, LiftRef r Committee)}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 -- deriving (HP.Eq, HP.Show)
 
-pattern DaMetaData :: forall r. DataHash -> LiftRef r Committee -> DaMetaData r
+pattern DaMetaData :: forall r. Hash -> LiftRef r Committee -> DaMetaData r
 pattern DaMetaData {daSchema, daCommittee} = DaMetaDataOfTuple (daSchema, daCommittee)
 
 {-# COMPLETE DaMetaData #-}
@@ -46,10 +46,10 @@ type TopicTrie r = Trie r Byte TopicId (TopicEntry r)
 type TopicEntry r = (LiftRef r (TopicMetaData r), LiftRef r (MessageTrie r))
 
 newtype TopicMetaData r
-  = TopicMetaDataOfTuple {tupleOfTopicMetaData :: (DataHash, LiftRef r Committee)}
+  = TopicMetaDataOfTuple {tupleOfTopicMetaData :: (Hash, LiftRef r Committee)}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
-pattern TopicMetaData :: forall r. DataHash -> LiftRef r Committee -> TopicMetaData r
+pattern TopicMetaData :: forall r. Hash -> LiftRef r Committee -> TopicMetaData r
 pattern TopicMetaData {topicSchema, topicCommittee} = TopicMetaDataOfTuple (topicSchema, topicCommittee)
 
 {-# COMPLETE TopicMetaData #-}
@@ -153,7 +153,7 @@ pattern SkyDataPath {pathDaMetaData, pathTopicTriePath, pathTopicMetaData, pathM
 
 {-# COMPLETE SkyDataPath #-}
 
-type SkyDataProof hf = SkyDataPath (Digest hf)
+type SkyDataProof d = SkyDataPath (Digest d)
 
 -- * Instances
 
@@ -178,7 +178,7 @@ committeeOfDaMetaData (DaMetaData _ c) = c
 -- TODO: add authentication, payment, etc., if not in this function, in one that wraps around it.
 insertTopic ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
-  DataHash ->
+  Hash ->
   SkyDa r ->
   e (SkyDa r, Maybe TopicId)
 insertTopic newTopicSchema da@SkyDa {..} =
@@ -242,16 +242,16 @@ getMessage topicId messageId SkyDa {..} = do
 
 -- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProof #-}
-applySkyDataProof :: (HashFunction hf) => SkyDataProof hf -> DataDigest hf -> DataDigest hf
+applySkyDataProof :: (IsHash d) => SkyDataProof d -> d -> d
 applySkyDataProof SkyDataPath {..} messageDataHash =
   runIdentity $ do
     let messageLeaf = Leaf (liftref pathMessageMetaData, messageDataHash) :: TrieNodeF Byte Bytes8 _ ()
-    let messageLeafHash = castDigest . computeDigest $ messageLeaf
-    topicDataHash <- applyMerkleProof messageLeafHash $ fmap (castDigest . liftref) pathMessageTriePath
+    let messageLeafHash = computeDigest $ messageLeaf
+    topicDataHash <- applyMerkleProof messageLeafHash $ fmap (getDigest . liftref) pathMessageTriePath
     let topicLeaf = Leaf (liftref pathTopicMetaData, topicDataHash) :: TrieNodeF Byte Bytes8 _ ()
-    let topicLeafHash = castDigest . computeDigest $ topicLeaf
-    daDataHash <- applyMerkleProof topicLeafHash $ fmap (castDigest . liftref) pathTopicTriePath
-    return . castDigest . computeDigest $ (liftref pathDaMetaData, daDataHash)
+    let topicLeafHash = computeDigest $ topicLeaf
+    daDataHash <- applyMerkleProof topicLeafHash $ fmap (getDigest . liftref) pathTopicTriePath
+    return . computeDigest $ (liftref pathDaMetaData, daDataHash)
 
 getSkyDataPath :: (Monad e, Functor e, LiftWrapping e r, LiftDato r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataPath r))
 getSkyDataPath (topicId, messageId) SkyDa {..} = do
@@ -269,13 +269,13 @@ getSkyDataPath (topicId, messageId) SkyDa {..} = do
         _ -> return Nothing
     _ -> return Nothing
 
-getSkyDataProof :: (Monad e, HashFunction hf, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef hf r) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataProof hf))
+getSkyDataProof :: (Monad e, IsHash d, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef d (LiftRef r)) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (LiftRef r (MessageData r), SkyDataProof d))
 getSkyDataProof ids da =
   getSkyDataPath ids da >>= \case
     Nothing -> return Nothing
     Just (rMessageData, path) -> return $ Just (rMessageData, proofOfSkyDataPath path)
 
-proofOfSkyDataPath :: (HashFunction hf, LiftDato r, DigestibleRef hf r) => SkyDataPath r -> SkyDataProof hf
+proofOfSkyDataPath :: (IsHash d, LiftDato r, DigestibleRef d (LiftRef r)) => SkyDataPath r -> SkyDataProof d
 proofOfSkyDataPath SkyDataPath {..} =
   SkyDataPath
     (lcg pathDaMetaData)
@@ -284,9 +284,9 @@ proofOfSkyDataPath SkyDataPath {..} =
     (fmap lcg pathMessageTriePath)
     (lcg pathMessageMetaData)
   where
-    lcg = LiftRef . castDigest . getDigest
+    lcg = LiftRef . Digest . refDigest
 
-initDa :: (LiftDato r, LiftWrapping e r) => DataHash -> Committee -> e (SkyDa r)
+initDa :: (LiftDato r, LiftWrapping e r) => Hash -> Committee -> e (SkyDa r)
 initDa daSchema daCommittee = do
   skyTopicTrie <- empty >>= wrap
   rCommittee <- wrap daCommittee

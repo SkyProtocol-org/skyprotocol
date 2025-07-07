@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -24,6 +25,8 @@ import Prelude qualified as HP
 
 -- * Types
 
+type BBS = P.BuiltinByteString
+
 -- | Redefining 'Proxy', since Plutus doesn't support `k :: t`
 -- e.g. type of type thingy
 data Proxy a = Proxy
@@ -31,16 +34,6 @@ data Proxy a = Proxy
 -- | Backwards composition
 (-.) :: (a -> b) -> (b -> c) -> a -> c
 (-.) = flip (.)
-
---- | Phantom type to indicate a static length of 'FixedLengthByteString'
-data Length = L0 | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 | L9 | L10 | L16 | L32 | L64
-
--- | ByteString of statically known length
-newtype FixedLengthByteString len
-  = FixedLengthByteString {getFixedLengthByteString :: P.BuiltinByteString}
-  deriving anyclass (P.HasBlueprintDefinition)
-  deriving newtype (HP.Show, HP.Eq, P.Show)
-  deriving (P.Eq, ToInt, P.ToData) via P.BuiltinByteString
 
 -- | Byte
 newtype Byte = Byte {getByte :: Integer}
@@ -54,10 +47,6 @@ newtype UInt16 = UInt16 {getUInt16 :: Integer}
   deriving (HP.Eq, P.Eq, ToInt) via Integer
   deriving stock (Generic)
   deriving newtype (HP.Show, P.Show)
-  deriving anyclass (P.HasBlueprintDefinition)
-
--- | FixedLengthInteger
-newtype FixedLengthInteger len = FixedLengthInteger {getFixedLengthInteger :: Integer}
   deriving anyclass (P.HasBlueprintDefinition)
 
 -- | VariableLengthInteger
@@ -82,19 +71,47 @@ data ByteStringCursor = ByteStringCursor
 
 -- ** Fixed size data structures
 
-type Bytes4 = FixedLengthByteString 'L4
+newtype Bytes4 = Bytes4 {getBytes4 :: BBS}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
-type Bytes8 = FixedLengthByteString 'L8
+newtype Bytes8 = Bytes8 {getBytes8 :: BBS}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
-type Bytes32 = FixedLengthByteString 'L32
+newtype Bytes32 = Bytes32 {getBytes32 :: BBS}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
-type Bytes64 = FixedLengthByteString 'L64
+newtype Bytes64 = Bytes64 {getBytes64 :: BBS}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
-type UInt32 = FixedLengthInteger 'L4
+newtype UInt32 = UInt32 {getUInt32 :: Integer}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via Integer
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
-type UInt64 = FixedLengthInteger 'L8
+newtype UInt64 = UInt64 {getUInt64 :: Integer}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via Integer
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
-type UInt256 = FixedLengthInteger 'L32
+newtype UInt256 = UInt256 {getUInt256 :: Integer}
+  deriving (HP.Eq, P.Eq, ToInt, ToData) via Integer
+  deriving newtype (HP.Show, P.Show)
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
 -- | Wrapper for Isomorphic derivation
 -- See https://www.tweag.io/blog/2020-04-23-deriving-isomorphically/
@@ -106,7 +123,7 @@ newtype As a b = As {getAs :: b}
 -- convertTo . convertFrom == id @b
 -- convertFrom . convertTo == id @a
 -- See https://www.tweag.io/blog/2020-04-23-deriving-isomorphically/
-class (ConvertTo a b, ConvertFrom a b) => Isomorphic a b
+type Isomorphic a b = (ConvertTo a b, ConvertFrom a b)
 
 class ConvertTo a b where
   convertTo :: a -> b
@@ -127,10 +144,6 @@ class Partial a where
   validate = fromJust . maybeValidate
 
   {-# MINIMAL isElement #-}
-
--- | Static Length data
-class StaticLength (l :: k) where
-  staticLength :: Proxy l -> Integer
 
 -- | 'toInt' is unsafe if 'maybeToInt' is partial.
 class ToInt a where
@@ -216,149 +229,167 @@ type Dato d =
 
 -- * Instances
 
--- ** StaticLength
+-- ** Bytes4
 
-instance StaticLength L0 where
-  staticLength = const 0
+instance Partial Bytes4 where
+  isElement = isBBSLength 4 . getBytes4
 
-instance StaticLength L1 where
-  staticLength = const 1
+instance FromInt Bytes4 where
+  maybeFromInt = fmap Bytes4 . maybeFLBBSFromInt 4
 
-instance StaticLength L2 where
-  staticLength = const 2
+instance ToByteString Bytes4 where
+  toByteString = getBytes4
+  byteStringOut (Bytes4 b) _ = appendByteString b
 
-instance StaticLength L3 where
-  staticLength = const 3
-
-instance StaticLength L4 where
-  staticLength = const 4
-
-instance StaticLength L5 where
-  staticLength = const 5
-
-instance StaticLength L6 where
-  staticLength = const 6
-
-instance StaticLength L7 where
-  staticLength = const 7
-
-instance StaticLength L8 where
-  staticLength = const 8
-
-instance StaticLength L9 where
-  staticLength = const 9
-
-instance StaticLength L10 where
-  staticLength = const 10
-
-instance StaticLength L16 where
-  staticLength = const 16
-
-instance StaticLength L32 where
-  staticLength = const 32
-
-instance StaticLength L64 where
-  staticLength = const 64
-
--- ** FixedLengthByteString
-
--- instance
---   (StaticLength len) =>
---   Show (FixedLengthByteString len)
---   where
---   showsPrec prec (FixedLengthByteString b) =
---     showApp prec "FixedLengthByteString" [showArg b]
-
-instance (StaticLength len) => Partial (FixedLengthByteString len) where
-  isElement (FixedLengthByteString b) = lengthOfByteString b == staticLength (Proxy @len)
-
-{-instance
-  (StaticLength len) =>
-  ToInt (FixedLengthByteString len)
-  where
-  toInt (FixedLengthByteString b) = toInt b-}
-
-instance (StaticLength len) => FromInt (FixedLengthByteString len) where
-  maybeFromInt =
-    let len = staticLength $ Proxy @len
-        isValidInt = isUInt $ 8 * len
-     in \n ->
-          if isValidInt n
-            then
-              Just . FixedLengthByteString . integerToByteString BigEndian len $ n
-            else
-              Nothing
-
-instance (StaticLength len) => ToByteString (FixedLengthByteString len) where
-  toByteString (FixedLengthByteString b) = b
-  byteStringOut (FixedLengthByteString b) _ = appendByteString b
-
-instance (StaticLength len) => FromByteString (FixedLengthByteString len) where
+instance FromByteString Bytes4 where
   -- {-# INLINEABLE fromByteString #-}
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeValidate . FixedLengthByteString
-  byteStringIn _ = byteStringInFixedLength (staticLength $ Proxy @len) <&> FixedLengthByteString
+  -- maybeFromByteString = maybeValidate . Bytes4
+  byteStringIn _ = byteStringInFixedLength 4 <&> Bytes4
 
-instance (StaticLength len) => BitLogic (FixedLengthByteString len) where
-  bitLength (FixedLengthByteString b) = bitLength b
-  lowestBitClear (FixedLengthByteString b) = lowestBitClear b
-  isBitSet n (FixedLengthByteString b) = readBit b n
-  lowBitsMask =
-    let allBits = replicateByte (staticLength $ Proxy @len) 0xFF
-        nBits = 8 * staticLength (Proxy @len)
-     in \l -> FixedLengthByteString $ shiftByteString allBits $ l - nBits
-  logicalOr (FixedLengthByteString a) (FixedLengthByteString b) =
-    FixedLengthByteString $ orByteString False a b
-  logicalAnd (FixedLengthByteString a) (FixedLengthByteString b) =
-    FixedLengthByteString $ andByteString False a b
-  logicalXor (FixedLengthByteString a) (FixedLengthByteString b) =
-    FixedLengthByteString $ xorByteString False a b
-  shiftRight =
-    let noBits = replicateByte (staticLength $ Proxy @len) 0
-        nBits = 8 * staticLength (Proxy @len)
-     in \fb i ->
-          if i < 0
-            then
-              -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
-              fb -- DEBUG: NOP while debugging
-            else
-              FixedLengthByteString
-                $ if i > nBits
-                  then
-                    noBits
-                  else
-                    shiftByteString (getFixedLengthByteString fb) $ -i
-  shiftLeft =
-    let noBits = replicateByte (staticLength $ Proxy @len) 0
-        nBits = 8 * staticLength (Proxy @len)
-     in \fb i ->
-          if i < 0
-            then
-              -- traceError "Illegal negative index in shiftLeft" -- DEBUG: no trace error for now.
-              fb -- DEBUG: NOP while debugging
-            else
-              FixedLengthByteString
-                $ if i > nBits
-                  then
-                    noBits
-                  else
-                    shiftByteString (getFixedLengthByteString fb) i
+instance BitLogic Bytes4 where
+  bitLength = bitLength . getBytes4
+  lowestBitClear = lowestBitClear . getBytes4
+  isBitSet n (Bytes4 b) = readBit b n
+  lowBitsMask = Bytes4 . lowBitsMaskFLBBS 4
+  logicalOr (Bytes4 a) (Bytes4 b) = Bytes4 $ orByteString False a b
+  logicalAnd (Bytes4 a) (Bytes4 b) = Bytes4 $ andByteString False a b
+  logicalXor (Bytes4 a) (Bytes4 b) = Bytes4 $ xorByteString False a b
+  shiftRight (Bytes4 b) l = Bytes4 $ shiftRightFLBBS 4 b l
+  shiftLeft (Bytes4 b) l = Bytes4 $ shiftLeftFLBBS 4 b l
 
-instance
-  (StaticLength len) =>
-  P.HasBlueprintSchema (FixedLengthByteString len) referencedTypes
+instance P.HasBlueprintSchema Bytes4 referencedTypes
   where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance
-  (StaticLength len) =>
-  P.FromData (FixedLengthByteString len)
+instance P.FromData Bytes4
   where
   fromBuiltinData d = fromBuiltinData d <&> fromByteString
 
-instance
-  (StaticLength len) =>
-  P.UnsafeFromData (FixedLengthByteString len)
+instance P.UnsafeFromData Bytes4
+  where
+  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
+
+-- ** Bytes8
+
+instance Partial Bytes8 where
+  isElement = isBBSLength 8 . getBytes8
+
+instance FromInt Bytes8 where
+  maybeFromInt = fmap Bytes8 . maybeFLBBSFromInt 8
+
+instance ToByteString Bytes8 where
+  toByteString = getBytes8
+  byteStringOut (Bytes8 b) _ = appendByteString b
+
+instance FromByteString Bytes8 where
+  -- {-# INLINEABLE fromByteString #-}
+  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  -- maybeFromByteString = maybeValidate . FixedLengthByteString
+  byteStringIn _ = byteStringInFixedLength 8 <&> Bytes8
+
+instance BitLogic Bytes8 where
+  bitLength = bitLength . getBytes8
+  lowestBitClear = lowestBitClear . getBytes8
+  isBitSet n (Bytes8 b) = readBit b n
+  lowBitsMask = Bytes8 . lowBitsMaskFLBBS 8
+  logicalOr (Bytes8 a) (Bytes8 b) = Bytes8 $ orByteString False a b
+  logicalAnd (Bytes8 a) (Bytes8 b) = Bytes8 $ andByteString False a b
+  logicalXor (Bytes8 a) (Bytes8 b) = Bytes8 $ xorByteString False a b
+  shiftRight (Bytes8 b) l = Bytes8 $ shiftRightFLBBS 8 b l
+  shiftLeft (Bytes8 b) l = Bytes8 $ shiftLeftFLBBS 8 b l
+
+instance P.HasBlueprintSchema Bytes8 referencedTypes
+  where
+  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
+
+instance P.FromData Bytes8
+  where
+  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+
+instance P.UnsafeFromData Bytes8
+  where
+  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
+
+-- ** Bytes32
+
+instance Partial Bytes32 where
+  isElement = isBBSLength 32 . getBytes32
+
+instance FromInt Bytes32 where
+  maybeFromInt = fmap Bytes32 . maybeFLBBSFromInt 32
+
+instance ToByteString Bytes32 where
+  toByteString = getBytes32
+  byteStringOut (Bytes32 b) _ = appendByteString b
+
+instance FromByteString Bytes32 where
+  -- {-# INLINEABLE fromByteString #-}
+  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  -- maybeFromByteString = maybeValidate . FixedLengthByteString
+  byteStringIn _ = byteStringInFixedLength 32 <&> Bytes32
+
+instance BitLogic Bytes32 where
+  bitLength = bitLength . getBytes32
+  lowestBitClear = lowestBitClear . getBytes32
+  isBitSet n (Bytes32 b) = readBit b n
+  lowBitsMask = Bytes32 . lowBitsMaskFLBBS 32
+  logicalOr (Bytes32 a) (Bytes32 b) = Bytes32 $ orByteString False a b
+  logicalAnd (Bytes32 a) (Bytes32 b) = Bytes32 $ andByteString False a b
+  logicalXor (Bytes32 a) (Bytes32 b) = Bytes32 $ xorByteString False a b
+  shiftRight (Bytes32 b) l = Bytes32 $ shiftRightFLBBS 32 b l
+  shiftLeft (Bytes32 b) l = Bytes32 $ shiftLeftFLBBS 32 b l
+
+instance P.HasBlueprintSchema Bytes32 referencedTypes
+  where
+  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
+
+instance P.FromData Bytes32
+  where
+  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+
+instance P.UnsafeFromData Bytes32
+  where
+  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
+
+-- ** Bytes64
+
+instance Partial Bytes64 where
+  isElement = isBBSLength 64 . getBytes64
+
+instance FromInt Bytes64 where
+  maybeFromInt = fmap Bytes64 . maybeFLBBSFromInt 64
+
+instance ToByteString Bytes64 where
+  toByteString = getBytes64
+  byteStringOut (Bytes64 b) _ = appendByteString b
+
+instance FromByteString Bytes64 where
+  -- {-# INLINEABLE fromByteString #-}
+  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  -- maybeFromByteString = maybeValidate . FixedLengthByteString
+  byteStringIn _ = byteStringInFixedLength 64 <&> Bytes64
+
+instance BitLogic Bytes64 where
+  bitLength = bitLength . getBytes64
+  lowestBitClear = lowestBitClear . getBytes64
+  isBitSet n (Bytes64 b) = readBit b n
+  lowBitsMask = Bytes64 . lowBitsMaskFLBBS 64
+  logicalOr (Bytes64 a) (Bytes64 b) = Bytes64 $ orByteString False a b
+  logicalAnd (Bytes64 a) (Bytes64 b) = Bytes64 $ andByteString False a b
+  logicalXor (Bytes64 a) (Bytes64 b) = Bytes64 $ xorByteString False a b
+  shiftRight (Bytes64 b) l = Bytes64 $ shiftRightFLBBS 64 b l
+  shiftLeft (Bytes64 b) l = Bytes64 $ shiftLeftFLBBS 64 b l
+
+instance P.HasBlueprintSchema Bytes64 referencedTypes
+  where
+  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
+
+instance P.FromData Bytes64
+  where
+  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+
+instance P.UnsafeFromData Bytes64
   where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
@@ -444,11 +475,7 @@ instance ToByteString Byte where
 
 instance FromByteString Byte where
   -- {-# INLINEABLE fromByteString #-} -- XXX
-  fromByteString =
-    Byte
-      . byteStringToInteger BigEndian
-      . toByteString
-      . fromByteString @(FixedLengthByteString L1)
+  fromByteString = Byte . byteStringToInteger BigEndian . validateFLBBS 1
 
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   -- maybeFromByteString = maybeFromByteString >=>
@@ -495,11 +522,7 @@ instance ToByteString UInt16 where
 
 instance FromByteString UInt16 where
   -- {-# INLINEABLE fromByteString #-}
-  fromByteString =
-    UInt16
-      . byteStringToInteger BigEndian
-      . toByteString @(FixedLengthByteString L2)
-      . fromByteString
+  fromByteString = UInt16 . byteStringToInteger BigEndian . validateFLBBS 2
 
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   -- maybeFromByteString = maybeFromByteString >=>
@@ -532,68 +555,129 @@ instance P.UnsafeFromData UInt16 where
 instance P.HasBlueprintSchema UInt16 referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
--- ** FixedLengthInteger
+-- ** UInt32
 
-instance (StaticLength len) => P.Eq (FixedLengthInteger len) where
-  (FixedLengthInteger a) == (FixedLengthInteger b) = a == b
+instance Partial UInt32 where
+  isElement = isUInt 32 . getUInt32
 
-instance (StaticLength len) => P.Show (FixedLengthInteger len) where
-  showsPrec prec (FixedLengthInteger n) =
-    showApp
-      prec
-      "FixedLengthInteger"
-      [showString "@L" . showArg (staticLength $ Proxy @len), showArg n]
+instance FromInt UInt32 where
+  maybeFromInt = maybeValidate . UInt32
 
-instance (StaticLength len) => Partial (FixedLengthInteger len) where
-  isElement = isUInt (8 * staticLength (Proxy @len)) . getFixedLengthInteger
+instance ToByteString UInt32 where
+  toByteString (UInt32 n) = integerToByteString BigEndian 4 n
 
-instance ToInt (FixedLengthInteger len) where
-  toInt (FixedLengthInteger n) = n
-
-instance (StaticLength len) => FromInt (FixedLengthInteger len) where
-  maybeFromInt = maybeValidate . FixedLengthInteger
-
-instance (StaticLength len) => ToByteString (FixedLengthInteger len) where
-  toByteString (FixedLengthInteger n) = integerToByteString BigEndian (staticLength $ Proxy @len) n
-
-instance (StaticLength len) => FromByteString (FixedLengthInteger len) where
+instance FromByteString UInt32 where
   --  {-# INLINEABLE fromByteString #-}
   --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
   --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
   byteStringIn _ =
-    byteStringInFixedLength (staticLength $ Proxy @len)
-      <&> FixedLengthInteger
+    byteStringInFixedLength 4
+      <&> UInt32
       . byteStringToInteger BigEndian
 
-instance (StaticLength len) => BitLogic (FixedLengthInteger len) where
-  bitLength (FixedLengthInteger n) =
-    bitLength $ integerToByteString BigEndian (staticLength $ Proxy @len) n
+instance BitLogic UInt32 where
+  bitLength = bitLength . integerToByteString BigEndian 4 . getUInt32
   lowestBitClear n = lowestBitClear $ toByteString n
   isBitSet n i = isBitSet n (toByteString i)
-  lowBitsMask l = FixedLengthInteger . toInt $ (lowBitsMask l :: FixedLengthByteString len)
-  logicalOr (FixedLengthInteger a) (FixedLengthInteger b) =
-    FixedLengthInteger . toInt $ logicalOr (fromInt a :: FixedLengthByteString len) (fromInt b)
-  logicalAnd (FixedLengthInteger a) (FixedLengthInteger b) =
-    FixedLengthInteger . toInt $ logicalAnd (fromInt a :: FixedLengthByteString len) (fromInt b)
-  logicalXor (FixedLengthInteger a) (FixedLengthInteger b) =
-    FixedLengthInteger . toInt $ logicalXor (fromInt a :: FixedLengthByteString len) (fromInt b)
-  shiftRight (FixedLengthInteger b) i = FixedLengthInteger $ shiftRight b i
-  shiftLeft (FixedLengthInteger b) i = FixedLengthInteger . toInt $ shiftByteString (toByteString b) i
-  shiftLeftWithBits (FixedLengthInteger a) l (FixedLengthInteger b) =
-    FixedLengthInteger $ (a `shiftLeft` l) + b
+  lowBitsMask l = UInt32 . toInt $ lowBitsMaskFLBBS 4 l
+  logicalOr (UInt32 a) (UInt32 b) = UInt32 . toInt $ logicalOr (fromInt a :: Bytes4) (fromInt b)
+  logicalAnd (UInt32 a) (UInt32 b) = UInt32 . toInt $ logicalAnd (fromInt a :: Bytes4) (fromInt b)
+  logicalXor (UInt32 a) (UInt32 b) = UInt32 . toInt $ logicalXor (fromInt a :: Bytes4) (fromInt b)
+  shiftRight (UInt32 b) i = UInt32 $ shiftRight b i
+  shiftLeft (UInt32 b) i = UInt32 . toInt $ shiftByteString (toByteString b) i
+  shiftLeftWithBits (UInt32 a) l (UInt32 b) = UInt32 $ (a `shiftLeft` l) + b
 
-instance (StaticLength len) => P.ToData (FixedLengthInteger len) where
-  toBuiltinData = toBuiltinData . getFixedLengthInteger
-
-instance (StaticLength len) => P.FromData (FixedLengthInteger len) where
+instance P.FromData UInt32 where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
 
-instance (StaticLength len) => P.UnsafeFromData (FixedLengthInteger len) where
+instance P.UnsafeFromData UInt32 where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance
-  (StaticLength len) =>
-  P.HasBlueprintSchema (FixedLengthInteger len) referencedTypes
+instance P.HasBlueprintSchema UInt32 referencedTypes
+  where
+  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
+
+-- ** UInt64
+
+instance Partial UInt64 where
+  isElement = isUInt 64 . getUInt64
+
+instance FromInt UInt64 where
+  maybeFromInt = maybeValidate . UInt64
+
+instance ToByteString UInt64 where
+  toByteString (UInt64 n) = integerToByteString BigEndian 8 n
+
+instance FromByteString UInt64 where
+  --  {-# INLINEABLE fromByteString #-}
+  --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
+  byteStringIn _ =
+    byteStringInFixedLength 8
+      <&> UInt64
+      . byteStringToInteger BigEndian
+
+instance BitLogic UInt64 where
+  bitLength = bitLength . integerToByteString BigEndian 8 . getUInt64
+  lowestBitClear n = lowestBitClear $ toByteString n
+  isBitSet n i = isBitSet n (toByteString i)
+  lowBitsMask l = UInt64 . toInt $ lowBitsMaskFLBBS 8 l
+  logicalOr (UInt64 a) (UInt64 b) = UInt64 . toInt $ logicalOr (fromInt a :: Bytes4) (fromInt b)
+  logicalAnd (UInt64 a) (UInt64 b) = UInt64 . toInt $ logicalAnd (fromInt a :: Bytes4) (fromInt b)
+  logicalXor (UInt64 a) (UInt64 b) = UInt64 . toInt $ logicalXor (fromInt a :: Bytes4) (fromInt b)
+  shiftRight (UInt64 b) i = UInt64 $ shiftRight b i
+  shiftLeft (UInt64 b) i = UInt64 . toInt $ shiftByteString (toByteString b) i
+  shiftLeftWithBits (UInt64 a) l (UInt64 b) = UInt64 $ (a `shiftLeft` l) + b
+
+instance P.FromData UInt64 where
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
+
+instance P.UnsafeFromData UInt64 where
+  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
+
+instance P.HasBlueprintSchema UInt64 referencedTypes
+  where
+  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
+
+-- ** UInt256
+
+instance Partial UInt256 where
+  isElement = isUInt 256 . getUInt256
+
+instance FromInt UInt256 where
+  maybeFromInt = maybeValidate . UInt256
+
+instance ToByteString UInt256 where
+  toByteString (UInt256 n) = integerToByteString BigEndian 32 n
+
+instance FromByteString UInt256 where
+  --  {-# INLINEABLE fromByteString #-}
+  --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
+  byteStringIn _ =
+    byteStringInFixedLength 32
+      <&> UInt256
+      . byteStringToInteger BigEndian
+
+instance BitLogic UInt256 where
+  bitLength = bitLength . integerToByteString BigEndian 32 . getUInt256
+  lowestBitClear n = lowestBitClear $ toByteString n
+  isBitSet n i = isBitSet n (toByteString i)
+  lowBitsMask l = UInt256 . toInt $ lowBitsMaskFLBBS 32 l
+  logicalOr (UInt256 a) (UInt256 b) = UInt256 . toInt $ logicalOr (fromInt a :: Bytes4) (fromInt b)
+  logicalAnd (UInt256 a) (UInt256 b) = UInt256 . toInt $ logicalAnd (fromInt a :: Bytes4) (fromInt b)
+  logicalXor (UInt256 a) (UInt256 b) = UInt256 . toInt $ logicalXor (fromInt a :: Bytes4) (fromInt b)
+  shiftRight (UInt256 b) i = UInt256 $ shiftRight b i
+  shiftLeft (UInt256 b) i = UInt256 . toInt $ shiftByteString (toByteString b) i
+  shiftLeftWithBits (UInt256 a) l (UInt256 b) = UInt256 $ (a `shiftLeft` l) + b
+
+instance P.FromData UInt256 where
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
+
+instance P.UnsafeFromData UInt256 where
+  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
+
+instance P.HasBlueprintSchema UInt256 referencedTypes
   where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
@@ -785,6 +869,24 @@ instance (ConvertTo a b, P.UnsafeFromData a) => P.UnsafeFromData (As a b) where
 
 -- * Helpers
 
+-- ** ByteStrings
+
+isBBSLength :: Integer -> BBS -> Bool
+isBBSLength n b = lengthOfByteString b == n
+
+validateFLBBS :: Integer -> BBS -> BBS
+validateFLBBS l b = if isBBSLength l b then b else failNow
+
+maybeFLBBSFromInt :: Integer -> Integer -> Maybe BBS
+maybeFLBBSFromInt len =
+  let isValidInt = isUInt $ 8 * len
+  in \n ->
+       if isValidInt n
+       then
+         Just . integerToByteString BigEndian len $ n
+       else
+         Nothing
+
 -- ** Arithmetics
 
 -- | given len *in bits*, is a given number a non-negative integer of that given length in binary?
@@ -843,6 +945,44 @@ equalizeByteStringLength a b =
 
 bitLengthToByteLength :: Integer -> Integer
 bitLengthToByteLength n = (n + 7) `divide` 8
+
+lowBitsMaskFLBBS :: Integer -> Integer -> BBS
+lowBitsMaskFLBBS len =
+  let allBits = replicateByte len 0xFF
+      nBits = 8 * len
+   in \l -> shiftByteString allBits $ l - nBits
+
+shiftRightFLBBS :: Integer -> BBS -> Integer -> BBS
+shiftRightFLBBS len =
+    let noBits = replicateByte len 0
+        nBits = 8 * len
+     in \fb i ->
+          if i < 0
+            then
+              -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
+              fb -- DEBUG: NOP while debugging
+            else
+              if i > nBits
+                then
+                  noBits
+                else
+                  shiftByteString fb $ -i
+
+shiftLeftFLBBS :: Integer -> BBS -> Integer -> BBS
+shiftLeftFLBBS len =
+  let noBits = replicateByte len 0
+      nBits = 8 * len
+   in \fb i ->
+        if i < 0
+          then
+            -- traceError "Illegal negative index in shiftLeft" -- DEBUG: no trace error for now.
+            fb -- DEBUG: NOP while debugging
+          else
+            if i > nBits
+              then
+                noBits
+              else
+                shiftByteString fb i
 
 -- First argument is the length, second is the start (little endian), last is the bits
 extractBitField :: (BitLogic a) => Integer -> Integer -> a -> a
@@ -953,11 +1093,12 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
---fromJust Nothing = traceError "fromJust Nothing" -- Plutus can't compile that!!!
+fromJust Nothing = traceError "fromJust Nothing" -- Plutus can't compile that!!!
 
 -- | Generic failure
 failNow :: a
-failNow = fromJust Nothing -- traceError "FOO" -- Plutus can't compile that!!!
+failNow = traceError "FOO" -- Plutus can't compile that!!!
+--failNow = fromJust Nothing
 
 -- ** For testing and debugging purposes
 
