@@ -207,6 +207,7 @@ test-suite onchain-tests
     , plutus-ledger-api
     , plutus-tx
     , sky-atlas:common
+    , sky-atlas:offchain
     , sky-atlas:onchain
     , tasty
     , tasty-hunit
