@@ -174,4 +174,4 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
       appStateW <- newMVar appState
       appStateR <- newMVar appState
       pure $ Right AppEnv {..}
-    _ -> pure $ Left $ StartupError "Something wen't wrong when initializing environment"
+    _ -> pure $ Left $ StartupError "Something went wrong when initializing the environment"

@@ -109,6 +109,7 @@ library offchain
   exposed-modules:
     API
     API.Bridge
+    API.Bridge.Contracts
     API.SkyMintingPolicy
     API.Topic
     API.Types
