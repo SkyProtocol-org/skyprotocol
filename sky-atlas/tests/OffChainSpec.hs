@@ -4,6 +4,4 @@ import OffChain.API (apiSpec)
 import Test.Tasty
 
 main :: IO ()
-main = defaultMain $ testGroup "OffChain Tests"
-  [ apiSpec
-  ]
+main = defaultMain $ testGroup "OffChain Tests" [ apiSpec ]
