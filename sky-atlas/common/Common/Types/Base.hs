@@ -1,5 +1,7 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# OPTIONS_GHC -Wincomplete-patterns #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -68,6 +70,8 @@ data ByteStringCursor = ByteStringCursor
   }
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
+
+data IsTerminal = NonTerminal | Terminal
 
 -- ** Fixed size data structures
 
@@ -171,7 +175,6 @@ class FromInt a where
 -- then byteStringOut must be defined.
 -- TODO: replace with something that uses Cardano's standard CBOR encoding.
 -- But keep the bytestring variant for the sake of other chains?
-data IsTerminal = NonTerminal | Terminal
 
 class ToByteString a where
   -- | convert to String
@@ -875,7 +878,7 @@ isBBSLength :: Integer -> BBS -> Bool
 isBBSLength n b = lengthOfByteString b == n
 
 validateFLBBS :: Integer -> BBS -> BBS
-validateFLBBS l b = if isBBSLength l b then b else failNow
+validateFLBBS l b = if isBBSLength l b then b else fromJust Nothing -- traceError "blah"
 
 maybeFLBBSFromInt :: Integer -> Integer -> Maybe BBS
 maybeFLBBSFromInt len =
@@ -1093,12 +1096,27 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
-fromJust Nothing = traceError "fromJust Nothing" -- Plutus can't compile that!!!
+-- fromJust Nothing = traceError "fromJust Nothing" -- XXX Plutus can't compile that!!!
 
 -- | Generic failure
-failNow :: a
-failNow = traceError "FOO" -- Plutus can't compile that!!!
---failNow = fromJust Nothing
+-- Trying to use it from Plutus will fail at compile-time:
+-- Error: Unsupported feature: Type constructor: GHC.Prim.Char#
+-- Context: Compiling definition of: PlutusTx.Builtins.HasOpaque.stringToBuiltinString
+-- Context: Compiling definition of: Common.Types.Base.failTE
+failTE :: a
+failTE = traceError ("foo" :: BuiltinString)
+
+-- Trying to use it from Plutus will fail at compile-time:
+-- Error: Unsupported feature: Type constructor: GHC.Prim.Char#
+-- Unsupported feature: Type constructor: GHC.Prim.Char#
+failTEE :: a
+failTEE = traceError emptyString
+
+-- Trying to use it from Plutus will fail at compile-time:
+-- Error: Unsupported feature: Cannot case on a value of type: forall a. a
+-- But instead of calling it, you can macroexpand in context (fromJust Nothing :: FOO).
+failAA :: a
+failAA = fromJust Nothing
 
 -- ** For testing and debugging purposes
 
@@ -1113,3 +1131,38 @@ bHex = hexOf
 
 hexB :: String -> P.BuiltinByteString
 hexB = ofHex
+
+-- ** Template Haskell declarations
+
+P.makeLift ''Byte
+-- P.makeIsDataSchemaIndexed ''Byte [('Byte, 0)]
+
+P.makeLift ''UInt16
+-- P.makeIsDataSchemaIndexed ''UInt16 [('UInt16, 0)]
+
+-- P.makeLift ''VariableLengthInteger
+-- P.makeIsDataSchemaIndexed ''VariableLengthInteger [('VariableLengthInteger, 0)]
+
+-- P.makeLift ''IsTerminal
+P.makeIsDataSchemaIndexed ''IsTerminal [('NonTerminal, 0), ('Terminal, 1)]
+
+P.makeLift ''Bytes4
+-- P.makeIsDataSchemaIndexed ''Bytes4 [('Bytes4, 0)]
+
+P.makeLift ''Bytes8
+-- P.makeIsDataSchemaIndexed ''Bytes8 [('Bytes8, 0)]
+
+P.makeLift ''Bytes32
+-- P.makeIsDataSchemaIndexed ''Bytes32 [('Bytes32, 0)]
+
+P.makeLift ''Bytes64
+-- P.makeIsDataSchemaIndexed ''Bytes64 [('Bytes64, 0)]
+
+P.makeLift ''UInt32
+-- P.makeIsDataSchemaIndexed ''UInt32 [('UInt32, 0)]
+
+P.makeLift ''UInt64
+-- P.makeIsDataSchemaIndexed ''UInt64 [('UInt64, 0)]
+
+P.makeLift ''UInt256
+-- P.makeIsDataSchemaIndexed ''UInt256 [('UInt256, 0)]

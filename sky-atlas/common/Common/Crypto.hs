@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Common.Crypto where
@@ -147,8 +148,8 @@ instance (ToByteString d) => ToByteString (HashRef d x) where
 
 -- fake for the sake of Dato
 instance (Dato d, ToByteString x) => FromByteString (HashRef d x) where
-  fromByteString = failNow -- lookupHashRef @d . fromByteString
-  byteStringIn _ = failNow -- byteStringIn isTerminal <&> lookupHashRef @d
+  fromByteString = fromJust Nothing -- XXX lookupHashRef @d . fromByteString
+  byteStringIn _ = fromJust Nothing -- XXX byteStringIn isTerminal <&> lookupHashRef @d
 
 instance (IsHash d, Dato a, Monad e) => PreWrapping e (HashRef d) a where
   wrap = return . digestRef_
@@ -295,7 +296,7 @@ digestRef a = HashRef (computeDigest a) a
 
 -- Make that a monadic method on a typeclass with a cache/db for lookup
 lookupDigest :: (IsHash d) => d -> a
-lookupDigest = traceError "Cannot get a value from its digest"
+lookupDigest = fromJust Nothing -- XXX traceError "Cannot get a value from its digest"
 
 -- lookupHashRef :: (IsHash d) => d -> HashRef d a
 -- lookupHashRef d = HashRef d $ lookupDigest d
@@ -343,3 +344,19 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
           let -- Filter for valid signatures from required public keys
               validSignatures = filter (\ss@(SingleSig (pubKey, _)) -> pubKey `elem` pubKeys && singleSigValid message ss) singleSigs
            in length validSignatures >= toInt minSigs
+
+-- ** Template Haskell declarations
+
+P.makeLift ''SecKey
+
+P.makeLift ''PubKey
+
+P.makeLift ''Signature
+
+P.makeLift ''SingleSig
+
+P.makeLift ''MultiSigPubKey
+
+P.makeLift ''MultiSig
+
+P.makeLift ''Blake2b_256

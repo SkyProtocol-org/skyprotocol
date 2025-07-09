@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
@@ -101,7 +102,7 @@ instance (P.FromData a, P.FromData b, P.FromData c) =>
         else if i == Byte 2 then do
           c <- fromBuiltinData v
           return $ E3_2 c
-        else failNow
+        else fromJust Nothing -- traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c) =>
@@ -115,7 +116,7 @@ instance
           E3_1 . unsafeFromBuiltinData $ v
         else if i == Byte 2 then
           E3_2 . unsafeFromBuiltinData $ v
-        else failNow
+        else fromJust Nothing -- traceError "foo"
 
 -- *** Either4
 
@@ -169,7 +170,7 @@ instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d) =>
         else if i == Byte 3 then do
           c <- fromBuiltinData v
           return $ E4_3 c
-        else failNow
+        else fromJust Nothing -- traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d) =>
@@ -185,7 +186,7 @@ instance
           E4_2 . unsafeFromBuiltinData $ v
         else if i == Byte 3 then
           E4_3 . unsafeFromBuiltinData $ v
-        else failNow
+        else fromJust Nothing -- traceError "foo"
 
 -- *** Maybe
 
@@ -301,7 +302,7 @@ instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e) 
         d <- fromBuiltinData dd
         e <- fromBuiltinData ee
         return (a, b, c, d, e)
-      _ -> failNow
+--    _ -> traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e) =>
@@ -309,7 +310,7 @@ instance
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
-      _ -> failNow
+--    _ -> traceError "foo"
 
 -- *** (,,,,,) or builtin Sextuplets
 
@@ -359,7 +360,7 @@ instance
         e <- fromBuiltinData ee
         f <- fromBuiltinData ff
         return (a, b, c, d, e, f)
-      _ -> failNow
+--    _ -> traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e, P.UnsafeFromData f) =>
@@ -367,7 +368,7 @@ instance
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
-      _ -> failNow
+--    _ -> traceError "foo"
 
 -- ** Lists
 

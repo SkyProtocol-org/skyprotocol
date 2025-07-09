@@ -35,14 +35,16 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       state <- liftIO $ readMVar appStateR
 
       let SkyDa {..} = view (blockState . skyDa) state
-          topHash = toByteString $ computeDigest @Blake2b_256 $ SkyDa {..}
+          topHash = computeDigest @Blake2b_256 $ SkyDa {..}
 
       logTrace_ "Constructing body for the minting policy"
       body <-
         runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral $
           mkMintingSkeleton cbrAmount (configTokenName appConfig) (pubKeyHash $ cuserVerificationKey appAdmin) topHash
-
       logTrace_ "Signing and submitting minting policy"
+      logTrace_ "SUCCESS!"
+      _ <- throwError $ APIError "Success!"
+      logTrace_ "FAILURE TO ABORT(!)"
       tId <- runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)
 
@@ -67,7 +69,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       case maybeBridgeDatum of
         -- will decodeASCII work here? topHash is in hex, if I'm not mistaken
         -- TODO: ask Fare
-        Just (BridgeNFTDatum topHash) -> pure $ decodeASCII $ builtinByteStringToByteString topHash
+        Just (BridgeNFTDatum topHash) -> pure . decodeASCII . builtinByteStringToByteString . toByteString $ topHash
         Nothing -> throwError $ APIError "Can't get the datum from bridge"
 
     updateBridgeH _ = do

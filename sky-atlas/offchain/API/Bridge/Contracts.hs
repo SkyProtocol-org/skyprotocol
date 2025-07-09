@@ -1,6 +1,7 @@
 module API.Bridge.Contracts where
 
 import API.SkyMintingPolicy
+import Common.Crypto (Hash)
 import Contract.SkyBridge
 import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
@@ -8,7 +9,6 @@ import GeniusYield.TxBuilder
 import GeniusYield.Types
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusTx.Prelude (BuiltinByteString)
 
 mkMintingSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
@@ -18,7 +18,7 @@ mkMintingSkeleton ::
   -- | Minting policy signer
   GYPubKeyHash ->
   -- | Top hash
-  BuiltinByteString ->
+  Hash ->
   m (GYTxSkeleton 'PlutusV2)
 mkMintingSkeleton amount tokenName mintSigner topHash = do
   let bridgeNFTDatum = BridgeNFTDatum topHash

@@ -6,6 +6,6 @@ import Test.Tasty
 
 main :: IO ()
 main = defaultMain $ testGroup "OnChain Tests"
-  [ contractSpec
-  , bountySpec
+  [ bountySpec
+  , contractSpec
   ]

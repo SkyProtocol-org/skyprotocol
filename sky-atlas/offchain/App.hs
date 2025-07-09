@@ -104,7 +104,7 @@ runGY ::
 runGY psk ssk addrs addr collateral body = do
   AppEnv {..} <- ask
   let nid = cfgNetworkId $ configAtlas appConfig
-  liftIO $
+  liftIO $ do
     runGYTxMonadIO
       nid
       appProviders

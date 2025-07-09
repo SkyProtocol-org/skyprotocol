@@ -1,6 +1,6 @@
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Contract.SkyBridge where
 
@@ -34,7 +34,7 @@ import PlutusTx.Prelude qualified as PlutusTx
 ------------------------------------------------------------------------------
 
 newtype BridgeNFTDatum = BridgeNFTDatum
-  { bridgeNFTTopHash :: BuiltinByteString -- Hash
+  { bridgeNFTTopHash :: Hash
   }
   deriving (Eq, FromByteString, ToByteString) via BuiltinByteString
   deriving stock (Generic)
@@ -62,11 +62,11 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 ------------------------------------------------------------------------------
 
 data BridgeRedeemer = UpdateBridge
-  { bridgeSchema :: BuiltinByteString, -- Hash,
-    bridgeCommittee :: BuiltinByteString, -- MultiSigPubKey,
-    bridgeOldRootHash :: BuiltinByteString, -- Hash,
-    bridgeNewTopHash :: BuiltinByteString, -- Hash,
-    bridgeSig :: BuiltinByteString -- MultiSig -- signature over new top hash
+  { bridgeSchema :: Hash,
+    bridgeCommittee :: MultiSigPubKey,
+    bridgeOldRootHash :: Hash,
+    bridgeNewTopHash :: Hash,
+    bridgeSig :: MultiSig -- signature over new top hash
   }
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
@@ -155,22 +155,22 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
         [ -- Core validation, below
           bridgeTypedValidatorCore
-            (fromByteString daSchema)
-            (fromByteString daCommittee)
-            (fromByteString oldRootHash)
-            (fromByteString newTopHash)
-            (fromByteString sig)
-            oldNFTTopHash,
+             daSchema
+             daCommittee
+             oldRootHash
+             newTopHash
+             sig
+             oldNFTTopHash,
           -- The NFT must be again included in the outputs
           outputHasNFT,
           -- The NFT's data must have been updated
-          nftUpdated (fromByteString newTopHash)
+          nftUpdated newTopHash
         ]
 
     ownOutput :: TxOut
     ownOutput = case getContinuingOutputs ctx of
       [o] -> o
-      _ -> PlutusTx.traceError "expected exactly one output"
+    -- _ -> PlutusTx.traceError "expected exactly one output"
 
     oldBridgeNFTDatum :: BridgeNFTDatum
     oldBridgeNFTDatum = fromJust $ getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx
@@ -179,10 +179,10 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
     newBridgeNFTDatum = fromJust $ getBridgeNFTDatumFromTxOut ownOutput ctx
 
     oldNFTTopHash :: Hash
-    oldNFTTopHash = fromByteString . bridgeNFTTopHash $ oldBridgeNFTDatum
+    oldNFTTopHash = bridgeNFTTopHash $ oldBridgeNFTDatum
 
     newNFTTopHash :: Hash
-    newNFTTopHash = fromByteString . bridgeNFTTopHash $ newBridgeNFTDatum
+    newNFTTopHash = bridgeNFTTopHash $ newBridgeNFTDatum
 
     -- The output NFT UTXO's datum must match the new values for the root hashes
     nftUpdated :: Hash -> Bool
@@ -198,66 +198,81 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
 -- Core validation function, for easy testing
 bridgeTypedValidatorCore :: Hash -> MultiSigPubKey -> Hash -> Hash -> MultiSig -> Hash -> Bool
 bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
-  True
-  {-
   multiSigValid daCommittee newTopHash sig
     &&
     -- \^ The new top hash must be signed by the committee
-    oldTopHash
-    == computedOldTopHash
+    oldTopHash == computedOldTopHash
   where
     -- \^ The old top hash must be the hash of the concatenation of committee fingerprint
     --   and old root hash
-
-    daCommitteeFingerprint :: Hash Committee
+    daCommitteeFingerprint :: Hash
     daCommitteeFingerprint = computeDigest daCommittee
     computedOldDaMetaData :: Hash
-    computedOldDaMetaData = castDigest (computeDigest (daSchema, daCommitteeFingerprint))
+    computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
     computedOldTopHash :: Hash
-    computedOldTopHash = castDigest (computeDigest (computedOldDaMetaData, daData))
- -}
+    computedOldTopHash = computeDigest (computedOldDaMetaData, daData)
 
 ------------------------------------------------------------------------------
 -- Untyped Validator
 ------------------------------------------------------------------------------
 
-{-
-data FOO = FOO
-   { foo1 :: BuiltinByteString,
-     foo2 :: BuiltinByteString,
-     foo3 :: BuiltinByteString,
-     foo4 :: BuiltinByteString,
-     foo5 :: BuiltinByteString }
-instance FromByteString FOO where
-  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 FOO
--}
+data FOO1 = FOO1 { foo1 :: BuiltinByteString }
+class Foo a where xfromByteString :: BuiltinByteString -> a
+instance Foo FOO1 where xfromByteString = \ x -> FOO1 x -- failAA -- fromJust Nothing
+xfromByteStringIn :: BuiltinByteString -> FOO1
+xfromByteStringIn = FOO1
+
+data FOO2 = FOO2 { foo2 :: BuiltinByteString }
+instance FromByteString FOO2 where
+  fromByteString = FOO2
+  byteStringIn isTerminal = byteStringInToEnd <&> FOO2
+
+data FOO3 = FOO3 { foo3 :: BuiltinByteString }
+instance FromByteString FOO3 where
+  fromByteString = failAA
+  byteStringIn isTerminal = failAA
+
+aBS :: BBS -> BBS -> BBS
+aBS = appendByteString
+
+eBS :: BBS
+eBS = emptyByteString
+
+data FOO4 = FOO4 { foo4 :: BuiltinByteString }
+instance FromByteString FOO4 where
+  fromByteString = \x -> uncurry4 (\ a b c d -> FOO4 (aBS (aBS a b) (aBS c d))) (x, x, x, x)
+  byteStringIn isTerminal = return eBS <&> FOO4
 
 {-# INLINEABLE bridgeUntypedValidator #-}
 bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
 bridgeUntypedValidator params _datum redeemer ctx =
   PlutusTx.check
-{-
-    let r = (fromByteString emptyByteString
-            --fromJust $
-            -- Just emptyByteString
-            -- PlutusTx.fromBuiltinData redeemer -- PlutusTx.fromBuiltinData redeemer
-            ) :: -- BuiltinByteString --
-             -- works: (BuiltinByteString)
-             -- bad: Error: Unsupported feature: Kind: forall {k}. k -> *
-             --   (BuiltinByteString, BuiltinByteString) (BuiltinByteString, BuiltinByteString, BuiltinByteString)
-            -- (BuiltinByteString, BuiltinByteString, BuiltinByteString, BuiltinByteString)
-            (BuiltinByteString, BuiltinByteString, BuiltinByteString, BuiltinByteString, BuiltinByteString)
-             -- BridgeRedeemer
-             -- FOO
-          in
-    True
--}
+    let
+     e = emptyByteString
+     -- r00 = (fromByteString . fromJust $ PlutusTx.fromBuiltinData redeemer) :: BridgeRedeemer -- FAIL Addr#
+     -- r01 = (fromByteString e) :: BridgeRedeemer -- FAIL Addr#
+     r02 = (xfromByteString . fromJust $ PlutusTx.fromBuiltinData redeemer) :: FOO1 -- OK
+     -- r03 = (xfromByteString e) :: FOO1 -- FAIL Addr# (!!!)
+     r04 = (fromByteString e) :: (BBS, BBS, BBS) -- OK
+     r05 = (FOO1 e) -- OK
+     r06 = (FOO2 e) -- OK
+     r07 = (FOO3 e) -- OK
+     -- r08 = failAA :: FOO3 -- FAIL Unsupported feature: Cannot case on a value of type: forall a. a
+     r09 = fromByteString e :: FOO3 -- OK -- HOW???
+     r10 = fromByteString e :: FOO2 -- OK
+     r11 = fromByteString e :: FOO4 -- OK
+     -- r12 = PlutusTx.fromBuiltinData redeemer :: Maybe BridgeRedeemer -- FAIL Addr# WHY???
+     -- r13 = PlutusTx.unsafeFromBuiltinData redeemer :: BridgeRedeemer -- FAIL Addr#
+      in
+      True
+{- XXXX
     (bridgeTypedValidator
         params
         () -- ignore the untyped datum, it's unused
-        (fromByteStringIn . fromJust $ PlutusTx.fromBuiltinData redeemer)
+        (PlutusTx.unsafeFromBuiltinData redeemer)
         (PlutusTx.unsafeFromBuiltinData ctx)
     )
+-}
 
 bridgeValidatorScript ::
   BridgeParams ->
