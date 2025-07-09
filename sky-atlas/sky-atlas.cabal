@@ -120,7 +120,7 @@ library offchain
 
   build-depends:
     , aeson
-    , atlas-cardano      >=0.12.0
+    , atlas-cardano
     , base
     , bytestring
     , lens

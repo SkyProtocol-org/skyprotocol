@@ -5,7 +5,6 @@
   inputs = {
     haskellNix.url = "github:input-output-hk/haskell.nix";
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
-    # cardano-cli.url = "github:IntersectMBO/cardano-cli";
     flake-utils.url = "github:numtide/flake-utils";
     CHaP = {
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
