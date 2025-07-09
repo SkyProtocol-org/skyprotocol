@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
@@ -175,7 +174,6 @@ class FromInt a where
 -- then byteStringOut must be defined.
 -- TODO: replace with something that uses Cardano's standard CBOR encoding.
 -- But keep the bytestring variant for the sake of other chains?
-
 class ToByteString a where
   -- | convert to String
   toByteString :: a -> P.BuiltinByteString
@@ -261,16 +259,13 @@ instance BitLogic Bytes4 where
   shiftRight (Bytes4 b) l = Bytes4 $ shiftRightFLBBS 4 b l
   shiftLeft (Bytes4 b) l = Bytes4 $ shiftLeftFLBBS 4 b l
 
-instance P.HasBlueprintSchema Bytes4 referencedTypes
-  where
+instance P.HasBlueprintSchema Bytes4 referencedTypes where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance P.FromData Bytes4
-  where
+instance P.FromData Bytes4 where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
-instance P.UnsafeFromData Bytes4
-  where
+instance P.UnsafeFromData Bytes4 where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** Bytes8
@@ -302,16 +297,13 @@ instance BitLogic Bytes8 where
   shiftRight (Bytes8 b) l = Bytes8 $ shiftRightFLBBS 8 b l
   shiftLeft (Bytes8 b) l = Bytes8 $ shiftLeftFLBBS 8 b l
 
-instance P.HasBlueprintSchema Bytes8 referencedTypes
-  where
+instance P.HasBlueprintSchema Bytes8 referencedTypes where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance P.FromData Bytes8
-  where
+instance P.FromData Bytes8 where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
-instance P.UnsafeFromData Bytes8
-  where
+instance P.UnsafeFromData Bytes8 where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** Bytes32
@@ -343,16 +335,13 @@ instance BitLogic Bytes32 where
   shiftRight (Bytes32 b) l = Bytes32 $ shiftRightFLBBS 32 b l
   shiftLeft (Bytes32 b) l = Bytes32 $ shiftLeftFLBBS 32 b l
 
-instance P.HasBlueprintSchema Bytes32 referencedTypes
-  where
+instance P.HasBlueprintSchema Bytes32 referencedTypes where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance P.FromData Bytes32
-  where
+instance P.FromData Bytes32 where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
-instance P.UnsafeFromData Bytes32
-  where
+instance P.UnsafeFromData Bytes32 where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** Bytes64
@@ -384,16 +373,13 @@ instance BitLogic Bytes64 where
   shiftRight (Bytes64 b) l = Bytes64 $ shiftRightFLBBS 64 b l
   shiftLeft (Bytes64 b) l = Bytes64 $ shiftLeftFLBBS 64 b l
 
-instance P.HasBlueprintSchema Bytes64 referencedTypes
-  where
+instance P.HasBlueprintSchema Bytes64 referencedTypes where
   schema = SchemaBytes emptySchemaInfo emptyBytesSchema
 
-instance P.FromData Bytes64
-  where
+instance P.FromData Bytes64 where
   fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
-instance P.UnsafeFromData Bytes64
-  where
+instance P.UnsafeFromData Bytes64 where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** BuiltinByteString
@@ -596,8 +582,7 @@ instance P.FromData UInt32 where
 instance P.UnsafeFromData UInt32 where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance P.HasBlueprintSchema UInt32 referencedTypes
-  where
+instance P.HasBlueprintSchema UInt32 referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** UInt64
@@ -638,8 +623,7 @@ instance P.FromData UInt64 where
 instance P.UnsafeFromData UInt64 where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance P.HasBlueprintSchema UInt64 referencedTypes
-  where
+instance P.HasBlueprintSchema UInt64 referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** UInt256
@@ -680,8 +664,7 @@ instance P.FromData UInt256 where
 instance P.UnsafeFromData UInt256 where
   unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
 
-instance P.HasBlueprintSchema UInt256 referencedTypes
-  where
+instance P.HasBlueprintSchema UInt256 referencedTypes where
   schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** VariableLengthInteger
@@ -883,12 +866,12 @@ validateFLBBS l b = if isBBSLength l b then b else fromJust Nothing -- traceErro
 maybeFLBBSFromInt :: Integer -> Integer -> Maybe BBS
 maybeFLBBSFromInt len =
   let isValidInt = isUInt $ 8 * len
-  in \n ->
-       if isValidInt n
-       then
-         Just . integerToByteString BigEndian len $ n
-       else
-         Nothing
+   in \n ->
+        if isValidInt n
+          then
+            Just . integerToByteString BigEndian len $ n
+          else
+            Nothing
 
 -- ** Arithmetics
 
@@ -899,6 +882,7 @@ isUInt len =
    in \n -> 0 <= n && n <= maxUInt
 
 -- | How is this not in Plutus already?
+{-# INLINEABLE multiplyByExponential #-}
 multiplyByExponential :: Integer -> Integer -> Integer -> Integer
 multiplyByExponential a e n =
   if n == 0
@@ -957,19 +941,19 @@ lowBitsMaskFLBBS len =
 
 shiftRightFLBBS :: Integer -> BBS -> Integer -> BBS
 shiftRightFLBBS len =
-    let noBits = replicateByte len 0
-        nBits = 8 * len
-     in \fb i ->
-          if i < 0
-            then
-              -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
-              fb -- DEBUG: NOP while debugging
-            else
-              if i > nBits
-                then
-                  noBits
-                else
-                  shiftByteString fb $ -i
+  let noBits = replicateByte len 0
+      nBits = 8 * len
+   in \fb i ->
+        if i < 0
+          then
+            -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
+            fb -- DEBUG: NOP while debugging
+          else
+            if i > nBits
+              then
+                noBits
+              else
+                shiftByteString fb $ -i
 
 shiftLeftFLBBS :: Integer -> BBS -> Integer -> BBS
 shiftLeftFLBBS len =
@@ -1096,6 +1080,7 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
+
 -- fromJust Nothing = traceError "fromJust Nothing" -- XXX Plutus can't compile that!!!
 
 -- | Generic failure
@@ -1135,9 +1120,11 @@ hexB = ofHex
 -- ** Template Haskell declarations
 
 P.makeLift ''Byte
+
 -- P.makeIsDataSchemaIndexed ''Byte [('Byte, 0)]
 
 P.makeLift ''UInt16
+
 -- P.makeIsDataSchemaIndexed ''UInt16 [('UInt16, 0)]
 
 -- P.makeLift ''VariableLengthInteger
@@ -1147,22 +1134,29 @@ P.makeLift ''UInt16
 P.makeIsDataSchemaIndexed ''IsTerminal [('NonTerminal, 0), ('Terminal, 1)]
 
 P.makeLift ''Bytes4
+
 -- P.makeIsDataSchemaIndexed ''Bytes4 [('Bytes4, 0)]
 
 P.makeLift ''Bytes8
+
 -- P.makeIsDataSchemaIndexed ''Bytes8 [('Bytes8, 0)]
 
 P.makeLift ''Bytes32
+
 -- P.makeIsDataSchemaIndexed ''Bytes32 [('Bytes32, 0)]
 
 P.makeLift ''Bytes64
+
 -- P.makeIsDataSchemaIndexed ''Bytes64 [('Bytes64, 0)]
 
 P.makeLift ''UInt32
+
 -- P.makeIsDataSchemaIndexed ''UInt32 [('UInt32, 0)]
 
 P.makeLift ''UInt64
+
 -- P.makeIsDataSchemaIndexed ''UInt64 [('UInt64, 0)]
 
 P.makeLift ''UInt256
+
 -- P.makeIsDataSchemaIndexed ''UInt256 [('UInt256, 0)]

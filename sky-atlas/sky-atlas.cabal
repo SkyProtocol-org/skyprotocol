@@ -38,16 +38,17 @@ common common
   -- speed-ups GHCi considerably
   ghc-options:        -fno-show-valid-hole-fits
 
+-- recommended plutus ghc options
 common plutus-ghc-options
-  -- so unfoldings are present even when compiled without optmizations
   ghc-options:
-    -fno-ignore-interface-pragmas -fno-omit-interface-pragmas
-    -Wno-partial-type-signatures -fno-strictness
-
-  -- expose all unfoldings, so plutustx compiler can do its job
-  ghc-options:
-    -fexpose-all-unfoldings -fobject-code -fplugin-opt
-    PlutusTx.Plugin:defer-errors
+    -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas
+    -fno-full-laziness
+    -fno-spec-constr
+    -fno-specialise
+    -fno-strictness
+    -fno-unbox-strict-fields
+    -fno-unbox-small-strict-fields
 
   -- set target plutus-core version
   ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
@@ -55,7 +56,10 @@ common plutus-ghc-options
 library common
   import:             common, plutus-ghc-options
   hs-source-dirs:     common
-  default-extensions: NoImplicitPrelude
+  default-extensions:
+    NoImplicitPrelude
+    Strict
+
   exposed-modules:
     Common
     Common.Crypto

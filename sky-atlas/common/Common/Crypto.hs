@@ -85,6 +85,7 @@ data HashMRef d x = HashMRef {hashMRefHash :: d, hashMRefValue :: Maybe x}
   deriving anyclass (HasBlueprintDefinition)
 
 -- * Classes
+
 class (Dato d) => IsHash d where
   hashFunction :: BBS -> d
 
@@ -332,6 +333,7 @@ singleSigValid message (SingleSig (pubKey, sig)) =
 
 -- WARNING: 'nub' and 'elem' use GHC Prelude Eq
 -- Main function to check if the MultiSig satisfies at least N valid unique signatures
+{-# INLINEABLE multiSigValid #-}
 multiSigValid :: (ToByteString a) => MultiSigPubKey -> a -> MultiSig -> Bool
 multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) =
   let -- Extract the public keys from the SingleSig values
