@@ -216,10 +216,10 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
 ------------------------------------------------------------------------------
 -- Untyped Validator
 ------------------------------------------------------------------------------
-
+{-
 newtype FOO1 = FOO1 { foo1 :: BuiltinByteString }
 class Foo a where xfromByteString :: BuiltinByteString -> a
-instance Foo FOO1 where xfromByteString = \ x -> FOO1 x -- failAA -- fromJust Nothing
+instance Foo FOO1 where xfromByteString = FOO1 -- failAA -- fromJust Nothing
 xfromByteStringIn :: BuiltinByteString -> FOO1
 xfromByteStringIn = FOO1
 
@@ -243,17 +243,22 @@ data FOO4 = FOO4 { foo4 :: BuiltinByteString }
 instance FromByteString FOO4 where
   fromByteString = \x -> uncurry4 (\ a b c d -> FOO4 (aBS (aBS a b) (aBS c d))) (x, x, x, x)
   byteStringIn isTerminal = return eBS <&> FOO4
+-}
 
 {-# INLINEABLE bridgeUntypedValidator #-}
 bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
 bridgeUntypedValidator params _datum redeemer ctx =
   PlutusTx.check
+{-
     let
      e = emptyByteString
+     ms = PlutusTx.fromBuiltinData redeemer :: Maybe BBS
+     s = fromJust ms :: BBS
      -- r00 = (fromByteString . fromJust $ PlutusTx.fromBuiltinData redeemer) :: BridgeRedeemer -- FAIL Addr#
      -- r01 = (fromByteString e) :: BridgeRedeemer -- FAIL Addr#
      r02 = (xfromByteString . fromJust $ PlutusTx.fromBuiltinData redeemer) :: FOO1 -- OK
-     -- r03 = (xfromByteString e) :: FOO1 -- FAIL Addr# (!!!)
+     r03 = (xfromByteString e) :: FOO1 -- once FAILed Addr#, now OK (!?!)
+{-
      r04 = (fromByteString e) :: (BBS, BBS, BBS) -- OK
      r05 = (FOO1 e) -- OK
      r06 = (FOO2 e) -- OK
@@ -265,16 +270,36 @@ bridgeUntypedValidator params _datum redeemer ctx =
      -- r12 = PlutusTx.fromBuiltinData redeemer :: Maybe BridgeRedeemer -- FAIL Addr# WHY???
      -- r13 = PlutusTx.unsafeFromBuiltinData redeemer :: BridgeRedeemer -- FAIL Addr#
      r14 = coerce (FOO1 e) :: FOO2 -- OK
-      in
-      True
-{- XXXX
+     r15 = PlutusTx.fromBuiltinData redeemer :: Maybe Bytes4 -- OK
+     r16 = PlutusTx.fromBuiltinData redeemer :: Maybe Bytes32 -- OK
+     r17 = PlutusTx.fromBuiltinData redeemer :: Maybe BBS -- OK
+     r18 = PlutusTx.fromBuiltinData redeemer :: Maybe Hash -- OK
+     r19 = (fromJust . PlutusTx.fromBuiltinData $ redeemer) :: BBS -- OK
+-}
+     -- r20 = (fromByteString s) :: BridgeRedeemer -- FAIL Addr#
+     r21 = fromByteString s :: BBS
+     r22 = fromByteString s :: Bytes32
+     r23 = fromByteString s :: Hash
+     r24 = fromByteString s :: MultiSigPubKey
+     r25 = fromByteString s :: MultiSig
+     r26 = PlutusTx.unsafeFromBuiltinData redeemer :: BBS
+     r27 = PlutusTx.unsafeFromBuiltinData redeemer :: Bytes32
+     r28 = PlutusTx.unsafeFromBuiltinData redeemer :: Hash
+     r29 = PlutusTx.unsafeFromBuiltinData redeemer :: MultiSigPubKey
+     r30 = PlutusTx.unsafeFromBuiltinData redeemer :: MultiSig
+     -- r31 = PlutusTx.unsafeFromBuiltinData redeemer :: BridgeRedeemer
+     h0 = computeDigest @Hash (Byte 0)
+     in
+      computeDigest @Hash (r21, r22, r23, r24, r25) == h0
+       || computeDigest @Hash (r26, r27, r28, r29, r30) == h0
+      -- || bridgeSchema r31 == h0
+-}
     (bridgeTypedValidator
         params
         () -- ignore the untyped datum, it's unused
         (PlutusTx.unsafeFromBuiltinData redeemer)
         (PlutusTx.unsafeFromBuiltinData ctx)
     )
--}
 
 bridgeValidatorScript ::
   BridgeParams ->
