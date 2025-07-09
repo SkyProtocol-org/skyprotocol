@@ -50,77 +50,15 @@ mintingPolicyTest TestInfo {..} = do
   pkh <- addressToPubKeyHash' addr
 
   asUser (admin testWallets) $ do
-    mintSkeleton <- mkMintingSkeleton Nothing "TestSkyToken" pkh ""
+    mintSkeleton <- mkMintingSkeleton Nothing "TestSkyToken" pkh (computeDigest (Byte 1))
     gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
-mkMintingSkeleton :: (GYTxUserQueryMonad m) => m (GYTxSkeleton 'PlutusV2)
-mkMintingSkeleton = do
-  addr <-
-    maybeM
-      (throwAppError $ someBackendError "No own addresses")
-      pure
-      $ listToMaybe
-        <$> ownAddresses
-  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
-
-  pkh <- addressToPubKeyHash' addr
-
-  let bridgeDatum = BridgeNFTDatum (computeDigest @Hash (Byte 42))
-      tokenName = "SkyBridgeToken"
-      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
-      skyToken = GYToken (mintingPolicyId skyPolicy) tokenName
-      amt = 1
-      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-
-  bvAddr <- bridgeValidatorAddress $ BridgeParams curSym
-
-  -- skeleton for minting transaction
-  pure $
-    mustMint @'PlutusV2 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName amt
-      <> mustHaveOutput
-        ( GYTxOut
-            { -- recipient is the bridge validator
-              gyTxOutAddress = bvAddr,
-              gyTxOutValue = valueSingleton skyToken amt,
-              gyTxOutDatum = Just (datumFromPlutusData bridgeDatum, GYTxOutUseInlineDatum),
-              gyTxOutRefS = Nothing
-            }
-        )
-      <> mustBeSignedBy pkh
-
--- | Trace for a super-simple spending transaction. This function combines
--- the  runner and the test for simplicity's sake.
-simpleTxTest :: (GYTxGameMonad m) => TestInfo -> m ()
-simpleTxTest (testWallets -> Wallets {w1}) = do
-  withWalletBalancesCheckSimple [w1 := valueFromLovelace (-100_000_000)]
-    . asUser w1
-    $ do
-      skeleton <- mkTrivialTx
-      gyLogDebug' "" $ printf "tx skeleton: %s" (show skeleton)
-      txId <- buildTxBody skeleton >>= signAndSubmitConfirmed
-      gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
-
--- Pretend off-chain code written in 'GYTxUserQueryMonad m'
-mkTrivialTx :: (GYTxUserQueryMonad m) => m (GYTxSkeleton 'PlutusV2)
-mkTrivialTx = do
-  addr <-
-    maybeM
-      (throwAppError $ someBackendError "No own addresses")
-      pure
-      $ listToMaybe
-        <$> ownAddresses
-  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
-  pkh <- addressToPubKeyHash' addr
-  let targetAddr = unsafeAddressFromText "addr_test1qr2vfntpz92f9pawk8gs0fdmhtfe32pqcx0s8fuztxaw3p5pjay24kygaj4g8uevf89ewxzvsdc60wln8spzm2al059q8a9w3x"
-  return $
-    mustHaveOutput
-      ( GYTxOut
-          { gyTxOutAddress = targetAddr,
-            gyTxOutValue = valueFromLovelace 100_000_000,
-            gyTxOutDatum = Nothing,
-            gyTxOutRefS = Nothing
-          }
-      )
-      <> mustBeSignedBy pkh
+getAddr :: (GYTxUserQueryMonad m) => m GYAddress
+getAddr =
+  maybeM
+    (throwAppError $ someBackendError "No own addresses")
+    pure
+    $ listToMaybe
+      <$> ownAddresses
