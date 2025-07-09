@@ -28,6 +28,7 @@ import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
+import Data.Coerce (coerce)
 
 ------------------------------------------------------------------------------
 -- Datum Stored in Bridge NFT
@@ -216,13 +217,13 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
 -- Untyped Validator
 ------------------------------------------------------------------------------
 
-data FOO1 = FOO1 { foo1 :: BuiltinByteString }
+newtype FOO1 = FOO1 { foo1 :: BuiltinByteString }
 class Foo a where xfromByteString :: BuiltinByteString -> a
 instance Foo FOO1 where xfromByteString = \ x -> FOO1 x -- failAA -- fromJust Nothing
 xfromByteStringIn :: BuiltinByteString -> FOO1
 xfromByteStringIn = FOO1
 
-data FOO2 = FOO2 { foo2 :: BuiltinByteString }
+newtype FOO2 = FOO2 { foo2 :: BuiltinByteString }
 instance FromByteString FOO2 where
   fromByteString = FOO2
   byteStringIn isTerminal = byteStringInToEnd <&> FOO2
@@ -263,6 +264,7 @@ bridgeUntypedValidator params _datum redeemer ctx =
      r11 = fromByteString e :: FOO4 -- OK
      -- r12 = PlutusTx.fromBuiltinData redeemer :: Maybe BridgeRedeemer -- FAIL Addr# WHY???
      -- r13 = PlutusTx.unsafeFromBuiltinData redeemer :: BridgeRedeemer -- FAIL Addr#
+     r14 = coerce (FOO1 e) :: FOO2 -- OK
       in
       True
 {- XXXX

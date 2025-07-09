@@ -267,7 +267,7 @@ instance P.HasBlueprintSchema Bytes4 referencedTypes
 
 instance P.FromData Bytes4
   where
-  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
 instance P.UnsafeFromData Bytes4
   where
@@ -308,7 +308,7 @@ instance P.HasBlueprintSchema Bytes8 referencedTypes
 
 instance P.FromData Bytes8
   where
-  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
 instance P.UnsafeFromData Bytes8
   where
@@ -349,7 +349,7 @@ instance P.HasBlueprintSchema Bytes32 referencedTypes
 
 instance P.FromData Bytes32
   where
-  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
 instance P.UnsafeFromData Bytes32
   where
@@ -390,7 +390,7 @@ instance P.HasBlueprintSchema Bytes64 referencedTypes
 
 instance P.FromData Bytes64
   where
-  fromBuiltinData d = fromBuiltinData d <&> fromByteString
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
 instance P.UnsafeFromData Bytes64
   where
@@ -459,7 +459,7 @@ instance P.ToData P.BuiltinString where
   toBuiltinData = toBuiltinData . toByteString
 
 instance P.FromData P.BuiltinString where
-  fromBuiltinData d = fromByteString <$> fromBuiltinData d
+  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
 
 instance P.UnsafeFromData P.BuiltinString where
   unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
