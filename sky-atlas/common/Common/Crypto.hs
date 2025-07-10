@@ -14,6 +14,7 @@ import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusTx as P
 import PlutusTx.Blueprint as P
 import PlutusTx.Builtins as P
+import PlutusTx.List as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
 import Prelude qualified as HP

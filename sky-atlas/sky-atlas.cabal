@@ -3,9 +3,10 @@ name:          sky-atlas
 version:       0.1.0
 
 common common
-  default-language:   GHC2021
+  default-language:   Haskell2010
   default-extensions:
     BlockArguments
+    ConstraintKinds
     DataKinds
     DeriveAnyClass
     DeriveFunctor
@@ -41,14 +42,10 @@ common common
 -- recommended plutus ghc options
 common plutus-ghc-options
   ghc-options:
-    -fno-ignore-interface-pragmas
-    -fno-omit-interface-pragmas
-    -fno-full-laziness
-    -fno-spec-constr
-    -fno-specialise
-    -fno-strictness
+    -fno-full-laziness -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-spec-constr -fno-specialise
+    -fno-strictness -fno-unbox-small-strict-fields
     -fno-unbox-strict-fields
-    -fno-unbox-small-strict-fields
 
   -- set target plutus-core version
   ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
@@ -99,9 +96,10 @@ library onchain
 
   build-depends:
     , base
-    , plutus-core
-    , plutus-ledger-api
-    , plutus-tx
+    , plutus-core        ^>=1.49.0.0
+    , plutus-ledger-api  ^>=1.49.0.0
+    , plutus-tx          ^>=1.49.0.0
+    , plutus-tx-plugin   ^>=1.49.0.0
     , sky-atlas:common
 
   if !(impl(ghcjs) || os(ghcjs))
@@ -110,6 +108,8 @@ library onchain
 library offchain
   import:          common
   hs-source-dirs:  offchain
+  default-extensions:
+    TypeOperators
   exposed-modules:
     API
     API.Bridge
@@ -130,8 +130,10 @@ library offchain
     , lens
     , log-base
     , mtl
-    , plutus-ledger-api
-    , plutus-tx
+    , plutus-core        ^>=1.49.0.0
+    , plutus-ledger-api  ^>=1.49.0.0
+    , plutus-tx          ^>=1.49.0.0
+    , plutus-tx-plugin   ^>=1.49.0.0
     , servant-server
     , sky-atlas:common
     , sky-atlas:onchain
@@ -167,8 +169,10 @@ test-suite common-tests
 
   build-depends:
     , base
-    , plutus-ledger-api
-    , plutus-tx
+    , plutus-core        ^>=1.49.0.0
+    , plutus-ledger-api  ^>=1.49.0.0
+    , plutus-tx          ^>=1.49.0.0
+    , plutus-tx-plugin   ^>=1.49.0.0
     , sky-atlas:common
     , tasty
     , tasty-hunit
@@ -209,8 +213,10 @@ test-suite onchain-tests
     , atlas-cardano
     , base
     , extra
-    , plutus-ledger-api
-    , plutus-tx
+    , plutus-core         ^>=1.49.0.0
+    , plutus-ledger-api   ^>=1.49.0.0
+    , plutus-tx           ^>=1.49.0.0
+    , plutus-tx-plugin    ^>=1.49.0.0
     , sky-atlas:common
     , sky-atlas:offchain
     , sky-atlas:onchain

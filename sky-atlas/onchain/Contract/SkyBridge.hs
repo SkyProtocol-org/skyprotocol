@@ -6,6 +6,7 @@ module Contract.SkyBridge where
 
 import Common
 import GHC.Generics (Generic)
+import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value
   ( AssetClass (..),
     assetClassValueOf,
@@ -25,6 +26,7 @@ import PlutusLedgerApi.V2
 import PlutusLedgerApi.V2.Contexts (findDatum, getContinuingOutputs)
 import PlutusTx
 import PlutusTx.Blueprint
+import PlutusTx.List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
 
@@ -229,18 +231,9 @@ bridgeUntypedValidator params _datum redeemer ctx =
         (PlutusTx.unsafeFromBuiltinData ctx)
     )
 
--- exampleRedeemer =
---   UpdateBridge
---     { bridgeSchema = fromByteString "", -- :: Hash,
---       bridgeCommittee = MultiSigPubKey ([], UInt16 0), -- :: MultiSigPubKey,
---       bridgeOldRootHash = fromByteString "", -- :: Hash,
---       bridgeNewTopHash = fromByteString "", -- :: Hash,
---       bridgeSig = MultiSig [] -- :: MultiSig -- signature over new top hash
---     }
-
 bridgeValidatorScript ::
   BridgeParams ->
   CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
 bridgeValidatorScript params =
   $$(PlutusTx.compile [||bridgeUntypedValidator||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef params
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params

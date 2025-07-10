@@ -3,6 +3,7 @@
 
 module Contract.SkyMintingPolicy where
 
+import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value (flattenValue)
 import PlutusLedgerApi.V2 (PubKeyHash, ScriptContext (..), TxInfo (..))
 import PlutusLedgerApi.V2.Contexts (ownCurrencySymbol, txSignedBy)
@@ -47,4 +48,4 @@ skyMintingPolicyScript ::
   CompiledCode (BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
 skyMintingPolicyScript pkh =
   $$(PlutusTx.compile [||skyUntypedMintingPolicy||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef pkh
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 pkh

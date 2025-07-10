@@ -10,8 +10,10 @@ import Common.Types
 import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
 import Data.Kind (Type)
+import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusTx as P
+import PlutusTx.Blueprint as P
 import PlutusTx.Functor as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
@@ -83,6 +85,8 @@ newtype TopicId = TopicId {getTopicId :: Bytes8}
       HP.Show,
       HP.Eq
     )
+  deriving stock (Generic)
+  deriving anyclass (P.HasBlueprintDefinition)
 
 topicIdFromInteger :: Integer -> TopicId
 topicIdFromInteger = fromInt
@@ -303,7 +307,4 @@ updateDaCommittee newCommittee SkyDa {..} = do
 
 -- * Meta Declarations
 
-{-
-\$(PlutusTx.makeLift ''SkyDataPath)
-\$(PlutusTx.makeIsDataSchemaIndexed ''SkyDataPath [('SkyDataPath, 0)])
--}
+P.makeLift ''TopicId

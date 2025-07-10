@@ -1,7 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {-# HLINT ignore "Use newtype instead of data" #-}
 
 module Common.Types.Cons where
@@ -10,17 +10,19 @@ import Common.Types.Base
 import Data.Functor.Identity (Identity (..))
 import PlutusTx as P
 import PlutusTx.Builtins as P
+import PlutusTx.List as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
-import qualified Prelude as HP
+import Prelude qualified as HP
 
 -- * Classes
+
 data Either3 a b c = E3_0 a | E3_1 b | E3_2 c
---  deriving anyclass (P.HasBlueprintDefinition)
+  --  deriving anyclass (P.HasBlueprintDefinition)
   deriving (HP.Show, HP.Eq)
 
 data Either4 a b c d = E4_0 a | E4_1 b | E4_2 c | E4_3 d
---  deriving anyclass (P.HasBlueprintDefinition)
+  --  deriving anyclass (P.HasBlueprintDefinition)
   deriving (HP.Show, HP.Eq)
 
 -- * Instances
@@ -40,15 +42,19 @@ instance FromByteString () where
 
 -- *** Either
 
-instance (ToByteString a, ToByteString b) =>
-  ToByteString (P.Either a b) where
+instance
+  (ToByteString a, ToByteString b) =>
+  ToByteString (P.Either a b)
+  where
   byteStringOut (P.Left a) isTerminal =
     byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
   byteStringOut (P.Right b) isTerminal =
     byteStringOut (Byte 1) NonTerminal . byteStringOut b isTerminal
 
-instance (FromByteString a, FromByteString b) =>
-  FromByteString (Either a b) where
+instance
+  (FromByteString a, FromByteString b) =>
+  FromByteString (Either a b)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \b ->
       if b == Byte 0
@@ -60,8 +66,10 @@ instance (FromByteString a, FromByteString b) =>
 
 -- *** Either3
 
-instance (ToByteString a, ToByteString b, ToByteString c) =>
-  ToByteString (Either3 a b c) where
+instance
+  (ToByteString a, ToByteString b, ToByteString c) =>
+  ToByteString (Either3 a b c)
+  where
   byteStringOut (E3_0 a) isTerminal =
     byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
   byteStringOut (E3_1 b) isTerminal =
@@ -69,8 +77,10 @@ instance (ToByteString a, ToByteString b, ToByteString c) =>
   byteStringOut (E3_2 c) isTerminal =
     byteStringOut (Byte 2) NonTerminal . byteStringOut c isTerminal
 
-instance (FromByteString a, FromByteString b, FromByteString c) =>
-  FromByteString (Either3 a b c) where
+instance
+  (FromByteString a, FromByteString b, FromByteString c) =>
+  FromByteString (Either3 a b c)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \b ->
       if b == Byte 0
@@ -78,50 +88,68 @@ instance (FromByteString a, FromByteString b, FromByteString c) =>
         else
           if b == Byte 1
             then byteStringIn isTerminal <&> E3_1
-            else if b == Byte 2
-              then byteStringIn isTerminal <&> E3_2
-              else byteStringReaderFail
+            else
+              if b == Byte 2
+                then byteStringIn isTerminal <&> E3_2
+                else byteStringReaderFail
 
-instance (P.ToData a, P.ToData b, P.ToData c) =>
-  P.ToData (Either3 a b c) where
+instance
+  (P.ToData a, P.ToData b, P.ToData c) =>
+  P.ToData (Either3 a b c)
+  where
   toBuiltinData (E3_0 a) = toBuiltinData (toBuiltinData (Byte 0), toBuiltinData a)
   toBuiltinData (E3_1 b) = toBuiltinData (toBuiltinData (Byte 1), toBuiltinData b)
   toBuiltinData (E3_2 c) = toBuiltinData (toBuiltinData (Byte 2), toBuiltinData c)
 
-instance (P.FromData a, P.FromData b, P.FromData c) =>
-  P.FromData (Either3 a b c) where
+instance
+  (P.FromData a, P.FromData b, P.FromData c) =>
+  P.FromData (Either3 a b c)
+  where
   fromBuiltinData x =
     fromBuiltinData x >>= \case
       (i, v) -> do
-        if i == Byte 0 then do
-          a <- fromBuiltinData v
-          return $ E3_0 a
-        else if i == Byte 1 then do
-          b <- fromBuiltinData v
-          return $ E3_1 b
-        else if i == Byte 2 then do
-          c <- fromBuiltinData v
-          return $ E3_2 c
-        else fromJust Nothing -- traceError "foo"
+        if i == Byte 0
+          then do
+            a <- fromBuiltinData v
+            return $ E3_0 a
+          else
+            if i == Byte 1
+              then do
+                b <- fromBuiltinData v
+                return $ E3_1 b
+              else
+                if i == Byte 2
+                  then do
+                    c <- fromBuiltinData v
+                    return $ E3_2 c
+                  else fromJust Nothing -- traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c) =>
-  P.UnsafeFromData (Either3 a b c) where
+  P.UnsafeFromData (Either3 a b c)
+  where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       (i, v) ->
-        if i == Byte 0 then
-          E3_0 . unsafeFromBuiltinData $ v
-        else if i == Byte 1 then
-          E3_1 . unsafeFromBuiltinData $ v
-        else if i == Byte 2 then
-          E3_2 . unsafeFromBuiltinData $ v
-        else fromJust Nothing -- traceError "foo"
+        if i == Byte 0
+          then
+            E3_0 . unsafeFromBuiltinData $ v
+          else
+            if i == Byte 1
+              then
+                E3_1 . unsafeFromBuiltinData $ v
+              else
+                if i == Byte 2
+                  then
+                    E3_2 . unsafeFromBuiltinData $ v
+                  else fromJust Nothing -- traceError "foo"
 
 -- *** Either4
 
-instance (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
-  ToByteString (Either4 a b c d) where
+instance
+  (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
+  ToByteString (Either4 a b c d)
+  where
   byteStringOut (E4_0 a) isTerminal =
     byteStringOut (Byte 0) NonTerminal . byteStringOut a isTerminal
   byteStringOut (E4_1 b) isTerminal =
@@ -131,8 +159,10 @@ instance (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
   byteStringOut (E4_3 c) isTerminal =
     byteStringOut (Byte 3) NonTerminal . byteStringOut c isTerminal
 
-instance (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
-  FromByteString (Either4 a b c d) where
+instance
+  (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
+  FromByteString (Either4 a b c d)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \i ->
       if i == Byte 0
@@ -140,53 +170,74 @@ instance (FromByteString a, FromByteString b, FromByteString c, FromByteString d
         else
           if i == Byte 1
             then byteStringIn isTerminal <&> E4_1
-            else if i == Byte 2
-              then byteStringIn isTerminal <&> E4_2
-                 else if i == Byte 3
-                   then byteStringIn isTerminal <&> E4_3
-                   else byteStringReaderFail
+            else
+              if i == Byte 2
+                then byteStringIn isTerminal <&> E4_2
+                else
+                  if i == Byte 3
+                    then byteStringIn isTerminal <&> E4_3
+                    else byteStringReaderFail
 
-instance (P.ToData a, P.ToData b, P.ToData c, P.ToData d) =>
-  P.ToData (Either4 a b c d) where
+instance
+  (P.ToData a, P.ToData b, P.ToData c, P.ToData d) =>
+  P.ToData (Either4 a b c d)
+  where
   toBuiltinData (E4_0 a) = toBuiltinData (toBuiltinData (Byte 0), toBuiltinData a)
   toBuiltinData (E4_1 b) = toBuiltinData (toBuiltinData (Byte 1), toBuiltinData b)
   toBuiltinData (E4_2 c) = toBuiltinData (toBuiltinData (Byte 2), toBuiltinData c)
   toBuiltinData (E4_3 d) = toBuiltinData (toBuiltinData (Byte 3), toBuiltinData d)
 
-instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d) =>
-  P.FromData (Either4 a b c d) where
+instance
+  (P.FromData a, P.FromData b, P.FromData c, P.FromData d) =>
+  P.FromData (Either4 a b c d)
+  where
   fromBuiltinData x =
     fromBuiltinData x >>= \case
       (i, v) -> do
-        if i == Byte 0 then do
-          a <- fromBuiltinData v
-          return $ E4_0 a
-        else if i == Byte 1 then do
-          b <- fromBuiltinData v
-          return $ E4_1 b
-        else if i == Byte 2 then do
-          c <- fromBuiltinData v
-          return $ E4_2 c
-        else if i == Byte 3 then do
-          c <- fromBuiltinData v
-          return $ E4_3 c
-        else fromJust Nothing -- traceError "foo"
+        if i == Byte 0
+          then do
+            a <- fromBuiltinData v
+            return $ E4_0 a
+          else
+            if i == Byte 1
+              then do
+                b <- fromBuiltinData v
+                return $ E4_1 b
+              else
+                if i == Byte 2
+                  then do
+                    c <- fromBuiltinData v
+                    return $ E4_2 c
+                  else
+                    if i == Byte 3
+                      then do
+                        c <- fromBuiltinData v
+                        return $ E4_3 c
+                      else fromJust Nothing -- traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d) =>
-  P.UnsafeFromData (Either4 a b c d) where
+  P.UnsafeFromData (Either4 a b c d)
+  where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       (i, v) ->
-        if i == Byte 0 then
-          E4_0 . unsafeFromBuiltinData $ v
-        else if i == Byte 1 then
-          E4_1 . unsafeFromBuiltinData $ v
-        else if i == Byte 2 then
-          E4_2 . unsafeFromBuiltinData $ v
-        else if i == Byte 3 then
-          E4_3 . unsafeFromBuiltinData $ v
-        else fromJust Nothing -- traceError "foo"
+        if i == Byte 0
+          then
+            E4_0 . unsafeFromBuiltinData $ v
+          else
+            if i == Byte 1
+              then
+                E4_1 . unsafeFromBuiltinData $ v
+              else
+                if i == Byte 2
+                  then
+                    E4_2 . unsafeFromBuiltinData $ v
+                  else
+                    if i == Byte 3
+                      then
+                        E4_3 . unsafeFromBuiltinData $ v
+                      else fromJust Nothing -- traceError "foo"
 
 -- *** Maybe
 
@@ -222,15 +273,19 @@ instance (FromByteString a, FromByteString b) => FromByteString (a, b) where
 instance (P.Eq a, P.Eq b, P.Eq c) => P.Eq (a, b, c) where
   (a, b, c) == (a', b', c') = a == a' && b == b' && c == c'
 
-instance (ToByteString a, ToByteString b, ToByteString c) =>
-  ToByteString (a, b, c) where
+instance
+  (ToByteString a, ToByteString b, ToByteString c) =>
+  ToByteString (a, b, c)
+  where
   byteStringOut (a, b, c) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
       $ byteStringOut c isTerminal s
 
-instance (FromByteString a, FromByteString b, FromByteString c) =>
-  FromByteString (a, b, c) where
+instance
+  (FromByteString a, FromByteString b, FromByteString c) =>
+  FromByteString (a, b, c)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -242,16 +297,20 @@ instance (FromByteString a, FromByteString b, FromByteString c) =>
 instance (P.Eq a, P.Eq b, P.Eq c, P.Eq d) => P.Eq (a, b, c, d) where
   (a, b, c, d) == (a', b', c', d') = a == a' && b == b' && c == c' && d == d'
 
-instance (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
-  ToByteString (a, b, c, d) where
+instance
+  (ToByteString a, ToByteString b, ToByteString c, ToByteString d) =>
+  ToByteString (a, b, c, d)
+  where
   byteStringOut (a, b, c, d) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
       $ byteStringOut c NonTerminal
       $ byteStringOut d isTerminal s
 
-instance (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
-  FromByteString (a, b, c, d) where
+instance
+  (FromByteString a, FromByteString b, FromByteString c, FromByteString d) =>
+  FromByteString (a, b, c, d)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -261,14 +320,17 @@ instance (FromByteString a, FromByteString b, FromByteString c, FromByteString d
 
 -- *** (,,,,) or builtin Quintuplets
 
-instance (P.Eq a, P.Eq b, P.Eq c, P.Eq d, P.Eq e) =>
-  P.Eq (a, b, c, d, e) where
+instance
+  (P.Eq a, P.Eq b, P.Eq c, P.Eq d, P.Eq e) =>
+  P.Eq (a, b, c, d, e)
+  where
   (a, b, c, d, e) == (a', b', c', d', e') =
     a == a' && b == b' && c == c' && d == d' && e == e'
 
 instance
   (ToByteString a, ToByteString b, ToByteString c, ToByteString d, ToByteString e) =>
-  ToByteString (a, b, c, d, e) where
+  ToByteString (a, b, c, d, e)
+  where
   byteStringOut (a, b, c, d, e) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
@@ -278,7 +340,8 @@ instance
 
 instance
   (FromByteString a, FromByteString b, FromByteString c, FromByteString d, FromByteString e) =>
-  FromByteString (a, b, c, d, e) where
+  FromByteString (a, b, c, d, e)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -287,12 +350,16 @@ instance
             byteStringIn isTerminal >>= \e ->
               return (a, b, c, d, e)
 
-instance (P.ToData a, P.ToData b, P.ToData c, P.ToData d, P.ToData e) =>
-  P.ToData (a, b, c, d, e) where
+instance
+  (P.ToData a, P.ToData b, P.ToData c, P.ToData d, P.ToData e) =>
+  P.ToData (a, b, c, d, e)
+  where
   toBuiltinData (a, b, c, d, e) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e]
 
-instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e) =>
-  P.FromData (a, b, c, d, e) where
+instance
+  (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e) =>
+  P.FromData (a, b, c, d, e)
+  where
   fromBuiltinData x =
     fromBuiltinData x >>= \case
       [aa, bb, cc, dd, ee] -> do
@@ -302,26 +369,32 @@ instance (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e) 
         d <- fromBuiltinData dd
         e <- fromBuiltinData ee
         return (a, b, c, d, e)
+
 --    _ -> traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e) =>
-  P.UnsafeFromData (a, b, c, d, e) where
+  P.UnsafeFromData (a, b, c, d, e)
+  where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
+
 --    _ -> traceError "foo"
 
 -- *** (,,,,,) or builtin Sextuplets
 
-instance (P.Eq a, P.Eq b, P.Eq c, P.Eq d, P.Eq e, P.Eq f) =>
-  P.Eq (a, b, c, d, e, f) where
+instance
+  (P.Eq a, P.Eq b, P.Eq c, P.Eq d, P.Eq e, P.Eq f) =>
+  P.Eq (a, b, c, d, e, f)
+  where
   (a, b, c, d, e, f) == (a', b', c', d', e', f') =
     a == a' && b == b' && c == c' && d == d' && e == e' && f == f'
 
 instance
   (ToByteString a, ToByteString b, ToByteString c, ToByteString d, ToByteString e, ToByteString f) =>
-  ToByteString (a, b, c, d, e, f) where
+  ToByteString (a, b, c, d, e, f)
+  where
   byteStringOut (a, b, c, d, e, f) isTerminal s =
     byteStringOut a NonTerminal
       $ byteStringOut b NonTerminal
@@ -332,7 +405,8 @@ instance
 
 instance
   (FromByteString a, FromByteString b, FromByteString c, FromByteString d, FromByteString e, FromByteString f) =>
-  FromByteString (a, b, c, d, e, f) where
+  FromByteString (a, b, c, d, e, f)
+  where
   byteStringIn isTerminal =
     byteStringIn NonTerminal >>= \a ->
       byteStringIn NonTerminal >>= \b ->
@@ -344,12 +418,14 @@ instance
 
 instance
   (P.ToData a, P.ToData b, P.ToData c, P.ToData d, P.ToData e, P.ToData f) =>
-  P.ToData (a, b, c, d, e, f) where
+  P.ToData (a, b, c, d, e, f)
+  where
   toBuiltinData (a, b, c, d, e, f) = toBuiltinData [toBuiltinData a, toBuiltinData b, toBuiltinData c, toBuiltinData d, toBuiltinData e, toBuiltinData f]
 
 instance
   (P.FromData a, P.FromData b, P.FromData c, P.FromData d, P.FromData e, P.FromData f) =>
-  P.FromData (a, b, c, d, e, f) where
+  P.FromData (a, b, c, d, e, f)
+  where
   fromBuiltinData x =
     fromBuiltinData x >>= \case
       [aa, bb, cc, dd, ee, ff] -> do
@@ -360,19 +436,22 @@ instance
         e <- fromBuiltinData ee
         f <- fromBuiltinData ff
         return (a, b, c, d, e, f)
+
 --    _ -> traceError "foo"
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e, P.UnsafeFromData f) =>
-  P.UnsafeFromData (a, b, c, d, e, f) where
+  P.UnsafeFromData (a, b, c, d, e, f)
+  where
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
+
 --    _ -> traceError "foo"
 
 -- ** Lists
 
-instance (ToByteString a) => ToByteString [a] {- length limit 65535. -} where
+instance (ToByteString a) => ToByteString [a {- length limit 65535. -}] where
   byteStringOut l isTerminal s =
     byteStringOut (toUInt16 $ length l) NonTerminal $ loop s l
     where
@@ -380,7 +459,7 @@ instance (ToByteString a) => ToByteString [a] {- length limit 65535. -} where
       loop bs [a] = byteStringOut a isTerminal bs
       loop bs (a : l') = byteStringOut a NonTerminal (loop bs l')
 
-instance (FromByteString a) => FromByteString [a] {- length limit 65535 -} where
+instance (FromByteString a) => FromByteString [a {- length limit 65535 -}] where
   byteStringIn isTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> loop len
     where
       loop n =
@@ -429,7 +508,6 @@ curry5 f a b c d e = f (a, b, c, d, e)
 
 curry6 :: ((a, b, c, d, e, f) -> g) -> a -> b -> c -> d -> e -> f -> g
 curry6 g a b c d e f = g (a, b, c, d, e, f)
-
 
 -- Plutus refuses to compile noReturn = noReturn
 -- which isn't because it won't loop forever at times when not asked!

@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -23,6 +23,7 @@ import PlutusLedgerApi.V2
   )
 import PlutusTx
 import PlutusTx.Blueprint
+import PlutusTx.List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
 
@@ -30,9 +31,7 @@ import PlutusTx.Prelude qualified as PlutusTx
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
 
-type ClientParams = BuiltinByteString
-
-data DecodedClientParams = DecodedClientParams
+data ClientParams = ClientParams
   { -- | Unique currency symbol (hash of minting policy) of the bridge contract NFT
     bountyNFTCurrencySymbol :: CurrencySymbol,
     -- | Credential of claimant (bounty prize can only be sent to this credential)
@@ -48,18 +47,8 @@ data DecodedClientParams = DecodedClientParams
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-getDecodedClientParams :: DecodedClientParams -> (CurrencySymbol, PubKeyHash, PubKeyHash, TopicId, Hash, POSIXTime)
-getDecodedClientParams (DecodedClientParams a b c d e f) = (a, b, c, d, e, f)
-
-instance FromByteString DecodedClientParams where
-  byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry6 DecodedClientParams
-
-instance ToByteString DecodedClientParams where
-  byteStringOut = byteStringOut . getDecodedClientParams
-
--- FIX it seems that plutus doesn't like HKT at all
--- PlutusTx.unstableMakeIsData ''FixedLengthByteString
--- PlutusTx.unstableMakeIsData ''DecodedClientParams
+PlutusTx.makeLift ''ClientParams
+PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 
 ------------------------------------------------------------------------------
 -- Redeemers for client contract
@@ -67,14 +56,8 @@ instance ToByteString DecodedClientParams where
 
 data ClientRedeemer = ClaimBounty (SkyDataProof Blake2b_256) | Timeout
 
-instance FromByteString ClientRedeemer where
-  byteStringIn isTerminal =
-    byteStringIn isTerminal <&> \case
-      Left proof -> ClaimBounty proof
-      Right () -> Timeout
-
--- FIX it seems that plutus doesn't like HKT at all
 -- PlutusTx.unstableMakeIsData ''ClientRedeemer
+-- PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
 
 ------------------------------------------------------------------------------
 -- Client contract validator
@@ -113,12 +96,12 @@ validateTimeout bountyDeadline txValidRange =
 
 -- Main validator function
 clientTypedValidator ::
-  DecodedClientParams ->
+  ClientParams ->
   () ->
   ClientRedeemer ->
   ScriptContext ->
   Bool
-clientTypedValidator DecodedClientParams {..} () redeemer ctx =
+clientTypedValidator ClientParams {..} () redeemer ctx =
   case redeemer of
     ClaimBounty proof ->
       validateClaimBounty
@@ -135,8 +118,10 @@ clientTypedValidator DecodedClientParams {..} () redeemer ctx =
   where
     -- DA Top hash stored in NFT
     daTopHash :: Hash
-    daTopHash = bridgeNFTTopHash .
-      fromJust $ getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx
+    daTopHash =
+      bridgeNFTTopHash
+        . fromJust
+        $ getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx
     -- Tx validity interval
     txValidRange = txInfoValidRange . scriptContextTxInfo $ ctx
     -- Bounty prize funds are sent to pre-configured address
@@ -152,13 +137,14 @@ clientTypedValidator DecodedClientParams {..} () redeemer ctx =
 {-# INLINEABLE clientUntypedValidator #-}
 clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
 clientUntypedValidator params _datum redeemer ctx =
-  PlutusTx.check
-    ( clientTypedValidator
-        (fromByteStringIn params)
-        () -- ignore the untyped datum, it's unused
-        (fromByteStringIn $ PlutusTx.unsafeFromBuiltinData redeemer)
-        (PlutusTx.unsafeFromBuiltinData ctx)
-    )
+  PlutusTx.check True
+
+-- TODO: make sure to uncomment once monomorphized version of Trie is available
+-- \$ clientTypedValidator
+--   (fromByteStringIn params)
+--   () -- ignore the untyped datum, it's unused
+--   (fromByteStringIn $ PlutusTx.unsafeFromBuiltinData redeemer)
+--   (PlutusTx.unsafeFromBuiltinData ctx)
 
 clientValidatorScript ::
   ClientParams ->
