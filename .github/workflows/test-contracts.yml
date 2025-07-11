@@ -14,19 +14,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run: nix develop --accept-flake-config --command cabal test onchain-tests
+    - run: nix develop --accept-flake-config --command cabal update && cabal test onchain-tests
       working-directory: ./sky-atlas
   common_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run: nix develop --accept-flake-config --command cabal test common-tests
+    - run: nix develop --accept-flake-config --command cabal update && cabal test common-tests
       working-directory: ./sky-atlas
   offchain_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
-    - run: nix develop --accept-flake-config --command cabal test offchain-tests
+    - run: nix develop --accept-flake-config --command cabal update && cabal test offchain-tests
       working-directory: ./sky-atlas
