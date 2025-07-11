@@ -3,10 +3,8 @@
 module OnChain.ContractSpec (contractSpec) where
 
 import API.Bridge.Contracts
-import API.SkyMintingPolicy
+import Common.Crypto (computeDigest)
 import Common.Types (Byte (..))
-import Common.Crypto (Hash, computeDigest)
-import Contract.SkyBridge
 import Control.Monad.Extra (maybeM)
 import Data.Maybe (listToMaybe)
 import GeniusYield.HTTP.Errors
@@ -15,9 +13,6 @@ import GeniusYield.Test.Clb
 import GeniusYield.Test.Utils
 import GeniusYield.TxBuilder
 import GeniusYield.Types
--- import PlutusLedgerApi.V2.Contexts (ScriptContext (..))
-import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusLedgerApi.V2
 import Test.Tasty
 
 -- | Test environment 'WalletInfo' among other things provides nine wallets that

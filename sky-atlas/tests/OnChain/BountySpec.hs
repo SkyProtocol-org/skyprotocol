@@ -15,18 +15,6 @@ import Test.Tasty.HUnit
 testDeadline :: POSIXTime
 testDeadline = 1000180800000 -- Sep 11th 2001
 
-testClaimant :: PubKeyHash
-testClaimant = PubKeyHash "claimant_pubkey_hash_12345678"
-
-testOfferer :: PubKeyHash
-testOfferer = PubKeyHash "offerer_pubkey_hash_87654321"
-
-testTopicId :: TopicId
-testTopicId = topicIdFromInteger 0
-
-testCurrencySymbol :: CurrencySymbol
-testCurrencySymbol = CurrencySymbol "test_currency_symbol_abcdef"
-
 -- Time intervals
 beforeDeadline :: Interval POSIXTime
 beforeDeadline =
