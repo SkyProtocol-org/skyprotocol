@@ -1,0 +1,26 @@
+port: 8080
+# Should be base16 encoded(why?)
+tokenName: "536b79427269646765"
+# Could be one of "trace", "attention" of "info"
+# By default is "trace"
+logLevel: "trace"
+
+atlas:
+  coreProvider:
+    # For Maestro, maestroToken holds the api key and
+    # turboSubmit field dictates whether the transactions
+    # are to be submitted via their turbo submit endpoint.
+    maestroToken: "XXX EDIT THIS XXX"
+    turboSubmit: false
+  # Specifies your network and must be one of
+  # mainnet, preprod, preview, testnet (for legacy testnet)
+  # & privnet (for local private network).
+  networkId: "preview"
+  logging:
+    - type:
+        tag: "stderr"
+      severity: "Debug"
+      verbosity: "V2"
+  # (Optional) If set to true, operations involving provider
+  # are timed and corresponding durations are logged.
+  logTiming: false

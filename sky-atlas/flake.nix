@@ -133,10 +133,12 @@
     allow-import-from-derivation = "true";
     extra-substituters =
       [
+        "https://cache.iog.io" # haskell binary cache
         "https://sky-protocol.cachix.org"
       ];
     extra-trusted-public-keys =
       [
+        "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
         "sky-protocol.cachix.org-1:dI30Dt7GXBzRrn7dhO+VpEAvFBq7XmioeNEhFXv6AR4="
       ];
   };
