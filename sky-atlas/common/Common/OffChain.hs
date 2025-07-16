@@ -41,3 +41,10 @@ instance ToHttpApiData MessageId where
 
 instance FromHttpApiData MessageId where
   parseUrlPiece mId = bimap pack (MessageId . fromInt) $ readEither (unpack mId)
+
+-- TODO: should make conversion to/from hex string
+instance FromJSON Hash where
+  parseJSON = undefined
+
+instance ToJSON Hash where
+  toJSON = undefined

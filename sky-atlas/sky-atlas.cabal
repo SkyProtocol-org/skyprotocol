@@ -24,6 +24,7 @@ common common
     LambdaCase
     MultiParamTypeClasses
     MultiWayIf
+    NumericUnderscores
     OverloadedStrings
     PatternSynonyms
     RecordWildCards
@@ -106,12 +107,13 @@ library onchain
     build-depends: plutus-tx-plugin
 
 library offchain
-  import:          common
-  hs-source-dirs:  offchain
-  default-extensions:
-    TypeOperators
+  import:             common
+  hs-source-dirs:     offchain
+  default-extensions: TypeOperators
   exposed-modules:
     API
+    API.Bounty
+    API.Bounty.Contracts
     API.Bridge
     API.Bridge.Contracts
     API.SkyMintingPolicy

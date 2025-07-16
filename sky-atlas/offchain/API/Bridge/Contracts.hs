@@ -35,21 +35,9 @@ mkMintingSkeleton amount tokenName mintSigner topHash = do
     mustMint @'PlutusV2 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName amt
       <> mustHaveOutput
         GYTxOut
-          { -- recipient is the bridge validator
-            gyTxOutAddress = bvAddr,
+          { gyTxOutAddress = bvAddr,
             gyTxOutValue = valueSingleton skyToken amt,
             gyTxOutDatum = Just (datumFromPlutusData bridgeNFTDatum, GYTxOutUseInlineDatum),
             gyTxOutRefS = Nothing
           }
       <> mustBeSignedBy mintSigner
-
-mkClaimBountySkeleton :: (HasCallStack, GYTxBuilderMonad m) => m (GYTxSkeleton 'PlutusV2)
-mkClaimBountySkeleton =
-  pure $
-    mustHaveOutput
-      GYTxOut
-        { gyTxOutAddress = undefined,
-          gyTxOutValue = undefined,
-          gyTxOutDatum = Nothing,
-          gyTxOutRefS = Nothing
-        }

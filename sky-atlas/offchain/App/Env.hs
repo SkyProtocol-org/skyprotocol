@@ -17,6 +17,7 @@ import Utils
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
     appProviders :: GYProviders,
+    -- TODO: in the future there must be single node user
     appAdmin :: CardanoUser,
     appClaimant :: CardanoUser,
     appOfferer :: CardanoUser,
