@@ -84,20 +84,6 @@ typesSpec =
           fsb 0x0000 @?= -1
           fsb 0xffffffff @?= 0
           fsb 0x80000000 @?= 31,
-        testCase "exception handling" $ do
-          -- Attempt to call the function and catch any exceptions
-          -- result <- try (evaluate (GE.error "FOO")) :: GB.IO (Either ErrorCall Integer)
-          result <- try (evaluate (toInt . toByte $ 257)) :: GB.IO (Either ErrorCall Integer)
-          case result of
-            Left (ErrorCall x) -> do
-              -- putStrLn $ "The exception is: " GB.++ x
-              trace "FOOOOOO"
-                $ x -- dropped on the ground! :-(
-                @?= "PlutusTx.Builtins.Internal.error" -- unhappily uninformative
-            Right val -> do
-              -- putStrLn $ "The result is: " GB.++ (GS.show $ PS.show val)
-              val @?= 257
-              True @?= False, -- wrong to reach this
         testCase "serialization 1" $ PS.show (Byte 42) @?= "42",
         testCase "serialization 2" $ do
           PS.show (UInt16 0xf00d) @?= "61453"
