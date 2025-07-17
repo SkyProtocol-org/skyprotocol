@@ -51,17 +51,19 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
     readBridgeH = do
       AppEnv {..} <- ask
       let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+          skyPolicyId = mintingPolicyId skyPolicy
+          skyToken = GYToken skyPolicyId $ configTokenName appConfig
           curSym = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
           bridgeParams = BridgeParams curSym
       utxoWithDatums <- runQuery $ do
         bvAddr <- bridgeValidatorAddress bridgeParams
         -- TODO: what is AssetClass here? Do we need it?
-        utxosAtAddressWithDatums bvAddr Nothing
+        utxosAtAddressWithDatums bvAddr (Just skyToken)
 
       let utxoWithDatum = flip filter utxoWithDatums $ \(out, _) ->
             let assets = valueToList $ utxoValue out
              in flip any assets $ \case
-                  (GYToken _ name, _) -> name == configTokenName appConfig
+                  (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
                   _ -> False
       maybeBridgeDatum <- case utxoWithDatum of
         [(_, Just datum)] -> pure $ fromBuiltinData $ toBuiltinData datum

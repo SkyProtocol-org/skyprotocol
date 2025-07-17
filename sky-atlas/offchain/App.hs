@@ -62,6 +62,7 @@ runQuery q = do
   let nid = cfgNetworkId $ configAtlas appConfig
   liftIO $ runGYTxQueryMonadIO nid appProviders q
 
+-- TODO replace these with specific wrapped functions instead of generalized `run*`
 runBuilder ::
   -- | User's used addresses.
   [GYAddress] ->

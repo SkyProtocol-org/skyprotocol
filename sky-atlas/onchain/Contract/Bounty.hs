@@ -54,10 +54,10 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 -- Redeemers for client contract
 ------------------------------------------------------------------------------
 
-data ClientRedeemer = ClaimBounty (SkyDataProof Blake2b_256) | Timeout
+data ClientRedeemer = ClaimBounty () {- SkyDataProof Blake2b_256 -} | Timeout
 
--- PlutusTx.unstableMakeIsData ''ClientRedeemer
--- PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
+PlutusTx.makeLift ''ClientRedeemer
+PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
 
 ------------------------------------------------------------------------------
 -- Client contract validator
@@ -104,14 +104,15 @@ clientTypedValidator ::
 clientTypedValidator ClientParams {..} () redeemer ctx =
   case redeemer of
     ClaimBounty proof ->
-      validateClaimBounty
-        bountyDeadline
-        txValidRange
-        bountyMessageHash
-        bountyTopicId
-        proof
-        daTopHash
-        && allPaidToCredential bountyClaimantPubKeyHash
+      allPaidToCredential bountyClaimantPubKeyHash
+    -- validateClaimBounty
+    --   bountyDeadline
+    --   txValidRange
+    --   bountyMessageHash
+    --   bountyTopicId
+    --   proof
+    --   daTopHash
+    --   && allPaidToCredential bountyClaimantPubKeyHash
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash

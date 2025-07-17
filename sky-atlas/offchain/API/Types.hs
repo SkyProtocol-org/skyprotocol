@@ -12,6 +12,9 @@ newtype User = User
   { userEmail :: BS.ByteString
   }
 
+-- TODO: all the change addr, used addrs and collateral are unnecessary
+-- if we don't do this from one node.
+-- We want to have one node - one user, which will allow us to persist these
 data CreateBridgeRequest = CreateBridgeRequest
   { -- | Optional amount of tokens to mint defaults to 1
     cbrAmount :: Maybe Integer,
@@ -53,7 +56,6 @@ data OfferBountyRequest = OfferBountyRequest
     obrMessageHash :: Hash,
     obrDeadline :: POSIXTime,
     obrChangeAddr :: GYAddress,
-    -- | Used addresses for compatibility with non-single address wallets
     obrUsedAddrs :: [GYAddress],
     obrCollateral :: Maybe GYTxOutRefCbor
   }
@@ -82,6 +84,38 @@ instance ToJSON OfferBountyRequest where
         "collateral" .= obrCollateral
       ]
 
+-- TODO: save contract addresses and hashes in some cache, to get rid of
+-- unnecessary request parameters
+-- (why claimant must know about the deadline?)
 data ClaimBountyRequest = ClaimBountyRequest
-  {dummy :: String}
+  { cbrTopicId :: TopicId,
+    cbrMessageHash :: Hash,
+    cbrDeadline :: POSIXTime,
+    cBountyrChangeAddr :: GYAddress,
+    cBountyrUsedAddrs :: [GYAddress],
+    cBountyrCollateral :: Maybe GYTxOutRefCbor
+  }
   deriving (Show, Generic)
+
+instance FromJSON ClaimBountyRequest where
+  parseJSON = withObject "ClaimBountyRequest" $ \v -> do
+    changeAddr <- v .: "changeAddr"
+    usedAddrs <- v .: "usedAddrs"
+    cBountyrCollateral <- v .:? "collateral"
+    cbrTopicId <- v .: "topicId"
+    cbrDeadline <- v .: "deadline"
+    cbrMessageHash <- v .: "messageHash"
+    let cBountyrChangeAddr = unsafeAddressFromText changeAddr
+        cBountyrUsedAddrs = fmap unsafeAddressFromText usedAddrs
+    pure ClaimBountyRequest {..}
+
+instance ToJSON ClaimBountyRequest where
+  toJSON ClaimBountyRequest {..} =
+    object
+      [ "topicId" .= cbrTopicId,
+        "messageHash" .= cbrMessageHash,
+        "deadline" .= cbrDeadline,
+        "changeAddr" .= addressToText cBountyrChangeAddr,
+        "usedAddrs" .= fmap addressToText cBountyrUsedAddrs,
+        "collateral" .= cBountyrCollateral
+      ]
