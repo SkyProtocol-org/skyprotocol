@@ -2,10 +2,12 @@
 
 module OnChain.ContractSpec (contractSpec) where
 
+import API.Bounty.Contracts
 import API.Bridge.Contracts
 import Common.Crypto (computeDigest)
 import Common.Types (Byte (..))
 import Control.Monad.Extra (maybeM)
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe (listToMaybe)
 import GeniusYield.HTTP.Errors
 import GeniusYield.Imports
@@ -30,13 +32,26 @@ contractSpec =
     "OnChain Contract Tests"
     [ testGroup
         "Compiling contracts"
-        [ mkTestFor "Create Minting Policy" mintingPolicyTest
+        [ mkTestFor "Create Minting Policy" mintingPolicyTest,
+          mkTestFor "Send funds test" sendFundsTest
         ]
     ]
 
-bridgeValidatorTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
-bridgeValidatorTest = do
-  undefined
+sendFundsTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
+sendFundsTest TestInfo {..} = do
+  addr <- getUserAddr $ admin testWallets
+  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
+  pkh <- addressToPubKeyHash' addr
+  let amount = 10
+
+  -- TODO: make a transaction with bounty contract and then try to send some funds there
+  -- cauze rn it check only the fact, that the skeleton is successfully built and "executed"
+  -- with no way to actually check the balances
+  asUser (admin testWallets) $ do
+    sendFundsSkeleton <- mkSendSkeleton addr amount GYLovelace pkh
+    gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
+    txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
 mintingPolicyTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
 mintingPolicyTest TestInfo {..} = do
@@ -57,3 +72,6 @@ getAddr =
     pure
     $ listToMaybe
       <$> ownAddresses
+
+getUserAddr :: (GYTxUserQueryMonad m) => User -> m GYAddress
+getUserAddr user = pure . NE.head $ userAddresses user

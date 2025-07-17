@@ -4,7 +4,7 @@
 module OnChain.BountySpec (bountySpec) where
 
 import Common
-import Contract.Bounty (ClientRedeemer (..), validateClaimBounty, validateTimeout)
+import Contract.Bounty (validateClaimBounty, validateTimeout)
 import Data.Functor.Identity (Identity (..))
 import PlutusLedgerApi.V2
 import PlutusTx.Prelude
@@ -184,25 +184,6 @@ bountySpec =
                     (strictLowerBound (testDeadline - 1000))
                     (strictUpperBound testDeadline)
             validateTimeout testDeadline exactlyBefore @?= False
-        ],
-      testGroup
-        "ClientRedeemer structure"
-        [ testCase "should construct ClaimBounty redeemer correctly" $ do
-            let redeemer = ClaimBounty testProofTyped
-            case redeemer of
-              ClaimBounty _ -> True @?= True
-              _ -> assertFailure "Expected ClaimBounty constructor",
-          testCase "should construct Timeout redeemer correctly" $ do
-            let redeemer = Contract.Bounty.Timeout
-            case redeemer of
-              Contract.Bounty.Timeout -> True @?= True
-              _ -> assertFailure "Expected Timeout constructor",
-          testCase "should distinguish between redeemer types" $ do
-            let claimRedeemer = ClaimBounty testProofTyped
-                timeoutRedeemer = Contract.Bounty.Timeout
-            case (claimRedeemer, timeoutRedeemer) of
-              (ClaimBounty _, Contract.Bounty.Timeout) -> True @?= True
-              _ -> assertFailure "Redeemer types should be different"
         ],
       testGroup
         "Proof validation integration"
