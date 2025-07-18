@@ -154,20 +154,18 @@ applySkyDataProofH SkyDataProofH {..} messageDataHash =
     daDataHash <- applyMerkleProof topicLeafHash $ proofTopicTriePathH
     return . computeDigest $ (proofDaMetaDataH, daDataHash)
 
+skyDataProofToH :: (LiftDato r, DigestibleRef Hash (LiftRef r)) => (LiftRef r (MessageData r), SkyDataProof Hash) -> (Hash, SkyDataProofH)
+skyDataProofToH (messageHash, SkyDataPath {..}) =
+  (refDigest messageHash,
+    SkyDataProofH
+      (refDigest pathDaMetaData)
+      (fmap refDigest pathTopicTriePath)
+      (refDigest pathTopicMetaData)
+      (fmap refDigest pathMessageTriePath)
+      (refDigest pathMessageMetaData))
+
 getSkyDataProofH :: (Monad e, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef Hash (LiftRef r)) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (Hash, SkyDataProofH))
-getSkyDataProofH ids da =
-  getSkyDataProof ids da >>=
-    return .
-      fmap
-        \case
-          (messageHash, SkyDataPath {..}) ->
-            (refDigest messageHash,
-             SkyDataProofH
-               (refDigest pathDaMetaData)
-               (fmap refDigest pathTopicTriePath)
-               (refDigest pathTopicMetaData)
-               (fmap refDigest pathMessageTriePath)
-               (refDigest pathMessageMetaData))
+getSkyDataProofH ids da = getSkyDataProof ids da >>= return . fmap skyDataProofToH
 
 -- * Meta Declarations
 

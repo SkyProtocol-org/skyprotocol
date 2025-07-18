@@ -23,7 +23,7 @@ type TopicAPI =
 
 type PublicTopicAPI =
   ( "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
-      :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html
+      :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
       :<|> "read_message" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
   )
 
@@ -100,9 +100,9 @@ getProof topicId messageId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
   let da = view (bridgeState . bridgedSkyDa) state
-  let maybeRmdProof = runIdentity $ getSkyDataProof (topicId, messageId) da :: Maybe (LiftRef (HashRef Hash) BuiltinByteString, SkyDataProof Hash)
+  let maybeRmdProof = runIdentity $ getSkyDataProofH (topicId, messageId) da :: Maybe (Hash, SkyDataProofH)
   case maybeRmdProof of
-    Nothing -> throwError $ APIError "Message not found"
+    Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
     Just (rmd, proof) ->
       return . builtinByteStringToByteString . toByteString $ (rmd, proof)
 
