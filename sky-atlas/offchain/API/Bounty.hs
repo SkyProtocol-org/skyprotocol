@@ -1,5 +1,6 @@
 module API.Bounty (BountyAPI, bountyServer) where
 
+import Common
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import API.Types
@@ -94,7 +95,9 @@ bountyServer = offerBountyH :<|> claimBountyH
               . utxosToList
               $ bountyUtxos
 
-      let redeemer = ClaimBounty ()
+      let proofBytes = toByteString (Byte 1) -- XXX TODO get the real thing
+
+      let redeemer = ClaimBounty proofBytes
       body <-
         runBuilder
           cBountyrUsedAddrs

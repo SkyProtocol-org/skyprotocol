@@ -4,6 +4,7 @@
 module OnChain.BountySpec (bountySpec) where
 
 import Common
+import Contract.DaH
 import Contract.Bounty (validateClaimBounty, validateTimeout)
 import Data.Functor.Identity (Identity (..))
 import PlutusLedgerApi.V2
@@ -42,7 +43,7 @@ testMessageHash :: Hash
 testMessageHash = computeDigest testMessage
 
 -- Create test DA structure and proof
-createTestDaAndProof :: (SkyDa (HashRef Hash), TopicId, MessageId, SkyDataProof Hash, Hash)
+createTestDaAndProof :: (SkyDa (HashRef Hash), TopicId, MessageId, SkyDataProofH, Hash)
 createTestDaAndProof =
   let daSchema = computeDigest @Hash @Bytes4 $ ofHex "deadbeef"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
@@ -57,7 +58,7 @@ createTestDaAndProof =
       topicId = fromJust maybeTopicId
       (da2, maybeMessageId) = runIdentity $ insertMessage timestamp testMessage topicId da1
       messageId = fromJust maybeMessageId
-      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProof (topicId, messageId) da2 :: (LiftRef (HashRef Hash) BBS, SkyDataProof Hash)
+      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Hash, SkyDataProofH)
       topHash = computeDigest da2
    in (da2, topicId, messageId, proof, topHash)
 
@@ -65,16 +66,16 @@ createTestDaAndProof =
 _testDa :: SkyDa (HashRef Hash)
 testTopicIdFromDa :: TopicId
 testMessageId :: MessageId
-testProof :: SkyDataProof Blake2b_256
+testProof :: SkyDataProofH
 testTopHash :: Hash
 (_testDa, testTopicIdFromDa, testMessageId, testProof, testTopHash) = createTestDaAndProof
 
 -- Type annotations for clarity
-testProofTyped :: SkyDataProof Blake2b_256
+testProofTyped :: SkyDataProofH
 testProofTyped = testProof
 
 -- Create invalid proofs for negative testing
-createInvalidProof :: SkyDataProof Blake2b_256
+createInvalidProof :: SkyDataProofH
 createInvalidProof =
   let daSchema = computeDigest @Hash @Bytes4 $ ofHex "baadf00d"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
@@ -88,10 +89,10 @@ createInvalidProof =
       topicId = fromJust maybeTopicId
       (da2, maybeMessageId) = runIdentity $ insertMessage timestamp wrongMessage topicId da1
       messageId = fromJust maybeMessageId
-      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProof (topicId, messageId) da2 :: (LiftRef (HashRef Hash) BBS, SkyDataProof Hash)
+      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Hash, SkyDataProofH)
    in proof
 
-invalidProof :: SkyDataProof Blake2b_256
+invalidProof :: SkyDataProofH
 invalidProof = createInvalidProof
 
 bountySpec :: TestTree
@@ -159,10 +160,10 @@ bountySpec =
               @?= False,
           testCase "should validate proof structure requirements" $ do
             -- Check that proof has correct height and key structure
-            triePathHeight (pathTopicTriePath testProofTyped) @?= 0
-            triePathKey (pathTopicTriePath testProofTyped) @?= testTopicIdFromDa
-            triePathHeight (pathMessageTriePath testProofTyped) @?= 0
-            triePathKey (pathMessageTriePath testProofTyped) @?= testMessageId
+            triePathHeight (proofTopicTriePathH testProofTyped) @?= 0
+            triePathKey (proofTopicTriePathH testProofTyped) @?= testTopicIdFromDa
+            triePathHeight (proofMessageTriePathH testProofTyped) @?= 0
+            triePathKey (proofMessageTriePathH testProofTyped) @?= testMessageId
         ],
       testGroup
         "validateTimeout"
@@ -189,15 +190,15 @@ bountySpec =
         "Proof validation integration"
         [ testCase "should validate applySkyDataProof correctly" $ do
             -- Verify that the proof actually validates the message hash
-            let proofResult = applySkyDataProof testProofTyped testMessageHash
+            let proofResult = applySkyDataProofH testProofTyped testMessageHash
             proofResult @?= testTopHash,
           testCase "should reject proof with wrong message hash" $ do
             let wrongHash = computeDigest @Hash ("different message" :: BuiltinString)
-                proofResult = applySkyDataProof testProofTyped wrongHash
+                proofResult = applySkyDataProofH testProofTyped wrongHash
             proofResult == testTopHash @?= False,
           testCase "should validate proof structure matches topic requirements" $ do
             -- The proof should have the correct topic ID in its path
-            let topicPath = pathTopicTriePath testProofTyped
+            let topicPath = proofTopicTriePathH testProofTyped
             triePathKey topicPath @?= testTopicIdFromDa
             -- Height should be 0 (direct path from leaf to root)
             triePathHeight topicPath @?= 0
