@@ -91,6 +91,8 @@ library onchain
 
   exposed-modules:
     Contract
+    Contract.TrieH
+    Contract.DaH
     Contract.Bounty
     Contract.SkyBridge
     Contract.SkyMintingPolicy

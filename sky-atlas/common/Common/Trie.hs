@@ -1,11 +1,11 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Common.Trie where
 
 import Common.Crypto
--- import PlutusTx.Blueprint
-
 import Common.Types
 import Control.Monad (Monad, (>=>))
 import Data.Function ((&))
@@ -51,7 +51,7 @@ data TrieNodeF h k c t
   | Branch {branchLeft :: t, branchRight :: t}
   | Skip {skipHeightMinus1 :: h, skipBits :: k, skipChild :: t}
 
--- ** Zippers
+-- ** Zippings
 
 -- | Abstract zippers
 -- should we further require that pathF a = (focusKey, shape, [a]) ?
@@ -76,7 +76,7 @@ data TrieStep h k o
   | -- | take a step over some index bits to skip
     SkipStep h k
 
-data TriePath h k d = (TrieHeightKey h k) => TriePath
+data TriePath h k d = TriePath
   { -- | the height of lowest key bit for the node *above* the focused node,
     --       which is 0 for a Leaf, 256 if the key is 256 bits with high bit set.
     --       Note that may thus not fit the type h of the height,
@@ -97,15 +97,15 @@ type TrieProof h k d = TriePath h k d
 
 -- * Typeclasses
 
-class (Monad e) => PreZipper e pathF stepF | pathF -> stepF where
+class (Monad e) => PreZipping e pathF stepF | pathF -> stepF where
   pathStep :: pathF a -> e (Maybe (stepF a, pathF a))
   stepDown :: stepF a -> pathF a -> e (pathF a)
 
 -- merge blur and key into focusKey, and
 -- later have a (sharpFocus :: key -> focusKey) to extract content ?
 class
-  (Monad e, PreZipper e pathF stepF, Dato node, Dato (pathF node)) =>
-  Zipper e t node pathF stepF
+  (Monad e, PreZipping e pathF stepF, Dato node, Dato (pathF node)) =>
+  Zipping e t node pathF stepF
     | t -> node,
       node -> t pathF,
       pathF -> stepF
@@ -114,7 +114,7 @@ class
   ofTopZipper :: Zip pathF node node -> e t
   stepUp :: stepF node -> node -> e node
 
-class FocusableZipper e node pathF focusKey where
+class FocusableZipping e node pathF focusKey where
   refocus :: focusKey -> Zip pathF node node -> e (Zip pathF node node)
 
 class
@@ -130,6 +130,9 @@ class
   TrieHeightKey h k
 
 -- * Instances
+
+PlutusTx.makeLift ''TriePath
+-- PlutusTx.makeIsDataSchemaIndexed ''TriePath [('TriePath, 0)]
 
 -- ** TrieTop
 
@@ -350,6 +353,18 @@ deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h 
 
 deriving via As (Integer, k, k, [d]) (TriePath h k d) instance (TrieHeightKey h k, UnsafeFromData d) => UnsafeFromData (TriePath h k d)
 
+{-
+instance (HasBlueprintDefinition h, HasBlueprintDefinition k, HasBlueprintDefinition d,
+          Typeable DefaultUni h, Typeable DefaultUni k, Typeable DefaultUni d) =>
+  HasBlueprintDefinition (TriePath h k d) where
+
+instance
+  (HasSchemaDefinition h referencedTypes,
+   HasSchemaDefinition k referencedTypes,
+   HasSchemaDefinition d referencedTypes) =>
+  HasSchemaDefinition (TriePath h k d) referencedTypes where
+-}
+
 instance
   (TrieHeightKey h k, Show d) =>
   Show (TriePath h k d)
@@ -441,11 +456,11 @@ instance
 
 -- $(PlutusTx.makeIsDataSchemaIndexed ''TrieStep [('LeftStep, 0),('RightStep, 1),('SkipStep, 2)])
 
--- ** Zippers
+-- ** Zippings
 
 instance
   (Monad e, TrieHeightKey h k) =>
-  PreZipper e (TriePath h k) (TrieStep h k)
+  PreZipping e (TriePath h k) (TrieStep h k)
   where
   {-# INLINEABLE pathStep #-}
   pathStep (TriePath h k m s) =
@@ -478,7 +493,7 @@ instance
 
 instance
   (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
-  Zipper e (Trie r h k c) (TrieNodeRef r h k c) (TriePath h k) (TrieStep h k)
+  Zipping e (Trie r h k c) (TrieNodeRef r h k c) (TriePath h k) (TrieStep h k)
   where
   zipperOf (TrieTop h t) = return $ Zip t (TriePath h (lowBitsMask 0) (lowBitsMask 0) [])
   ofTopZipper = ofTrieZipperFocus
@@ -506,7 +521,7 @@ instance
 
 instance
   (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
-  FocusableZipper e (TrieNodeRef r h k c) (TriePath h k) (Integer, k)
+  FocusableZipping e (TrieNodeRef r h k c) (TriePath h k) (Integer, k)
   where
   -- refocus the zipper toward the set of keys from k' `shiftLeft` h'
   -- included to (k' + 1) `shiftLeft` h' excluded
@@ -632,7 +647,7 @@ instance
 
 instance
   (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
-  FocusableZipper e (TrieNodeRef r h k c) (TriePath h k) k
+  FocusableZipping e (TrieNodeRef r h k c) (TriePath h k) k
   where
   refocus k = refocus (0 :: Integer, k)
 
@@ -640,7 +655,7 @@ instance
 
 {-# INLINEABLE zipUp #-}
 zipUp ::
-  (Monad e, PreZipper e pathF stepF) =>
+  (Monad e, PreZipping e pathF stepF) =>
   (stepF background -> focus -> e focus) ->
   Zip pathF focus background ->
   e (Zip pathF focus background)
@@ -649,7 +664,7 @@ zipUp synth z@(Zip f p) =
     Just (s, p') -> synth s f >>= \a -> zipUp synth (Zip a p')
     Nothing -> return z
 
-ofZipper :: (Zipper e top node pathF stepF, Dato top, Dato (pathF node), Dato (stepF node)) => Zip pathF node node -> e top
+ofZipper :: (Zipping e top node pathF stepF, Dato top, Dato (pathF node), Dato (stepF node)) => Zip pathF node node -> e top
 ofZipper = zipUp stepUp >=> ofTopZipper
 
 -- | Get a TrieNodeRef from a TrieNodeF

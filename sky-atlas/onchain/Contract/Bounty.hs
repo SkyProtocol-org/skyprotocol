@@ -6,6 +6,7 @@ module Contract.Bounty where
 
 import Common
 import Contract.SkyBridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
+import Contract.DaH
 import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1
@@ -54,7 +55,7 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 -- Redeemers for client contract
 ------------------------------------------------------------------------------
 
-data ClientRedeemer = ClaimBounty () {- SkyDataProof Blake2b_256 -} | Timeout
+data ClientRedeemer = ClaimBounty BuiltinByteString | Timeout
 
 PlutusTx.makeLift ''ClientRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
@@ -64,13 +65,13 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 ------------------------------------------------------------------------------
 
 -- Separating validation logic to make for easy testing
-validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProof Blake2b_256 -> Hash -> Bool
+validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
 validateClaimBounty
   bountyDeadline
   txValidRange
   messageHash
   topicId
-  proof@SkyDataPath {..}
+  proof@SkyDataProofH {..}
   daTopHash =
     -- Check if the current slot is within the deadline
     to bountyDeadline
@@ -78,16 +79,16 @@ validateClaimBounty
       &&
       -- The bounty's message hash is in the DA
       daTopHash
-      == applySkyDataProof proof messageHash
+      == applySkyDataProofH proof messageHash
       &&
       -- topic ID matches
       topicId
-      == triePathKey pathTopicTriePath
+      == triePathKey proofTopicTriePathH
       &&
       -- heights are 0 (lead top top from leafs)
-      triePathHeight pathTopicTriePath
+      triePathHeight proofTopicTriePathH
       == 0
-      && triePathHeight pathMessageTriePath
+      && triePathHeight proofMessageTriePathH
       == 0
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
@@ -103,16 +104,16 @@ clientTypedValidator ::
   Bool
 clientTypedValidator ClientParams {..} () redeemer ctx =
   case redeemer of
-    ClaimBounty proof ->
-      allPaidToCredential bountyClaimantPubKeyHash
-    -- validateClaimBounty
-    --   bountyDeadline
-    --   txValidRange
-    --   bountyMessageHash
-    --   bountyTopicId
-    --   proof
-    --   daTopHash
-    --   && allPaidToCredential bountyClaimantPubKeyHash
+    ClaimBounty proofBytes ->
+      let proof = fromByteString proofBytes in
+      validateClaimBounty
+        bountyDeadline
+        txValidRange
+        bountyMessageHash
+        bountyTopicId
+        proof
+        daTopHash
+      && allPaidToCredential bountyClaimantPubKeyHash
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash

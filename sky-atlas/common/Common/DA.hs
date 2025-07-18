@@ -1,6 +1,8 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -Wno-partial-type-signatures #-}
+
 
 module Common.DA where
 
@@ -308,3 +310,4 @@ updateDaCommittee newCommittee SkyDa {..} = do
 -- * Meta Declarations
 
 P.makeLift ''TopicId
+P.makeLift ''MessageId
