@@ -40,7 +40,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       logTrace_ "Constructing body for the minting policy"
       body <-
         runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral $
-          mkMintingSkeleton (configTokenName appConfig) (pubKeyHash $ cuserVerificationKey appAdmin) topHash
+          mkMintingSkeleton (configTokenName appConfig) (cuserAddressPubKey appAdmin) topHash
       logTrace_ "Signing and submitting minting policy"
       tId <- runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)

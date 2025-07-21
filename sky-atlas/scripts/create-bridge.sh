@@ -2,23 +2,17 @@
 
 set -euo pipefail
 
-if [[ $# -lt 3 ]]; then
+if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <address> <apiUrl>"
   exit 1
 fi
 
 changeAddress="$1"
-usedAddrs="[$1]"
+usedAddrs="[\"$1\"]"
 apiUrl="$2"
-shift 3
 
-while [[ $# -gt 0 ]]; do
-    *)
-      echo "Unknown argument: $1"
-      exit 1
-      ;;
-  esac
-done
+echo $changeAddress
+echo $usedAddrs
 
 # Construct JSON body
 payload=$(jq -n \

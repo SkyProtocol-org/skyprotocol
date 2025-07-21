@@ -62,7 +62,8 @@ instance FromJSON CardanoSigningKey where
 data CardanoUser = CardanoUser
   { cuserVerificationKey :: GYPaymentVerificationKey,
     cuserSigningKey :: GYSomePaymentSigningKey,
-    cuserAddress :: GYAddress
+    cuserAddress :: GYAddress,
+    cuserAddressPubKey :: GYPubKeyHash
   }
   deriving (Eq, Show, Generic)
 
@@ -75,8 +76,10 @@ getCardanoUser fp = do
   let toLeft = Left . StartupError . show
       verKey = either toLeft (Right . verKeyCborHex) eitherVerificationKey
       sigKey = either toLeft (Right . AGYPaymentSigningKey . sigKeyCborHex) eitherSigningKey
-      addr = maybe (Left $ StartupError "can't get address") Right $ addressFromTextMaybe address
-  pure $ CardanoUser <$> verKey <*> sigKey <*> addr
+      maybeAddr = addressFromTextMaybe address
+      addr = maybe (Left $ StartupError "can't get address") Right maybeAddr
+      addrPubKey = maybe (Left $ StartupError "Can't get pubkey from address") Right (maybeAddr >>= addressToPubKeyHash)
+  pure $ CardanoUser <$> verKey <*> sigKey <*> addr <*> addrPubKey
 
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment
