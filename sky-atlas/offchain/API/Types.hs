@@ -16,9 +16,7 @@ newtype User = User
 -- if we don't do this from one node.
 -- We want to have one node - one user, which will allow us to persist these
 data CreateBridgeRequest = CreateBridgeRequest
-  { -- | Optional amount of tokens to mint defaults to 1
-    cbrAmount :: Maybe Integer,
-    -- | wtf is this?
+  { -- | wtf is this?
     cbrChangeAddr :: GYAddress,
     -- | Used addresses for compatibility with non-single address wallets
     cbrUsedAddrs :: [GYAddress],
@@ -28,7 +26,6 @@ data CreateBridgeRequest = CreateBridgeRequest
 
 instance FromJSON CreateBridgeRequest where
   parseJSON = withObject "CreateBridgeRequest" $ \v -> do
-    cbrAmount <- v .:? "amount"
     changeAddr <- v .: "changeAddr"
     usedAddrs <- v .: "usedAddrs"
     cbrCollateral <- v .:? "collateral"
@@ -38,15 +35,11 @@ instance FromJSON CreateBridgeRequest where
 
 instance ToJSON CreateBridgeRequest where
   toJSON CreateBridgeRequest {..} =
-    object $
-      ( case cbrAmount of
-          Just am -> ["amount" .= am]
-          Nothing -> []
-      )
-        <> [ "changeAddr" .= addressToText cbrChangeAddr,
-             "usedAddrs" .= fmap addressToText cbrUsedAddrs,
-             "collateral" .= cbrCollateral
-           ]
+    object
+      [ "changeAddr" .= addressToText cbrChangeAddr,
+        "usedAddrs" .= fmap addressToText cbrUsedAddrs,
+        "collateral" .= cbrCollateral
+      ]
 
 data UpdateBridgeRequest = UpdateBridgeRequest
   { ubrChangeAddr :: GYAddress,

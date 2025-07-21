@@ -3,23 +3,16 @@
 set -euo pipefail
 
 if [[ $# -lt 3 ]]; then
-  echo "Usage: $0 <changeAddress> <usedAddrs> <apiUrl> [--amount <int>]"
+  echo "Usage: $0 <address> <apiUrl>"
   exit 1
 fi
 
 changeAddress="$1"
-usedAddrs="$2"
-apiUrl="$3"
+usedAddrs="[$1]"
+apiUrl="$2"
 shift 3
 
-amount=1
-
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --amount)
-      amount="$2"
-      shift 2
-      ;;
     *)
       echo "Unknown argument: $1"
       exit 1
@@ -30,12 +23,10 @@ done
 # Construct JSON body
 payload=$(jq -n \
   --arg change "$changeAddress" \
-  --argjson amt "$amount" \
   --argjson used "$usedAddrs"  '
   {
     changeAddr: $change,
     usedAddrs: $used,
-    amount: $amt
   } ')
 
 echo "Payload to submit:"

@@ -60,7 +60,7 @@ mintingPolicyTest TestInfo {..} = do
   pkh <- addressToPubKeyHash' addr
 
   asUser (admin testWallets) $ do
-    mintSkeleton <- mkMintingSkeleton Nothing "TestSkyToken" pkh (computeDigest (Byte 1))
+    mintSkeleton <- mkMintingSkeleton "TestSkyToken" pkh (computeDigest (Byte 1))
     gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
