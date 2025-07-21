@@ -31,6 +31,7 @@ common common
     RoleAnnotations
     ScopedTypeVariables
     TemplateHaskell
+    TupleSections
     TypeApplications
     TypeFamilies
     ViewPatterns
@@ -91,11 +92,11 @@ library onchain
 
   exposed-modules:
     Contract
-    Contract.TrieH
-    Contract.DaH
     Contract.Bounty
+    Contract.DaH
     Contract.SkyBridge
     Contract.SkyMintingPolicy
+    Contract.TrieH
 
   build-depends:
     , base

@@ -23,7 +23,7 @@ type BridgeAPI =
   "bridge"
     :> ( "create" :> ReqBody '[JSON] CreateBridgeRequest :> Post '[JSON] ()
            :<|> "read" :> Get '[JSON] Text
-           :<|> "update" :> ReqBody '[JSON] Text :> Post '[JSON] Text
+           :<|> "update" :> ReqBody '[JSON] UpdateBridgeRequest :> Post '[JSON] Text
        )
 
 bridgeServer :: ServerT BridgeAPI AppM
@@ -42,9 +42,6 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral $
           mkMintingSkeleton cbrAmount (configTokenName appConfig) (pubKeyHash $ cuserVerificationKey appAdmin) topHash
       logTrace_ "Signing and submitting minting policy"
-      logTrace_ "SUCCESS!"
-      _ <- throwError $ APIError "Success!"
-      logTrace_ "FAILURE TO ABORT(!)"
       tId <- runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)
 
@@ -74,6 +71,62 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         Just (BridgeNFTDatum topHash) -> pure . decodeASCII . builtinByteStringToByteString . toByteString $ topHash
         Nothing -> throwError $ APIError "Can't get the datum from bridge"
 
-    updateBridgeH _ = do
+    updateBridgeH UpdateBridgeRequest {..} = do
       AppEnv {..} <- ask
-      throwError $ APIError "Unimplemented"
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+          skyPolicyId = mintingPolicyId skyPolicy
+          skyToken = GYToken skyPolicyId $ configTokenName appConfig
+          curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+
+      (bridgeAddr, bridgeUtxos) <- runQuery $ do
+        addr <- bridgeValidatorAddress $ BridgeParams curSym
+        utxos <- utxosAtAddressWithDatums addr $ Just skyToken
+        pure (addr, utxos)
+
+      let utxoWithDatum = flip filter bridgeUtxos $ \(out, _) ->
+            let assets = valueToList $ utxoValue out
+             in flip any assets $ \case
+                  (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
+                  _ -> False
+      (bridgeUtxo, maybeBridgeDatum) <- case utxoWithDatum of
+        [(utxo, Just datum)] -> pure . (utxo,) $ fromBuiltinData $ toBuiltinData datum
+        _ -> throwError $ APIError "Can't find bridge utxos"
+
+      (BridgeNFTDatum oldTopHash) <- case maybeBridgeDatum of
+        Nothing -> throwError $ APIError "Can't get the bridge datum from utxo"
+        Just d -> pure d
+
+      logTrace_ $ "Found bridge utxo with datum: " <> pack (show oldTopHash)
+
+      -- TODO: what state do we want here? We also need to update it after the successfull update of bridge?
+      state <- liftIO $ readMVar appStateR
+      let SkyDa {..} = view (blockState . skyDa) state
+          topHash = computeDigest @Blake2b_256 $ SkyDa {..}
+          newDatum = BridgeNFTDatum topHash
+
+      (schema, committee) <- do
+        DaMetaDataOfTuple (schema, committee) <- unwrap skyMetaData
+        cmt <- unwrap committee
+        pure (schema, cmt)
+
+      let bridgeSchema = schema
+          bridgeCommittee = committee
+          bridgeOldRootHash = oldTopHash
+          bridgeNewTopHash = topHash
+          bridgeSig = MultiSig [] -- TODO: not yet sure how to init this
+          bridgeRedeemer = UpdateBridge {..}
+      logTrace_ "Constructing body for the bridge update"
+      body <-
+        runBuilder ubrUsedAddrs ubrChangeAddr ubrCollateral $
+          mkUpdateBridgeSkeleton
+            (bridgeValidator' $ BridgeParams curSym)
+            (utxoRef bridgeUtxo)
+            newDatum
+            bridgeRedeemer
+            skyToken
+            bridgeAddr
+            (pubKeyHash $ cuserVerificationKey appAdmin)
+      logTrace_ "Signing and submitting bridge update"
+      tId <- runGY (cuserSigningKey appAdmin) Nothing ubrUsedAddrs ubrChangeAddr ubrCollateral $ pure body
+      logTrace_ $ "Transaction id: " <> pack (show tId)
+      pure $ pack (show tId)

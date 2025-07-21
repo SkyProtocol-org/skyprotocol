@@ -5,8 +5,8 @@
 module Contract.Bounty where
 
 import Common
-import Contract.SkyBridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import Contract.DaH
+import Contract.SkyBridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1
@@ -105,15 +105,15 @@ clientTypedValidator ::
 clientTypedValidator ClientParams {..} () redeemer ctx =
   case redeemer of
     ClaimBounty proofBytes ->
-      let proof = fromByteString proofBytes in
-      validateClaimBounty
-        bountyDeadline
-        txValidRange
-        bountyMessageHash
-        bountyTopicId
-        proof
-        daTopHash
-      && allPaidToCredential bountyClaimantPubKeyHash
+      let proof = fromByteString proofBytes
+       in validateClaimBounty
+            bountyDeadline
+            txValidRange
+            bountyMessageHash
+            bountyTopicId
+            proof
+            daTopHash
+            && allPaidToCredential bountyClaimantPubKeyHash
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash

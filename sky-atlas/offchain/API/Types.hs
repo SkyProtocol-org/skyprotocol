@@ -48,6 +48,30 @@ instance ToJSON CreateBridgeRequest where
              "collateral" .= cbrCollateral
            ]
 
+data UpdateBridgeRequest = UpdateBridgeRequest
+  { ubrChangeAddr :: GYAddress,
+    ubrUsedAddrs :: [GYAddress],
+    ubrCollateral :: Maybe GYTxOutRefCbor
+  }
+  deriving (Show, Generic)
+
+instance FromJSON UpdateBridgeRequest where
+  parseJSON = withObject "UpdateBridgeRequest" $ \v -> do
+    changeAddr <- v .: "changeAddr"
+    usedAddrs <- v .: "usedAddrs"
+    ubrCollateral <- v .:? "collateral"
+    let ubrChangeAddr = unsafeAddressFromText changeAddr
+        ubrUsedAddrs = fmap unsafeAddressFromText usedAddrs
+    pure UpdateBridgeRequest {..}
+
+instance ToJSON UpdateBridgeRequest where
+  toJSON UpdateBridgeRequest {..} =
+    object
+      [ "changeAddr" .= addressToText ubrChangeAddr,
+        "usedAddrs" .= fmap addressToText ubrUsedAddrs,
+        "collateral" .= ubrCollateral
+      ]
+
 -- instance FromJSON CreateBridgeRequest where
 --   parseJSON = genericParseJSON defaultOptions {fieldLabelModifier = dropPrefix "cbr"}
 

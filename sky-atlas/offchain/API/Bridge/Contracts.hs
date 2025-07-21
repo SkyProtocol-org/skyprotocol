@@ -7,6 +7,7 @@ import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
+import PlutusLedgerApi.Common hiding (PlutusV2)
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 
@@ -41,3 +42,38 @@ mkMintingSkeleton amount tokenName mintSigner topHash = do
             gyTxOutRefS = Nothing
           }
       <> mustBeSignedBy mintSigner
+
+mkUpdateBridgeSkeleton ::
+  (HasCallStack, GYTxBuilderMonad m) =>
+  -- | Validator
+  GYScript 'PlutusV2 ->
+  -- | Bridge ref
+  GYTxOutRef ->
+  -- | Bridge Datum
+  BridgeNFTDatum ->
+  -- | Redeemer
+  BridgeRedeemer ->
+  -- | Token to send
+  GYAssetClass ->
+  -- | Addr of the bridge validator
+  GYAddress ->
+  -- | Signer
+  GYPubKeyHash ->
+  m (GYTxSkeleton 'PlutusV2)
+mkUpdateBridgeSkeleton validator ref bridgeDatum redeemer skyToken addr signer =
+  pure $
+    mustHaveInput
+      ( GYTxIn
+          { gyTxInTxOutRef = ref,
+            gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptInlined validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
+          }
+      )
+      <> mustHaveOutput
+        ( GYTxOut
+            { gyTxOutAddress = addr,
+              gyTxOutValue = valueSingleton skyToken 1,
+              gyTxOutDatum = Just (datumFromPlutusData bridgeDatum, GYTxOutUseInlineDatum),
+              gyTxOutRefS = Nothing
+            }
+        )
+      <> mustBeSignedBy signer

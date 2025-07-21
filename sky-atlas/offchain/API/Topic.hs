@@ -4,6 +4,7 @@ import API.Types
 import App
 import Common as C
 import Common.OffChain ()
+import Contract.DaH
 import Control.Concurrent.MVar
 import Control.Lens
 import Control.Monad.IO.Class (MonadIO, liftIO)

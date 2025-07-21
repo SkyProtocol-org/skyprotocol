@@ -43,12 +43,11 @@ mkClaimBountySkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkClaimBountySkeleton validator nftRef redeemer addr amt signer = do
+mkClaimBountySkeleton validator nftRef redeemer addr amt signer =
   pure $
     mustHaveInput
       ( GYTxIn
-          { -- TODO: ref input should be nft from bridge
-            gyTxInTxOutRef = nftRef,
+          { gyTxInTxOutRef = nftRef,
             gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptInlined validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
           }
       )
