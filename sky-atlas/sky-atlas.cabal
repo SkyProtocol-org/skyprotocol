@@ -157,6 +157,7 @@ executable sky-atlas
     , log-base
     , sky-atlas:offchain
     , wai-cors
+    , wai-extra
     , warp
     , yaml
 

@@ -79,6 +79,8 @@ getCardanoUser fp = do
       maybeAddr = addressFromTextMaybe address
       addr = maybe (Left $ StartupError "can't get address") Right maybeAddr
       addrPubKey = maybe (Left $ StartupError "Can't get pubkey from address") Right (maybeAddr >>= addressToPubKeyHash)
+  putStrLn $ "Initializing cardano user: " <> fp
+  putStrLn $ "\tverKey: " <> show verKey <> ",\n\tsigKey: " <> show sigKey <> ",\n\taddr: " <> show addr <> ",\n\taddrPubKey: " <> show addrPubKey
   pure $ CardanoUser <$> verKey <*> sigKey <*> addr <*> addrPubKey
 
 data AppState = AppState

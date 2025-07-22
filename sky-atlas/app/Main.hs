@@ -10,6 +10,7 @@ import Log.Backend.StandardOutput
 import Network.HTTP.Types qualified as HttpTypes
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Middleware.Cors
+import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import System.Environment
 
 main :: IO ()
@@ -36,7 +37,8 @@ main = do
             liftIO $
               run (configPort config) $
                 cors (const $ Just simpleCorsResourcePolicy {corsRequestHeaders = [HttpTypes.hContentType]}) $
-                  app appEnv
+                  logStdoutDev $
+                    app appEnv
 
 printHelp :: IO ()
 printHelp = putStrLn "Supply 3 folders paths: admin keys, offerer keys, claimant keys"
