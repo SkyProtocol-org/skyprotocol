@@ -41,12 +41,23 @@ bountyServer = offerBountyH :<|> claimBountyH
       validatorAddr <- runQuery $ do
         bountyValidatorAddress clientParams
 
+      -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
+      collateral <- case obrCollateral of
+        Nothing -> do
+          logTrace_ "Creating utxos for collateral"
+          utxos' <- runQuery $ utxosAtAddress (cuserAddress appOfferer) Nothing
+          let utxos = utxosToList utxos'
+          case utxos of
+            (utxo : _) -> pure $ Just $ GYTxOutRefCbor (utxoRef utxo)
+            _ -> throwError $ APIError "Can't find utxo for collateral"
+        Just c -> pure $ Just c
+
       logTrace_ "Constructing body for bounty offering"
       body <-
         runBuilder
           obrUsedAddrs
           obrChangeAddr
-          obrCollateral
+          collateral
           $ mkSendSkeleton validatorAddr 10_000_000 GYLovelace (cuserAddressPubKey appOfferer)
 
       tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr obrCollateral $ pure body

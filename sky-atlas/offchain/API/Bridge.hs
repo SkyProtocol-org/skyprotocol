@@ -9,6 +9,7 @@ import Contract.SkyBridge
 import Control.Concurrent
 import Control.Lens
 import Control.Monad.Reader
+import Data.Maybe (isJust)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeASCII)
 import GeniusYield.TxBuilder
@@ -73,7 +74,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
 
     updateBridgeH UpdateBridgeRequest {..} = do
       AppEnv {..} <- ask
-      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
           skyPolicyId = mintingPolicyId skyPolicy
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
           curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -92,6 +93,16 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         [(utxo, Just datum)] -> pure . (utxo,) $ fromBuiltinData $ toBuiltinData datum
         _ -> throwError $ APIError "Can't find bridge utxos"
 
+      -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
+      collateral <- do
+        logTrace_ "Creating utxos for collateral"
+        utxos' <- runQuery $ utxosAtAddress (cuserAddress appAdmin) Nothing
+        let utxos = utxosToList utxos'
+        logTrace_ $ "Found utxos: " <> pack (show utxos)
+        case utxos of
+          (utxo : _) -> pure $ utxoRef utxo
+          _ -> throwError $ APIError "Can't find utxo for collateral"
+
       (BridgeNFTDatum oldTopHash) <- case maybeBridgeDatum of
         Nothing -> throwError $ APIError "Can't get the bridge datum from utxo"
         Just d -> pure d
@@ -103,6 +114,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       let SkyDa {..} = view (blockState . skyDa) state
           topHash = computeDigest @Blake2b_256 $ SkyDa {..}
           newDatum = BridgeNFTDatum topHash
+      logTrace_ $ "New utxo datum: " <> pack (show topHash)
 
       (schema, committee) <- do
         DaMetaDataOfTuple (schema, committee) <- unwrap skyMetaData
@@ -117,16 +129,27 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           bridgeRedeemer = UpdateBridge {..}
       logTrace_ "Constructing body for the bridge update"
       body <-
-        runBuilder ubrUsedAddrs ubrChangeAddr ubrCollateral $
-          mkUpdateBridgeSkeleton
+        runBuilder
+          ubrUsedAddrs
+          ubrChangeAddr
+          (if isJust ubrCollateral then ubrCollateral else Just $ GYTxOutRefCbor collateral)
+          $ mkUpdateBridgeSkeleton
             (bridgeValidator' $ BridgeParams curSym)
             (utxoRef bridgeUtxo)
+            collateral
             newDatum
             bridgeRedeemer
             skyToken
             bridgeAddr
-            (pubKeyHash $ cuserVerificationKey appAdmin)
+            (cuserAddressPubKey appAdmin)
       logTrace_ "Signing and submitting bridge update"
-      tId <- runGY (cuserSigningKey appAdmin) Nothing ubrUsedAddrs ubrChangeAddr ubrCollateral $ pure body
+      tId <-
+        runGY
+          (cuserSigningKey appAdmin)
+          Nothing
+          ubrUsedAddrs
+          ubrChangeAddr
+          (if isJust ubrCollateral then ubrCollateral else Just $ GYTxOutRefCbor collateral)
+          $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)
       pure $ pack (show tId)
