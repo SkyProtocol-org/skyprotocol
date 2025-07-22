@@ -1,10 +1,10 @@
 module API.Bounty (BountyAPI, bountyServer) where
 
-import Common
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import API.Types
 import App
+import Common
 import Contract.Bounty
 import Contract.SkyBridge
 import Control.Monad.Reader
@@ -47,7 +47,7 @@ bountyServer = offerBountyH :<|> claimBountyH
           obrUsedAddrs
           obrChangeAddr
           obrCollateral
-          $ mkSendSkeleton validatorAddr 10_000_000 GYLovelace (pubKeyHash $ cuserVerificationKey appOfferer)
+          $ mkSendSkeleton validatorAddr 10_000_000 GYLovelace (cuserAddressPubKey appOfferer)
 
       tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr obrCollateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tid)
@@ -96,7 +96,6 @@ bountyServer = offerBountyH :<|> claimBountyH
               $ bountyUtxos
 
       let proofBytes = toByteString (Byte 1) -- XXX TODO get the real thing
-
       let redeemer = ClaimBounty proofBytes
       body <-
         runBuilder

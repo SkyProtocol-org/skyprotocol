@@ -7,6 +7,7 @@ module API
   )
 where
 
+import API.Bounty
 import API.Bridge
 import API.Topic
 import API.Types
@@ -19,13 +20,13 @@ type HealthAPI = "health" :> Get '[JSON] Text
 healthServer :: ServerT HealthAPI AppM
 healthServer = pure "OK"
 
-type API = HealthAPI :<|> BridgeAPI :<|> TopicAPI
+type API = HealthAPI :<|> BridgeAPI :<|> BountyAPI :<|> TopicAPI
 
 api :: Proxy API
 api = Proxy
 
 server :: ServerT API AppM
-server = healthServer :<|> bridgeServer :<|> topicServer
+server = healthServer :<|> bridgeServer :<|> bountyServer :<|> topicServer
 
 appCtx :: Context (BasicAuthCheck User ': '[])
 appCtx = authCheck :. EmptyContext

@@ -8,6 +8,7 @@ import Common
 import Data.Aeson
 import Data.Bifunctor (bimap)
 import Data.Text as T
+import PlutusTx.Prelude (BuiltinByteString)
 import Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import Text.Read (readEither)
 import Prelude
@@ -42,9 +43,15 @@ instance ToHttpApiData MessageId where
 instance FromHttpApiData MessageId where
   parseUrlPiece mId = bimap pack (MessageId . fromInt) $ readEither (unpack mId)
 
+instance ToJSON Bytes32 where
+  toJSON (Bytes32 s) = toJSON $ hexOf @BuiltinByteString @Text s
+
+instance FromJSON Bytes32 where
+  parseJSON a = Bytes32 . ofHex . unpack <$> parseJSON a
+
 -- TODO: should make conversion to/from hex string
 instance FromJSON Hash where
-  parseJSON = undefined
+  parseJSON = withObject "Blake2b_256" $ \v -> Blake2b_256 <$> v .: "hash"
 
 instance ToJSON Hash where
-  toJSON = undefined
+  toJSON (Blake2b_256 h) = object ["hash" .= h]
