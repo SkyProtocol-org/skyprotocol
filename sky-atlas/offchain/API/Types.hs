@@ -16,7 +16,7 @@ newtype User = User
 -- if we don't do this from one node.
 -- We want to have one node - one user, which will allow us to persist these
 data CreateBridgeRequest = CreateBridgeRequest
-  { -- | wtf is this?
+  { -- | Address to where left-overs are returned
     cbrChangeAddr :: GYAddress,
     -- | Used addresses for compatibility with non-single address wallets
     cbrUsedAddrs :: [GYAddress],
@@ -135,4 +135,35 @@ instance ToJSON ClaimBountyRequest where
         "changeAddr" .= addressToText cBountyrChangeAddr,
         "usedAddrs" .= fmap addressToText cBountyrUsedAddrs,
         "collateral" .= cBountyrCollateral
+      ]
+
+data CreateCollateralRequest = CreateCollateralRequest
+  { clrAddr :: GYAddress,
+    clrAddrPubKey :: GYPubKeyHash,
+    clrSigningKey :: GYSomePaymentSigningKey,
+    clrFunds :: Integer,
+    clrCollateral :: Integer
+  }
+  deriving (Show, Generic)
+
+instance FromJSON CreateCollateralRequest where
+  parseJSON = withObject "CreateCollateralRequest" $ \v -> do
+    addr <- v .: "addr"
+    signingKey <- v .: "signingKey"
+    clrFunds <- v .: "funds"
+    clrCollateral <- v .: "collateral"
+    let clrAddr = unsafeAddressFromText addr
+        addrPubKey = addressToPubKeyHash clrAddr
+        clrSigningKey = AGYPaymentSigningKey signingKey
+    case addrPubKey of
+      Just clrAddrPubKey -> pure CreateCollateralRequest {..}
+      Nothing -> fail "Can't create pubkeyhash from address"
+
+instance ToJSON CreateCollateralRequest where
+  toJSON CreateCollateralRequest {..} =
+    object
+      [ "addr" .= addressToText clrAddr,
+        "signingKey" .= let (AGYPaymentSigningKey k) = clrSigningKey in k,
+        "funds" .= clrFunds,
+        "collateral" .= clrCollateral
       ]

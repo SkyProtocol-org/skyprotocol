@@ -61,12 +61,17 @@ mkUpdateBridgeSkeleton ::
 mkUpdateBridgeSkeleton validator bridgeRef collateralRef bridgeDatum redeemer skyToken addr signer =
   pure $
     -- collateral input
-    mustHaveRefInput collateralRef
+    mustHaveInput
+      ( GYTxIn
+          { gyTxInTxOutRef = collateralRef,
+            gyTxInWitness = GYTxInWitnessKey
+          }
+      )
       -- bridge input
       <> mustHaveInput
         ( GYTxIn
             { gyTxInTxOutRef = bridgeRef,
-              gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptReference bridgeRef validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
+              gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptInlined validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
             }
         )
       <> mustHaveOutput

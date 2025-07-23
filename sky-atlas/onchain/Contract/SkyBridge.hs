@@ -224,9 +224,7 @@ bridgeUntypedValidator params _datum redeemer ctx =
   PlutusTx.check
     ( bridgeTypedValidator
         params
-        -- (BridgeParams "kek")
         () -- ignore the untyped datum, it's unused
-        -- exampleRedeemer
         (PlutusTx.unsafeFromBuiltinData redeemer)
         (PlutusTx.unsafeFromBuiltinData ctx)
     )
