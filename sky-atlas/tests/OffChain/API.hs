@@ -105,6 +105,7 @@ closeAPI TestEnv {..} = do
 -- TODO: add tests for the rest of the endpoints
 healthClient
   :<|> _bridgeClient
+  :<|> _bountyClient
   :<|> (publicTopicApi :<|> protectedTopicApi) =
     client api
 
