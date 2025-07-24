@@ -100,14 +100,11 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 
       -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
-      collateral <- do
-        logTrace_ "Creating utxos for collateral"
-        utxos' <- runQuery $ utxosAtAddress (cuserAddress appAdmin) Nothing
-        let utxos = utxosToList utxos'
-        logTrace_ $ "Found utxos: " <> pack (show utxos)
-        if not $ null utxos
-          then pure . utxoRef $ maximumBy (\v1 v2 -> compare (valueAda $ utxoValue v1) (valueAda $ utxoValue v2)) utxos
-          else throwError $ APIError "Can't find utxo for collateral"
+      (collateral, _amt) <- do
+        mC <- runQuery $ getCollateral' (cuserAddress appAdmin) 10
+        case mC of
+          Nothing -> throwError $ APIError "Can't find utxo for collateral"
+          Just c -> pure c
 
       -- TODO: what state do we want here? We also need to update it after the successfull update of bridge?
       state <- liftIO $ readMVar appStateR
