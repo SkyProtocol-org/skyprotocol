@@ -44,8 +44,6 @@ mkUpdateBridgeSkeleton ::
   GYScript 'PlutusV2 ->
   -- | Bridge ref
   GYTxOutRef ->
-  -- | Old bridge Datum
-  BridgeNFTDatum ->
   -- | New bridge Datum
   BridgeNFTDatum ->
   -- | Redeemer
@@ -57,7 +55,7 @@ mkUpdateBridgeSkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkUpdateBridgeSkeleton validator bridgeRef oldDatum newDatum redeemer skyToken addr signer =
+mkUpdateBridgeSkeleton validator bridgeRef newDatum redeemer skyToken addr signer =
   pure $
     -- bridge input
     mustHaveInput

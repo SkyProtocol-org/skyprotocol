@@ -9,6 +9,7 @@ import Contract.SkyBridge
 import Control.Concurrent
 import Control.Lens
 import Control.Monad.Reader
+import Data.Foldable (maximumBy)
 import Data.Maybe (isJust)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeASCII)
@@ -31,13 +32,17 @@ type BridgeAPI =
 bridgeServer :: ServerT BridgeAPI AppM
 bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
   where
-    -- TODO: create a bridged version of the skyda and store it in app state
     createBridgeH CreateBridgeRequest {..} = do
       AppEnv {..} <- ask
       state <- liftIO $ readMVar appStateR
 
       let SkyDa {..} = view (blockState . skyDa) state
           topHash = computeDigest @Blake2b_256 $ SkyDa {..}
+
+      liftIO $ modifyMVar_ appStateW $ \state' -> do
+        let newState = set (bridgeState . bridgedSkyDa) SkyDa {..} state'
+        modifyMVar_ appStateR . const . return $ newState
+        pure newState
 
       logTrace_ "Constructing body for the minting policy"
       body <-
@@ -101,9 +106,9 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         utxos' <- runQuery $ utxosAtAddress (cuserAddress appAdmin) Nothing
         let utxos = utxosToList utxos'
         logTrace_ $ "Found utxos: " <> pack (show utxos)
-        case utxos of
-          (utxo : _) -> pure $ utxoRef utxo
-          _ -> throwError $ APIError "Can't find utxo for collateral"
+        if not $ null utxos
+          then pure . utxoRef $ maximumBy (\v1 v2 -> compare (valueAda $ utxoValue v1) (valueAda $ utxoValue v2)) utxos
+          else throwError $ APIError "Can't find utxo for collateral"
 
       (BridgeNFTDatum oldTopHash) <- case maybeBridgeDatum of
         Nothing -> throwError $ APIError "Can't get the bridge datum from utxo"
@@ -121,9 +126,12 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         cmt <- unwrap committee
         pure (schema, cmt)
 
+      let bridgedDa = view (bridgeState . bridgedSkyDa) state
+          oldRootHash = computeDigest @Blake2b_256 bridgedDa
+
       let bridgeSchema = schema
           bridgeCommittee = committee
-          bridgeOldRootHash = oldTopHash
+          bridgeOldRootHash = oldRootHash
           bridgeNewTopHash = topHash
           -- TODO: make this safe
           adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey appAdmin in signingKeyToRawBytes sk
@@ -143,7 +151,6 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           $ mkUpdateBridgeSkeleton
             (bridgeValidator' $ BridgeParams curSym)
             (utxoRef bridgeUtxo)
-            (BridgeNFTDatum oldTopHash)
             newDatum
             bridgeRedeemer
             skyToken

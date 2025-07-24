@@ -60,7 +60,7 @@ bountyServer = offerBountyH :<|> claimBountyH
           collateral
           $ mkSendSkeleton validatorAddr 10_000_000 GYLovelace (cuserAddressPubKey appOfferer)
 
-      tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr obrCollateral $ pure body
+      tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr collateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tid)
       pure tid
 

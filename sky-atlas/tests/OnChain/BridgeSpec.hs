@@ -13,9 +13,7 @@ import Data.Time.Clock qualified as DTC
 import Data.Time.Clock.POSIX qualified as DTCP
 import GeniusYield.Types
 import PlutusLedgerApi.V1.Time qualified as T (POSIXTime (..))
-import PlutusLedgerApi.V2
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
-import PlutusTx.Prelude qualified as PlutuxTx
 import Test.Tasty
 import Test.Tasty.HUnit
 import Prelude
@@ -49,8 +47,23 @@ bridgeSpec =
   testGroup
     "Bridge Contract"
     [ testGroup
-        "bridgeTypedValidatorCore"
-        [ testCase "should validate multi sig" $ do
+        "Bridge validator"
+        [ testCase "multiSigValid" $ do
+            (da', _schema, committee, admin) <- createTestDa
+            timestamp <- currentPOSIXTime
+
+            let adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey admin in signingKeyToRawBytes sk
+                adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
+                adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey admin
+                adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+                (da'', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da'
+                topicId = fromJust maybeTopicId
+                (da, _maybeMessageId) = runIdentity $ insertMessage timestamp "test message" topicId da''
+                topHash = computeDigest @Blake2b_256 da
+                signature = signMessage adminSecKey topHash
+                bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
+            multiSigValid committee topHash bridgeSig @?= True,
+          testCase "bridgeTypedValidatorCore" $ do
             (da', schema, committee, admin) <- createTestDa
             timestamp <- currentPOSIXTime
 
@@ -63,7 +76,7 @@ bridgeSpec =
                 topicId = fromJust maybeTopicId
                 (da, _maybeMessageId) = runIdentity $ insertMessage timestamp "test message" topicId da''
 
-            daData <- unwrap $ skyTopicTrie da
+            daData <- unwrap $ skyTopicTrie da'
 
             let topHash = computeDigest @Blake2b_256 da
                 signature = signMessage adminSecKey topHash
