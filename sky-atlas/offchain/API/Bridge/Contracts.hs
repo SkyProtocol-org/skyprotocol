@@ -22,7 +22,6 @@ mkMintingSkeleton tokenName mintSigner topHash = do
   let bridgeNFTDatum = BridgeNFTDatum topHash
       skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus mintSigner
       skyToken = GYToken (mintingPolicyId skyPolicy) tokenName
-      -- should be at least 1
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
 
   bvAddr <- bridgeValidatorAddress $ BridgeParams curSym
@@ -45,9 +44,9 @@ mkUpdateBridgeSkeleton ::
   GYScript 'PlutusV2 ->
   -- | Bridge ref
   GYTxOutRef ->
-  -- | Collateral ref
-  GYTxOutRef ->
-  -- | Bridge Datum
+  -- | Old bridge Datum
+  BridgeNFTDatum ->
+  -- | New bridge Datum
   BridgeNFTDatum ->
   -- | Redeemer
   BridgeRedeemer ->
@@ -58,27 +57,25 @@ mkUpdateBridgeSkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkUpdateBridgeSkeleton validator bridgeRef collateralRef bridgeDatum redeemer skyToken addr signer =
+mkUpdateBridgeSkeleton validator bridgeRef oldDatum newDatum redeemer skyToken addr signer =
   pure $
-    -- collateral input
+    -- bridge input
     mustHaveInput
       ( GYTxIn
-          { gyTxInTxOutRef = collateralRef,
-            gyTxInWitness = GYTxInWitnessKey
+          { gyTxInTxOutRef = bridgeRef,
+            gyTxInWitness =
+              GYTxInWitnessScript
+                (GYBuildPlutusScriptInlined validator)
+                Nothing -- datum can be omitted if it was inlined
+                $ redeemerFromPlutus'
+                $ toBuiltinData redeemer
           }
       )
-      -- bridge input
-      <> mustHaveInput
-        ( GYTxIn
-            { gyTxInTxOutRef = bridgeRef,
-              gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptInlined validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
-            }
-        )
       <> mustHaveOutput
         ( GYTxOut
             { gyTxOutAddress = addr,
               gyTxOutValue = valueSingleton skyToken 1,
-              gyTxOutDatum = Just (datumFromPlutusData bridgeDatum, GYTxOutUseInlineDatum),
+              gyTxOutDatum = Just (datumFromPlutusData newDatum, GYTxOutUseInlineDatum),
               gyTxOutRefS = Nothing
             }
         )

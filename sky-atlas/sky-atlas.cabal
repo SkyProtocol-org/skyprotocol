@@ -215,6 +215,7 @@ test-suite onchain-tests
   hs-source-dirs: tests
   other-modules:
     OnChain.BountySpec
+    OnChain.BridgeSpec
     OnChain.ContractSpec
 
   build-depends:
@@ -230,3 +231,4 @@ test-suite onchain-tests
     , sky-atlas:onchain
     , tasty
     , tasty-hunit
+    , time

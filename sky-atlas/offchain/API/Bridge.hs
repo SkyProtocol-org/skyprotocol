@@ -18,6 +18,7 @@ import Log
 import PlutusLedgerApi.Data.V2 (FromData (..), ToData (..))
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
 type BridgeAPI =
@@ -92,6 +93,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       (bridgeUtxo, maybeBridgeDatum) <- case utxoWithDatum of
         [(utxo, Just datum)] -> pure . (utxo,) $ fromBuiltinData $ toBuiltinData datum
         _ -> throwError $ APIError "Can't find bridge utxos"
+      logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 
       -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
       collateral <- do
@@ -106,8 +108,6 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       (BridgeNFTDatum oldTopHash) <- case maybeBridgeDatum of
         Nothing -> throwError $ APIError "Can't get the bridge datum from utxo"
         Just d -> pure d
-
-      logTrace_ $ "Found bridge utxo with datum: " <> pack (show oldTopHash)
 
       -- TODO: what state do we want here? We also need to update it after the successfull update of bridge?
       state <- liftIO $ readMVar appStateR
@@ -125,8 +125,15 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           bridgeCommittee = committee
           bridgeOldRootHash = oldTopHash
           bridgeNewTopHash = topHash
-          bridgeSig = MultiSig [] -- TODO: not yet sure how to init this
+          -- TODO: make this safe
+          adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey appAdmin in signingKeyToRawBytes sk
+          adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
+          signature = signMessage adminSecKey topHash
+          adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
+          adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+          bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
           bridgeRedeemer = UpdateBridge {..}
+
       logTrace_ "Constructing body for the bridge update"
       body <-
         runBuilder
@@ -136,7 +143,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           $ mkUpdateBridgeSkeleton
             (bridgeValidator' $ BridgeParams curSym)
             (utxoRef bridgeUtxo)
-            collateral
+            (BridgeNFTDatum oldTopHash)
             newDatum
             bridgeRedeemer
             skyToken

@@ -106,7 +106,8 @@ closeAPI TestEnv {..} = do
 healthClient
   :<|> _bridgeClient
   :<|> _bountyClient
-  :<|> (publicTopicApi :<|> protectedTopicApi) =
+  :<|> (publicTopicApi :<|> protectedTopicApi)
+  :<|> _utilClient =
     client api
 
 testUser :: BasicAuthData
