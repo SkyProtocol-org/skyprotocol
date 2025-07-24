@@ -24,9 +24,9 @@ import Servant
 
 type BridgeAPI =
   "bridge"
-    :> ( "create" :> ReqBody '[JSON] CreateBridgeRequest :> Post '[JSON] ()
+    :> ( "create" :> ReqBody '[JSON] CreateBridgeRequest :> Post '[JSON] GYTxId
            :<|> "read" :> Get '[JSON] Text
-           :<|> "update" :> ReqBody '[JSON] UpdateBridgeRequest :> Post '[JSON] Text
+           :<|> "update" :> ReqBody '[JSON] UpdateBridgeRequest :> Post '[JSON] GYTxId
        )
 
 bridgeServer :: ServerT BridgeAPI AppM
@@ -44,13 +44,12 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         modifyMVar_ appStateR . const . return $ newState
         pure newState
 
-      logTrace_ "Constructing body for the minting policy"
-      body <-
-        runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral $
+      logTrace_ "Building, signing and submitting minting policy"
+      tId <-
+        buildAndRunGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $
           mkMintingSkeleton (configTokenName appConfig) (cuserAddressPubKey appAdmin) topHash
-      logTrace_ "Signing and submitting minting policy"
-      tId <- runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)
+      pure tId
 
     readBridgeH = do
       AppEnv {..} <- ask
@@ -87,16 +86,16 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
 
       (bridgeAddr, bridgeUtxos) <- runQuery $ do
         addr <- bridgeValidatorAddress $ BridgeParams curSym
-        utxos <- utxosAtAddressWithDatums addr $ Just skyToken
+        utxos <- utxosAtAddress addr $ Just skyToken
         pure (addr, utxos)
 
-      let utxoWithDatum = flip filter bridgeUtxos $ \(out, _) ->
+      let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
             let assets = valueToList $ utxoValue out
              in flip any assets $ \case
                   (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
                   _ -> False
-      (bridgeUtxo, maybeBridgeDatum) <- case utxoWithDatum of
-        [(utxo, Just datum)] -> pure . (utxo,) $ fromBuiltinData $ toBuiltinData datum
+      bridgeUtxo <- case utxo of
+        [u] -> pure u
         _ -> throwError $ APIError "Can't find bridge utxos"
       logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 
@@ -109,10 +108,6 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
         if not $ null utxos
           then pure . utxoRef $ maximumBy (\v1 v2 -> compare (valueAda $ utxoValue v1) (valueAda $ utxoValue v2)) utxos
           else throwError $ APIError "Can't find utxo for collateral"
-
-      (BridgeNFTDatum oldTopHash) <- case maybeBridgeDatum of
-        Nothing -> throwError $ APIError "Can't get the bridge datum from utxo"
-        Just d -> pure d
 
       -- TODO: what state do we want here? We also need to update it after the successfull update of bridge?
       state <- liftIO $ readMVar appStateR
@@ -142,9 +137,11 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
           bridgeRedeemer = UpdateBridge {..}
 
-      logTrace_ "Constructing body for the bridge update"
-      body <-
-        runBuilder
+      logTrace_ "Building, signing and submitting bridge update"
+      tId <-
+        buildAndRunGY
+          (cuserSigningKey appAdmin)
+          Nothing
           ubrUsedAddrs
           ubrChangeAddr
           (if isJust ubrCollateral then ubrCollateral else Just $ GYTxOutRefCbor collateral)
@@ -156,14 +153,5 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
             skyToken
             bridgeAddr
             (cuserAddressPubKey appAdmin)
-      logTrace_ "Signing and submitting bridge update"
-      tId <-
-        runGY
-          (cuserSigningKey appAdmin)
-          Nothing
-          ubrUsedAddrs
-          ubrChangeAddr
-          (if isJust ubrCollateral then ubrCollateral else Just $ GYTxOutRefCbor collateral)
-          $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)
-      pure $ pack (show tId)
+      pure tId

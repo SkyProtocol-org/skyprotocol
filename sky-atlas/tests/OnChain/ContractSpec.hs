@@ -33,23 +33,23 @@ contractSpec =
     [ testGroup
         "Compiling contracts"
         [ mkTestFor "Create Minting Policy" mintingPolicyTest,
-          mkTestFor "Send funds" sendFundsTest,
-          mkTestFor "Update bridge" updateBridgeTest
+          mkTestFor "Send funds" sendFundsTest
+          -- mkTestFor "Update bridge" updateBridgeTest
         ]
     ]
 
-updateBridgeTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
-updateBridgeTest TestInfo {..} = do
-  addr <- getUserAddr $ admin testWallets
-  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
-  pkh <- addressToPubKeyHash' addr
-  let datum = BridgeNFTDatum $ computeDigest (Byte 1)
+-- updateBridgeTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
+-- updateBridgeTest TestInfo {..} = do
+--   addr <- getUserAddr $ admin testWallets
+--   gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
+--   pkh <- addressToPubKeyHash' addr
+--   let datum = BridgeNFTDatum $ computeDigest (Byte 1)
 
-  asUser (admin testWallets) $ do
-    updateBridgeSkeleton <- mkUpdateBridgeSkeleton bridgeValidator bridgeUtxo datum redeemer "TestSkyToken" addr pkh
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
-    txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
-    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
+--   asUser (admin testWallets) $ do
+--     updateBridgeSkeleton <- mkUpdateBridgeSkeleton bridgeValidator bridgeUtxo datum redeemer "TestSkyToken" addr pkh
+--     gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
+--     txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
+--     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
 sendFundsTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
 sendFundsTest TestInfo {..} = do

@@ -10,6 +10,7 @@ module App
     runQuery,
     runBuilder,
     runGY,
+    buildAndRunGY,
     module App.Env,
     module App.Error,
   )
@@ -122,3 +123,35 @@ runGY psk ssk addrs addr collateral body = do
               )
       )
       (body >>= signAndSubmitConfirmed)
+
+buildAndRunGY ::
+  GYSomePaymentSigningKey ->
+  Maybe GYSomeStakeSigningKey ->
+  -- | User's used addresses.
+  [GYAddress] ->
+  -- | User's change address.
+  GYAddress ->
+  -- | Browser wallet's reserved collateral (if set).
+  Maybe GYTxOutRefCbor ->
+  GYTxMonadIO (GYTxSkeleton v) ->
+  AppM GYTxId
+buildAndRunGY psk ssk addrs addr collateral skeleton = do
+  AppEnv {..} <- ask
+  let nid = cfgNetworkId $ configAtlas appConfig
+  liftIO $
+    runGYTxMonadIO
+      nid
+      appProviders
+      psk
+      ssk
+      addrs
+      addr
+      ( collateral
+          >>= ( \c ->
+                  Just
+                    ( getTxOutRefHex c,
+                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                    )
+              )
+      )
+      (skeleton >>= buildTxBody >>= signAndSubmitConfirmed)
