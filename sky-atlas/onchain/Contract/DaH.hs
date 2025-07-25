@@ -1,6 +1,5 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -14,11 +13,11 @@ import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
 -- import Data.Kind (Type)
 -- import PlutusLedgerApi.V1.Time (POSIXTime (..))
-import PlutusTx as PlutusTx
-import PlutusTx.Blueprint as PlutusTx
+import PlutusTx
 import PlutusTx.Functor as PlutusTx
 import PlutusTx.Prelude as PlutusTx
 import PlutusTx.Show as PlutusTx
+
 -- import Prelude qualified as HP
 
 ------------------------------------------------------------------------------
@@ -28,8 +27,8 @@ import PlutusTx.Show as PlutusTx
 -- * Types
 
 data SkyDaH = SkyDaH
-  { skyMetaDataH :: Hash -- H(DaMetaData)
-  , skyTopicTrieH :: Hash -- H(TopicTrie)
+  { skyMetaDataH :: Hash, -- H(DaMetaData)
+    skyTopicTrieH :: Hash -- H(TopicTrie)
   } -- deriving (HP.Show, HP.Eq)
 
 instance ToByteString SkyDaH where
@@ -123,11 +122,12 @@ type TrieMessagePathH t = TriePath Byte MessageId t
 
 data SkyDataProofH
   = SkyDataProofH
-  { proofDaMetaDataH :: Hash
-  , proofTopicTriePathH :: TrieTopicPathH Hash
-  , proofTopicMetaDataH :: Hash
-  , proofMessageTriePathH :: TrieMessagePathH Hash
-  , proofMessageMetaDataH :: Hash }
+  { proofDaMetaDataH :: Hash,
+    proofTopicTriePathH :: TrieTopicPathH Hash,
+    proofTopicMetaDataH :: Hash,
+    proofMessageTriePathH :: TrieMessagePathH Hash,
+    proofMessageMetaDataH :: Hash
+  }
   deriving
     ( PlutusTx.Eq,
       PlutusTx.Show,
@@ -156,13 +156,14 @@ applySkyDataProofH SkyDataProofH {..} messageDataHash =
 
 skyDataProofToH :: (LiftDato r, DigestibleRef Hash (LiftRef r)) => (LiftRef r (MessageData r), SkyDataProof Hash) -> (Hash, SkyDataProofH)
 skyDataProofToH (messageHash, SkyDataPath {..}) =
-  (refDigest messageHash,
+  ( refDigest messageHash,
     SkyDataProofH
       (refDigest pathDaMetaData)
       (fmap refDigest pathTopicTriePath)
       (refDigest pathTopicMetaData)
       (fmap refDigest pathMessageTriePath)
-      (refDigest pathMessageMetaData))
+      (refDigest pathMessageMetaData)
+  )
 
 getSkyDataProofH :: (Monad e, Functor e, LiftWrapping e r, LiftDato r, DigestibleRef Hash (LiftRef r)) => (TopicId, MessageId) -> SkyDa r -> e (Maybe (Hash, SkyDataProofH))
 getSkyDataProofH ids da = getSkyDataProof ids da >>= return . fmap skyDataProofToH

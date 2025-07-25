@@ -9,7 +9,6 @@ import Contract.SkyBridge
 import Control.Concurrent
 import Control.Lens
 import Control.Monad.Reader
-import Data.Foldable (maximumBy)
 import Data.Maybe (isJust)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeASCII)
@@ -51,6 +50,8 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
       logTrace_ $ "Transaction id: " <> pack (show tId)
       pure tId
 
+    -- TODO: consider returning topHash from the bridged version of the da?
+    -- TODO: consider comparing to the bridged version?
     readBridgeH = do
       AppEnv {..} <- ask
       let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
@@ -58,9 +59,9 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
           curSym = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
           bridgeParams = BridgeParams curSym
+
       utxoWithDatums <- runQuery $ do
         bvAddr <- bridgeValidatorAddress bridgeParams
-        -- TODO: what is AssetClass here? Do we need it?
         utxosAtAddressWithDatums bvAddr (Just skyToken)
 
       let utxoWithDatum = flip filter utxoWithDatums $ \(out, _) ->
@@ -106,7 +107,6 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
           Nothing -> throwError $ APIError "Can't find utxo for collateral"
           Just c -> pure c
 
-      -- TODO: what state do we want here? We also need to update it after the successfull update of bridge?
       state <- liftIO $ readMVar appStateR
       let SkyDa {..} = view (blockState . skyDa) state
           topHash = computeDigest @Blake2b_256 $ SkyDa {..}
@@ -151,4 +151,11 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
             bridgeAddr
             (cuserAddressPubKey appAdmin)
       logTrace_ $ "Transaction id: " <> pack (show tId)
+
+      -- update the bridged state after we update the bridge
+      liftIO $ modifyMVar_ appStateW $ \state' -> do
+        let newState = set (bridgeState . bridgedSkyDa) SkyDa {..} state'
+        modifyMVar_ appStateR . const . return $ newState
+        pure newState
+
       pure tId

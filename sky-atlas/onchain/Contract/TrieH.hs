@@ -1,6 +1,3 @@
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
 module Contract.TrieH where
 
 import Common.Crypto
@@ -8,13 +5,8 @@ import Common.Trie
 -- import PlutusTx.Blueprint
 
 import Common.Types
-import Control.Monad (Monad, (>=>))
-import Data.Function ((&))
-import PlutusTx
-import PlutusTx.Builtins
-import PlutusTx.Functor
+import Control.Monad (Monad)
 import PlutusTx.Prelude
-import PlutusTx.Show
 
 -- * Types
 
@@ -29,7 +21,8 @@ type TrieZipperH h k = TrieZip h k Hash Hash
 
 -- * Typeclasses
 
-class (Monad e, TrieHeightKey h k) =>
+class
+  (Monad e, TrieHeightKey h k) =>
   TriePathing e h k
   where
   triePathStep :: TriePath h k a -> e (Maybe (TrieStep h k a, TriePath h k a))

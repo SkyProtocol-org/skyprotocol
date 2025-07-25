@@ -139,14 +139,12 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
 {-# INLINEABLE clientUntypedValidator #-}
 clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
 clientUntypedValidator params _datum redeemer ctx =
-  PlutusTx.check True
-
--- TODO: make sure to uncomment once monomorphized version of Trie is available
--- \$ clientTypedValidator
---   (fromByteStringIn params)
---   () -- ignore the untyped datum, it's unused
---   (fromByteStringIn $ PlutusTx.unsafeFromBuiltinData redeemer)
---   (PlutusTx.unsafeFromBuiltinData ctx)
+  PlutusTx.check
+    $ clientTypedValidator
+      params
+      () -- ignore the untyped datum, it's unused
+      (PlutusTx.unsafeFromBuiltinData redeemer)
+      (PlutusTx.unsafeFromBuiltinData ctx)
 
 clientValidatorScript ::
   ClientParams ->

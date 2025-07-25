@@ -31,6 +31,7 @@ currentPOSIXTime = do
 -- Create test DA structure and proof
 createTestDa :: IO (SkyDa (HashRef Hash), Hash, MultiSigPubKey, CardanoUser)
 createTestDa = do
+  -- TODO: either hardcode this, or generate some keys for the tests and commit them
   eitherAdmin <- getCardanoUser "tests/OffChain/admin/"
   admin <- case eitherAdmin of
     Left _e -> assertFailure "Can't parse cardano user"
