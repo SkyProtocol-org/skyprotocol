@@ -539,20 +539,19 @@ instance
          in return $ Zip node p
     | otherwise = ascend node path
     where
-      {- hcommon: height up to which to ascend: no less than the desired height
-         but also no less than necessary for there being a branch to our desired key
-         and no less than necessary for there being a branch to the current key
-         and yet no more than necessary. -}
-      hcommon = h' `max` bitLength ((k0 `shiftLeft` h0) `logicalXor` (k' `shiftLeft` h'))
-      {- Note that for very long keys, this bitwise-xor is already a log N operation,
-         in which case maintaining an O(1) amortized cost would require us to
-         take as parameter an incremental change on a zipper for the height
-         and return an accordingly modified zipper for the Trie.
-         In practice we use 256-bit keys for Cardano, which is borderline. -}
-
       {- ascend: go up the tree from old focus until h >= hcommon
          (then descend to new focus) -}
       ascend t p@(TriePath h _ _ _) =
+        {- hcommon: height up to which to ascend: no less than the desired height
+           but also no less than necessary for there being a branch to our desired key
+           and no less than necessary for there being a branch to the current key
+           and yet no more than necessary. -}
+        let hcommon = h' `max` bitLength ((k0 `shiftLeft` h0) `logicalXor` (k' `shiftLeft` h')) in
+           {- Note that for very long keys, this bitwise-xor is already a log N operation,
+              in which case maintaining an O(1) amortized cost would require us to
+              take as parameter an incremental change on a zipper for the height
+              and return an accordingly modified zipper for the Trie.
+             In practice we use 256-bit keys for Cardano, which is borderline. -}
         if h >= hcommon
           then descend t p
           else
@@ -679,6 +678,7 @@ triePathSkipDown :: (TrieHeightKey h k) => Integer -> k -> TriePath h k d -> Tri
 triePathSkipDown sl sk p@(TriePath h k m d) =
   if sl == 0
     then p -- is this check an optimization or pessimization?
+    else if sl < 0 then traceError "bad sl"
     else
       let h' = h - sl
           k' = shiftLeftWithBits k sl sk

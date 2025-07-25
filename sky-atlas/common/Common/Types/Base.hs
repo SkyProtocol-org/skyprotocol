@@ -861,7 +861,7 @@ isBBSLength :: Integer -> BBS -> Bool
 isBBSLength n b = lengthOfByteString b == n
 
 validateFLBBS :: Integer -> BBS -> BBS
-validateFLBBS l b = if isBBSLength l b then b else fromJust Nothing -- traceError "blah"
+validateFLBBS l b = if isBBSLength l b then b else traceError "Wrong size for ByteString"
 
 maybeFLBBSFromInt :: Integer -> Integer -> Maybe BBS
 maybeFLBBSFromInt len =
@@ -946,8 +946,7 @@ shiftRightFLBBS len =
    in \fb i ->
         if i < 0
           then
-            -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
-            fb -- DEBUG: NOP while debugging
+            traceError "Illegal negative index in shiftRight"
           else
             if i > nBits
               then
@@ -962,8 +961,7 @@ shiftLeftFLBBS len =
    in \fb i ->
         if i < 0
           then
-            -- traceError "Illegal negative index in shiftLeft" -- DEBUG: no trace error for now.
-            fb -- DEBUG: NOP while debugging
+            traceError ("Illegal negative index in shiftLeft: len=" <> show len <> " i=" <> show i)
           else
             if i > nBits
               then
@@ -1080,8 +1078,7 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
-
--- fromJust Nothing = traceError "fromJust Nothing" -- XXX Plutus can't compile that!!!
+fromJust Nothing = traceError "fromJust Nothing" -- XXX Plutus can't compile that!!!
 
 -- | Generic failure
 -- Trying to use it from Plutus will fail at compile-time:

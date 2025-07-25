@@ -122,7 +122,8 @@ instance
                   then do
                     c <- fromBuiltinData v
                     return $ E3_2 c
-                  else fromJust Nothing -- traceError "foo"
+                  else
+                    Nothing
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c) =>
@@ -142,8 +143,8 @@ instance
                 if i == Byte 2
                   then
                     E3_2 . unsafeFromBuiltinData $ v
-                  else fromJust Nothing -- traceError "foo"
-
+                  else
+                    traceError "Bad ByteString for Either3"
 -- *** Either4
 
 instance
@@ -213,7 +214,8 @@ instance
                       then do
                         c <- fromBuiltinData v
                         return $ E4_3 c
-                      else fromJust Nothing -- traceError "foo"
+                      else
+                        Nothing
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d) =>
@@ -237,7 +239,8 @@ instance
                     if i == Byte 3
                       then
                         E4_3 . unsafeFromBuiltinData $ v
-                      else fromJust Nothing -- traceError "foo"
+                      else
+                        traceError "Bad ByteString for Either4"
 
 -- *** Maybe
 
@@ -369,8 +372,7 @@ instance
         d <- fromBuiltinData dd
         e <- fromBuiltinData ee
         return (a, b, c, d, e)
-
---    _ -> traceError "foo"
+      _ -> Nothing
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e) =>
@@ -379,8 +381,7 @@ instance
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e)
-
---    _ -> traceError "foo"
+      _ -> traceError "wrong data list length for quintuplet"
 
 -- *** (,,,,,) or builtin Sextuplets
 
@@ -436,8 +437,7 @@ instance
         e <- fromBuiltinData ee
         f <- fromBuiltinData ff
         return (a, b, c, d, e, f)
-
---    _ -> traceError "foo"
+      _ -> Nothing
 
 instance
   (P.UnsafeFromData a, P.UnsafeFromData b, P.UnsafeFromData c, P.UnsafeFromData d, P.UnsafeFromData e, P.UnsafeFromData f) =>
@@ -446,8 +446,7 @@ instance
   unsafeFromBuiltinData x =
     case unsafeFromBuiltinData x of
       [a, b, c, d, e, f] -> (unsafeFromBuiltinData a, unsafeFromBuiltinData b, unsafeFromBuiltinData c, unsafeFromBuiltinData d, unsafeFromBuiltinData e, unsafeFromBuiltinData f)
-
---    _ -> traceError "foo"
+      _ -> traceError "wrong data list length for sextuplet"
 
 -- ** Lists
 
