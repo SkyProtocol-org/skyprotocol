@@ -149,9 +149,9 @@ instance (ToByteString d) => ToByteString (HashRef d x) where
   byteStringOut = byteStringOut . hashRefHash
 
 -- fake for the sake of Dato
-instance (Dato d, ToByteString x) => FromByteString (HashRef d x) where
-  fromByteString = fromJust Nothing -- XXX lookupHashRef @d . fromByteString
-  byteStringIn _ = fromJust Nothing -- XXX byteStringIn isTerminal <&> lookupHashRef @d
+instance (IsHash d, ToByteString x) => FromByteString (HashRef d x) where
+  fromByteString = lookupHashRef @d . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashRef @d
 
 instance (IsHash d, Dato a, Monad e) => PreWrapping e (HashRef d) a where
   wrap = return . digestRef_
@@ -213,7 +213,7 @@ instance (IsHash d) => ToByteString (HashMRef d x) where
 
 instance (IsHash d, ToByteString x, FromByteString x) => FromByteString (HashMRef d x) where
   fromByteString = lookupHashRef . fromByteString
-  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashRef
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashMRef
 
 instance (IsHash d, Dato a) => PreWrapping Identity (HashMRef d) a where
   wrap = return . digestRef
@@ -298,10 +298,7 @@ digestRef a = HashRef (computeDigest a) a
 
 -- Make that a monadic method on a typeclass with a cache/db for lookup
 lookupDigest :: (IsHash d) => d -> a
-lookupDigest = fromJust Nothing -- XXX traceError "Cannot get a value from its digest"
-
--- lookupHashRef :: (IsHash d) => d -> HashRef d a
--- lookupHashRef d = HashRef d $ lookupDigest d
+lookupDigest = traceError "Cannot lookup a digest without side-effect lookup to a cache"
 
 -- ** Ed25519 Signatures
 
