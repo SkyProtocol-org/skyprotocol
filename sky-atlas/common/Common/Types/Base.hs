@@ -954,6 +954,7 @@ shiftRightFLBBS len =
               else
                 shiftByteString fb $ -i
 
+{-# INLINEABLE shiftLeftFLBBS #-}
 shiftLeftFLBBS :: Integer -> BBS -> Integer -> BBS
 shiftLeftFLBBS len =
   let noBits = replicateByte len 0

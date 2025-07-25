@@ -26,18 +26,18 @@ import PlutusTx.Show as PlutusTx
 
 -- * Types
 
-data SkyDaH = SkyDaH
-  { skyMetaDataH :: Hash, -- H(DaMetaData)
-    skyTopicTrieH :: Hash -- H(TopicTrie)
-  } -- deriving (HP.Show, HP.Eq)
+newtype SkyDaH = SkyDaOfTupleH {tupleOfSkyDaH :: (Hash, Hash)} -- H(DaMetaData), H(TopicTrie)
+  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  -- deriving (HP.Eq, HP.Show)
 
-instance ToByteString SkyDaH where
-  byteStringOut SkyDaH {..} isTerminal s = byteStringOut skyMetaDataH NonTerminal $ byteStringOut skyTopicTrieH isTerminal s
+pattern SkyDaH :: Hash -> Hash -> SkyDaH
+pattern SkyDaH {skyMetaDataH, skyTopicTrieH} = SkyDaOfTupleH (skyMetaDataH, skyTopicTrieH)
+
+{-# COMPLETE SkyDaH #-}
 
 newtype DaMetaDataH = DaMetaDataOfTupleH {tupleOfDaMetaDataH :: (Hash, Hash)}
   deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-
--- deriving (HP.Eq, HP.Show)
+  -- deriving (HP.Eq, HP.Show)
 
 pattern DaMetaDataH :: Hash -> Hash -> DaMetaDataH -- schema, committee
 pattern DaMetaDataH {daSchemaH, daCommitteeH} = DaMetaDataOfTupleH (daSchemaH, daCommitteeH)
@@ -120,20 +120,13 @@ type TrieTopicPathH t = TriePath Byte TopicId t
 
 type TrieMessagePathH t = TriePath Byte MessageId t
 
-data SkyDataProofH
-  = SkyDataProofH
-  { proofDaMetaDataH :: Hash,
-    proofTopicTriePathH :: TrieTopicPathH Hash,
-    proofTopicMetaDataH :: Hash,
-    proofMessageTriePathH :: TrieMessagePathH Hash,
-    proofMessageMetaDataH :: Hash
-  }
-  deriving
-    ( PlutusTx.Eq,
-      PlutusTx.Show,
-      ToByteString,
-      FromByteString
-    )
+newtype SkyDataProofH = SkyDataProofOfTupleH
+  {tupleOfSkyDataProofH :: (Hash, TrieTopicPathH Hash, Hash, TrieMessagePathH Hash, Hash)}
+  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  -- deriving (HP.Eq, HP.Show)
+
+pattern SkyDataProofH :: Hash -> TrieTopicPathH Hash -> Hash -> TrieMessagePathH Hash -> Hash -> SkyDataProofH
+pattern SkyDataProofH {proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH, proofMessageTriePathH, proofMessageMetaDataH} = SkyDataProofOfTupleH (proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH, proofMessageTriePathH, proofMessageMetaDataH)
 
 {-# COMPLETE SkyDataProofH #-}
 
