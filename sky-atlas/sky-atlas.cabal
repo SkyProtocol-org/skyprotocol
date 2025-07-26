@@ -78,6 +78,7 @@ library common
     , bytestring
     , cardano-crypto-class
     , hex-text
+    , openapi3
     , plutus-ledger-api
     , plutus-tx
     , servant
@@ -122,8 +123,6 @@ library offchain
     API.Da
     API.SkyMintingPolicy
     API.Types
-    API.Util
-    API.Util.Contracts
     App
     App.Env
     App.Error

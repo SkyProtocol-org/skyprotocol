@@ -9,7 +9,6 @@ import Control.Concurrent.MVar
 import Control.Lens
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
-import Data.ByteString qualified as BS
 import Data.Fixed
 import Data.Time
 import Data.Time.Clock qualified as DTC
@@ -43,21 +42,21 @@ data PublicDaApi mode = PublicDaApi
           :> Description "Returns content of the message"
           :> Capture "topic_id" TopicId
           :> Capture "message_id" MessageId
-          :> Get '[OctetStream] BS.ByteString,
+          :> Get '[OctetStream] RawBytes,
     getProof ::
       mode
         :- "get_proof"
           :> Description "Returns proof of inclusion for given message"
           :> Capture "topic_id" TopicId
           :> Capture "message_id" MessageId
-          :> Get '[OctetStream] BS.ByteString, -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
+          :> Get '[OctetStream] ProofBytes, -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
     readMessageWithTimeStamp ::
       mode
         :- "read_message_timestamp"
           :> Description "Returns timestamp + content of the message"
           :> Capture "topic_id" TopicId
           :> Capture "message_id" MessageId
-          :> Get '[OctetStream] BS.ByteString
+          :> Get '[OctetStream] RawBytes
   }
   deriving stock (Generic)
 
@@ -73,7 +72,7 @@ data ProtectedDaApi mode = ProtectedDaApi
         :- "publish_message"
           :> Description "Publish message at topic_id"
           :> Capture "topic_id" TopicId
-          :> ReqBody '[OctetStream] BS.ByteString
+          :> ReqBody '[OctetStream] RawBytes
           :> Post '[JSON] MessageId
   }
   deriving stock (Generic)
@@ -97,7 +96,7 @@ daServer =
           publishMessage = publishMessageH u
         }
 
-readTopicH :: TopicId -> MessageId -> AppM BS.ByteString
+readTopicH :: TopicId -> MessageId -> AppM RawBytes
 readTopicH tId mId = do
   stateR <- asks appStateR
   state <- liftIO $ readMVar stateR
@@ -109,7 +108,7 @@ readTopicH tId mId = do
       maybeMessage <- C.lookup mId =<< unwrap messageTrie
       case maybeMessage of
         Nothing -> throwError . APIError $ "Can't find message with id " <> show (toInt mId)
-        Just (_mMeta, mData) -> builtinByteStringToByteString <$> unwrap mData
+        Just (_mMeta, mData) -> RawBytes . builtinByteStringToByteString <$> unwrap mData
 
 createTopicH :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
 createTopicH _user = do
@@ -137,14 +136,14 @@ currentPOSIXTime = do
   let (MkFixed nominalDiffTime) = nominalDiffTimeToSeconds $ diffUTCTime utcTime utcTimeEpoch
   return . T.POSIXTime $ nominalDiffTime `div` 1000000000
 
-publishMessageH :: User -> TopicId -> BS.ByteString -> AppM MessageId
+publishMessageH :: User -> TopicId -> RawBytes -> AppM MessageId
 publishMessageH _user topicId msgBody = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
-    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString msgBody) topicId da
+    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString $ getRawBytes msgBody) topicId da
     let newState = (set (blockState . skyDa) newDa state, maybeMessageId)
     modifyMVar_ stateR . const . return $ fst newState
     return newState
@@ -154,7 +153,7 @@ publishMessageH _user topicId msgBody = do
       logTrace "Published message" messageId
       return messageId
 
-getProofH :: TopicId -> MessageId -> AppM BS.ByteString
+getProofH :: TopicId -> MessageId -> AppM ProofBytes
 getProofH topicId messageId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
@@ -163,10 +162,10 @@ getProofH topicId messageId = do
   case maybeRmdProof of
     Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
     Just (rmd, proof) ->
-      return . builtinByteStringToByteString . toByteString $ (rmd, proof)
+      return . ProofBytes . builtinByteStringToByteString . toByteString $ (rmd, proof)
 
 -- TODO: Why do we need this?
-readMessageH :: TopicId -> MessageId -> AppM BS.ByteString
+readMessageH :: TopicId -> MessageId -> AppM RawBytes
 readMessageH topicId msgId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
@@ -177,4 +176,4 @@ readMessageH topicId msgId = do
     Just (rmd, rd) -> do
       MessageMetaData time <- unwrap rmd
       message <- unwrap rd
-      return . builtinByteStringToByteString . toByteString $ (time, message)
+      return . RawBytes . builtinByteStringToByteString . toByteString $ (time, message)

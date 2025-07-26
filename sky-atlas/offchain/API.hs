@@ -10,7 +10,6 @@ import API.Bounty
 import API.Bridge
 import API.Da
 import API.Types
-import API.Util
 import App
 import Data.OpenApi
 import Data.Text (Text)
@@ -36,21 +35,18 @@ data SkyApi mode = SkyApi
       mode
         :- Summary "Part of the API designed to interact with DA"
           :> "da"
-          :> NamedRoutes DaApi,
-    util ::
-      mode
-        :- Summary "Utility API for debugging and testing purposes. Not for the end user!"
-          :> "util"
-          :> NamedRoutes UtilApi
+          :> NamedRoutes DaApi
   }
   deriving stock (Generic)
 
--- skyApiSwagger :: OpenApi
--- skyApiSwagger = toOpenApi $ Proxy @SkyApi
+skyApiSwagger :: OpenApi
+skyApiSwagger = toOpenApi $ Proxy @(ToServantApi SkyApi)
 
-type DocApi = SwaggerSchemaUI "swagger-ui" "swagger.json"
-
--- type API = DocApi :<|> DocApi
+data Api mode = Api
+  { skyApi :: mode :- NamedRoutes SkyApi,
+    docApi :: mode :- SwaggerSchemaUI "swagger-ui" "swagger.json"
+  }
+  deriving (Generic)
 
 skyServer :: SkyApi (AsServerT AppM)
 skyServer =
@@ -58,14 +54,18 @@ skyServer =
     { health = pure "OK",
       bridge = bridgeServer,
       bounty = bountyServer,
-      da = daServer,
-      util = utilServer
+      da = daServer
     }
 
--- swaggerSchemaUIServer skyApiSwagger :<|>
+apiServer :: Api (AsServerT AppM)
+apiServer =
+  Api
+    { skyApi = skyServer,
+      docApi = swaggerSchemaUIServerT skyApiSwagger
+    }
 
 appCtx :: Context (BasicAuthCheck User ': '[])
 appCtx = authCheck :. EmptyContext
 
 app :: AppEnv -> Application
-app env = genericServeTWithContext (nt env) skyServer appCtx
+app env = genericServeTWithContext (nt env) apiServer appCtx
