@@ -19,19 +19,45 @@ import PlutusLedgerApi.V1.Time qualified as T (POSIXTime (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
+-- TODO: better descriptions
+-- TODO: better naming? This is basically interactions with the DA, not only topics?
 type TopicAPI =
-  "topic" :> (PublicTopicAPI :<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI))
+  Summary "Part of the API designed to interact with DA"
+    :> "topic"
+    :> (PublicTopicAPI :<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI))
 
+-- TODO: better descriptions
 type PublicTopicAPI =
-  ( "read" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
-      :<|> "get_proof" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
-      :<|> "read_message" :> Capture "topic_id" TopicId :> Capture "message_id" MessageId :> Get '[OctetStream] BS.ByteString
-  )
+  Summary "Public part of the DA API"
+    :> ( "read"
+           :> Description "Returns content of the message"
+           :> Capture "topic_id" TopicId
+           :> Capture "message_id" MessageId
+           :> Get '[OctetStream] BS.ByteString
+       )
+    :<|> "get_proof"
+      :> Description "Returns proof of inclusion for given message"
+      :> Capture "topic_id" TopicId
+      :> Capture "message_id" MessageId
+      :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
+    :<|> "read_message"
+      :> Description "Returns timestamp + content of the message"
+      :> Capture "topic_id" TopicId
+      :> Capture "message_id" MessageId
+      :> Get '[OctetStream] BS.ByteString
 
+-- TODO: better descriptions
 type ProtectedTopicAPI =
-  ( "create" :> Post '[JSON] TopicId
-      :<|> "publish_message" :> Capture "topic_id" TopicId :> ReqBody '[OctetStream] BS.ByteString :> Post '[JSON] MessageId
-  )
+  Summary "Private part of the DA API"
+    :> ( "create"
+           :> Description "Create new topic"
+           :> Post '[JSON] TopicId
+       )
+    :<|> "publish_message"
+      :> Description "Publish message at topic_id"
+      :> Capture "topic_id" TopicId
+      :> ReqBody '[OctetStream] BS.ByteString
+      :> Post '[JSON] MessageId
 
 topicServer :: ServerT TopicAPI AppM
 topicServer = unprotectedServer :<|> protectedServer
@@ -107,6 +133,7 @@ getProof topicId messageId = do
     Just (rmd, proof) ->
       return . builtinByteStringToByteString . toByteString $ (rmd, proof)
 
+-- TODO: Why do we need this?
 readMessage :: TopicId -> MessageId -> AppM BS.ByteString
 readMessage topicId msgId = do
   stateR <- asks appStateR

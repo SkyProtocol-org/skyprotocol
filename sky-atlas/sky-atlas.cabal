@@ -137,11 +137,14 @@ library offchain
     , lens
     , log-base
     , mtl
-    , plutus-core        ^>=1.49.0.0
-    , plutus-ledger-api  ^>=1.49.0.0
-    , plutus-tx          ^>=1.49.0.0
-    , plutus-tx-plugin   ^>=1.49.0.0
+    , openapi3
+    , plutus-core         ^>=1.49.0.0
+    , plutus-ledger-api   ^>=1.49.0.0
+    , plutus-tx           ^>=1.49.0.0
+    , plutus-tx-plugin    ^>=1.49.0.0
+    , servant-openapi3
     , servant-server
+    , servant-swagger-ui
     , sky-atlas:common
     , sky-atlas:onchain
     , text

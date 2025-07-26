@@ -30,7 +30,7 @@ echo "Payload to submit:"
 echo "$payload"
 
 # Submit to API
-curl -X POST "$BASE_URL/util/create_collateral" \
+curl -X POST "$BASE_URL/util/split_utxo" \
   -H "Content-Type: application/json" \
   -d "$payload"
 

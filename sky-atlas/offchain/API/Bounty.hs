@@ -16,10 +16,19 @@ import PlutusLedgerApi.V1 (POSIXTime (..), ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
 
+-- TODO: better descriptions
 type BountyAPI =
-  "bounty"
-    :> ( "offer" :> ReqBody '[JSON] OfferBountyRequest :> Post '[JSON] GYTxId
-           :<|> "claim" :> ReqBody '[JSON] ClaimBountyRequest :> Post '[JSON] ()
+  Summary "Part of the API to offer and claim a bounty"
+    :> "bounty"
+    :> ( ( "offer"
+             :> Description "Offer bounty"
+             :> ReqBody '[JSON] OfferBountyRequest
+             :> Post '[JSON] GYTxId
+         )
+           :<|> "claim"
+             :> Description "Claim bounty"
+             :> ReqBody '[JSON] ClaimBountyRequest
+             :> Post '[JSON] ()
        )
 
 bountyServer :: ServerT BountyAPI AppM

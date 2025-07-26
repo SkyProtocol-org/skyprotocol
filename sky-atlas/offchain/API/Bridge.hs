@@ -21,11 +21,22 @@ import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 
+-- TODO: better descriptions
 type BridgeAPI =
-  "bridge"
-    :> ( "create" :> ReqBody '[JSON] CreateBridgeRequest :> Post '[JSON] GYTxId
-           :<|> "read" :> Get '[JSON] Text
-           :<|> "update" :> ReqBody '[JSON] UpdateBridgeRequest :> Post '[JSON] GYTxId
+  Summary "Part of the API designed to interact with bridge"
+    :> "bridge"
+    :> ( ( "create"
+             :> Description "Mint token and create bridge"
+             :> ReqBody '[JSON] CreateBridgeRequest
+             :> Post '[JSON] GYTxId
+         )
+           :<|> "read"
+             :> Description "Read current datum from bridge"
+             :> Get '[JSON] Text
+           :<|> "update"
+             :> Description "Update bridge datum"
+             :> ReqBody '[JSON] UpdateBridgeRequest
+             :> Post '[JSON] GYTxId
        )
 
 bridgeServer :: ServerT BridgeAPI AppM

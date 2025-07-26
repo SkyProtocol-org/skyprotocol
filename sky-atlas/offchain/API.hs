@@ -1,5 +1,5 @@
 module API
-  ( API,
+  ( SkyApi,
     api,
     server,
     app,
@@ -13,24 +13,41 @@ import API.Topic
 import API.Types
 import API.Util
 import App
+import Data.OpenApi
 import Data.Text (Text)
 import Servant
+import Servant.OpenApi
+import Servant.Swagger.UI
 
-type HealthAPI = "health" :> Get '[JSON] Text
+type HealthAPI = "health" :> Description "Health EndPoint" :> Get '[JSON] Text
 
 healthServer :: ServerT HealthAPI AppM
 healthServer = pure "OK"
 
-type API = HealthAPI :<|> BridgeAPI :<|> BountyAPI :<|> TopicAPI :<|> UtilAPI
+type SkyApi = HealthAPI :<|> BridgeAPI :<|> BountyAPI :<|> TopicAPI :<|> UtilAPI
 
-api :: Proxy API
+-- skyApiSwagger :: OpenApi
+-- skyApiSwagger = toOpenApi $ Proxy @SkyApi
+
+type DocApi = SwaggerSchemaUI "swagger-ui" "swagger.json"
+
+-- type API = DocApi :<|> DocApi
+
+api :: Proxy SkyApi
 api = Proxy
 
-server :: ServerT API AppM
-server = healthServer :<|> bridgeServer :<|> bountyServer :<|> topicServer :<|> utilServer
+skyServer :: ServerT SkyApi AppM
+skyServer =
+  -- swaggerSchemaUIServer skyApiSwagger :<|>
+  ( healthServer
+      :<|> bridgeServer
+      :<|> bountyServer
+      :<|> topicServer
+      :<|> utilServer
+  )
 
 appCtx :: Context (BasicAuthCheck User ': '[])
 appCtx = authCheck :. EmptyContext
 
 app :: AppEnv -> Application
-app env = serveWithContext api appCtx $ hoistServerWithContext api (Proxy @(BasicAuthCheck User ': '[])) (nt env) server
+app env = serveWithContext api appCtx $ hoistServerWithContext api (Proxy @(BasicAuthCheck User ': '[])) (nt env) skyServer
