@@ -6,7 +6,7 @@ BASE_URL="http://localhost:8080"
 USERNAME="$API_USER"
 PASSWORD="$API_PASS"
 
-response=$(curl -s -u "$USERNAME:$PASSWORD" -X POST "$BASE_URL/topic/create" \
+response=$(curl -s -u "$USERNAME:$PASSWORD" -X POST "$BASE_URL/da/create_topic" \
   -H "Accept: application/json")
 
 echo "Response: $response"

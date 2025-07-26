@@ -119,8 +119,8 @@ library offchain
     API.Bounty.Contracts
     API.Bridge
     API.Bridge.Contracts
+    API.Da
     API.SkyMintingPolicy
-    API.Topic
     API.Types
     API.Util
     API.Util.Contracts
@@ -202,6 +202,7 @@ test-suite offchain-tests
     , http-client
     , log-base
     , servant-client
+    , servant-client-core
     , servant-server
     , sky-atlas:common
     , sky-atlas:offchain

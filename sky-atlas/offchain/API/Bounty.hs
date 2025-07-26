@@ -1,4 +1,4 @@
-module API.Bounty (BountyAPI, bountyServer) where
+module API.Bounty (BountyApi (..), bountyServer) where
 
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
@@ -9,30 +9,36 @@ import Contract.Bounty
 import Contract.SkyBridge
 import Control.Monad.Reader
 import Data.Text (pack)
+import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
 import PlutusLedgerApi.V1 (POSIXTime (..), ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
+import Servant.Server.Generic
 
 -- TODO: better descriptions
-type BountyAPI =
-  Summary "Part of the API to offer and claim a bounty"
-    :> "bounty"
-    :> ( ( "offer"
-             :> Description "Offer bounty"
-             :> ReqBody '[JSON] OfferBountyRequest
-             :> Post '[JSON] GYTxId
-         )
-           :<|> "claim"
-             :> Description "Claim bounty"
-             :> ReqBody '[JSON] ClaimBountyRequest
-             :> Post '[JSON] ()
-       )
+data BountyApi mode = BountyApi
+  { offer ::
+      mode
+        :- Description "Offer bounty"
+          :> ReqBody '[JSON] OfferBountyRequest
+          :> Post '[JSON] GYTxId,
+    claim ::
+      mode
+        :- Description "Claim bounty"
+          :> ReqBody '[JSON] ClaimBountyRequest
+          :> Post '[JSON] ()
+  }
+  deriving stock (Generic)
 
-bountyServer :: ServerT BountyAPI AppM
-bountyServer = offerBountyH :<|> claimBountyH
+bountyServer :: BountyApi (AsServerT AppM)
+bountyServer =
+  BountyApi
+    { offer = offerBountyH,
+      claim = claimBountyH
+    }
   where
     offerBountyH OfferBountyRequest {..} = do
       AppEnv {..} <- ask

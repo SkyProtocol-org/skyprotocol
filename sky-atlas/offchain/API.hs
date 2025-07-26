@@ -1,6 +1,5 @@
 module API
-  ( SkyApi,
-    api,
+  ( SkyApi (..),
     server,
     app,
     User (..),
@@ -9,22 +8,42 @@ where
 
 import API.Bounty
 import API.Bridge
-import API.Topic
+import API.Da
 import API.Types
 import API.Util
 import App
 import Data.OpenApi
 import Data.Text (Text)
+import GHC.Generics (Generic)
 import Servant
 import Servant.OpenApi
+import Servant.Server.Generic
 import Servant.Swagger.UI
 
-type HealthAPI = "health" :> Description "Health EndPoint" :> Get '[JSON] Text
-
-healthServer :: ServerT HealthAPI AppM
-healthServer = pure "OK"
-
-type SkyApi = HealthAPI :<|> BridgeAPI :<|> BountyAPI :<|> TopicAPI :<|> UtilAPI
+data SkyApi mode = SkyApi
+  { health :: mode :- "health" :> Description "Health EndPoint" :> Get '[JSON] Text,
+    bridge ::
+      mode
+        :- Summary "Part of the API designed to interact with the bridge"
+          :> "bridge"
+          :> NamedRoutes BridgeApi,
+    bounty ::
+      mode
+        :- Summary "Part of the API to offer and claim a bounty"
+          :> "bounty"
+          :> NamedRoutes BountyApi,
+    da ::
+      mode
+        :- Summary "Part of the API designed to interact with DA"
+          :> "da"
+          :> NamedRoutes DaApi,
+    util ::
+      mode
+        :- Summary "Utility API for debugging and testing purposes. Not for the end user!"
+          :> "util"
+          :> NamedRoutes UtilApi
+  }
+  deriving stock (Generic)
 
 -- skyApiSwagger :: OpenApi
 -- skyApiSwagger = toOpenApi $ Proxy @SkyApi
@@ -33,21 +52,20 @@ type DocApi = SwaggerSchemaUI "swagger-ui" "swagger.json"
 
 -- type API = DocApi :<|> DocApi
 
-api :: Proxy SkyApi
-api = Proxy
-
-skyServer :: ServerT SkyApi AppM
+skyServer :: SkyApi (AsServerT AppM)
 skyServer =
-  -- swaggerSchemaUIServer skyApiSwagger :<|>
-  ( healthServer
-      :<|> bridgeServer
-      :<|> bountyServer
-      :<|> topicServer
-      :<|> utilServer
-  )
+  SkyApi
+    { health = pure "OK",
+      bridge = bridgeServer,
+      bounty = bountyServer,
+      da = daServer,
+      util = utilServer
+    }
+
+-- swaggerSchemaUIServer skyApiSwagger :<|>
 
 appCtx :: Context (BasicAuthCheck User ': '[])
 appCtx = authCheck :. EmptyContext
 
 app :: AppEnv -> Application
-app env = serveWithContext api appCtx $ hoistServerWithContext api (Proxy @(BasicAuthCheck User ': '[])) (nt env) skyServer
+app env = genericServeTWithContext (nt env) skyServer appCtx

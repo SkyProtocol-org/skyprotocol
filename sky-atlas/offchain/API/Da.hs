@@ -1,4 +1,4 @@
-module API.Topic (TopicAPI, topicServer) where
+module API.Da (DaApi (..), PublicDaApi (..), ProtectedDaApi (..), daServer) where
 
 import API.Types
 import App
@@ -14,59 +14,91 @@ import Data.Fixed
 import Data.Time
 import Data.Time.Clock qualified as DTC
 import Data.Time.Clock.POSIX qualified as DTCP
+import GHC.Generics (Generic)
 import Log
 import PlutusLedgerApi.V1.Time qualified as T (POSIXTime (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
+import Servant.Server.Generic
 
 -- TODO: better descriptions
--- TODO: better naming? This is basically interactions with the DA, not only topics?
-type TopicAPI =
-  Summary "Part of the API designed to interact with DA"
-    :> "topic"
-    :> (PublicTopicAPI :<|> (BasicAuth "sky_topic_realm" User :> ProtectedTopicAPI))
+data DaApi mode = DaApi
+  { public ::
+      mode
+        :- Summary "Public part of the DA API"
+          :> NamedRoutes PublicDaApi,
+    protected ::
+      mode
+        :- Summary "Private part of the DA API"
+          :> BasicAuth "sky_topic_realm" User
+          :> NamedRoutes ProtectedDaApi
+  }
+  deriving stock (Generic)
 
 -- TODO: better descriptions
-type PublicTopicAPI =
-  Summary "Public part of the DA API"
-    :> ( "read"
-           :> Description "Returns content of the message"
-           :> Capture "topic_id" TopicId
-           :> Capture "message_id" MessageId
-           :> Get '[OctetStream] BS.ByteString
-       )
-    :<|> "get_proof"
-      :> Description "Returns proof of inclusion for given message"
-      :> Capture "topic_id" TopicId
-      :> Capture "message_id" MessageId
-      :> Get '[OctetStream] BS.ByteString -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
-    :<|> "read_message"
-      :> Description "Returns timestamp + content of the message"
-      :> Capture "topic_id" TopicId
-      :> Capture "message_id" MessageId
-      :> Get '[OctetStream] BS.ByteString
+data PublicDaApi mode = PublicDaApi
+  { readMessage ::
+      mode
+        :- "read_message"
+          :> Description "Returns content of the message"
+          :> Capture "topic_id" TopicId
+          :> Capture "message_id" MessageId
+          :> Get '[OctetStream] BS.ByteString,
+    getProof ::
+      mode
+        :- "get_proof"
+          :> Description "Returns proof of inclusion for given message"
+          :> Capture "topic_id" TopicId
+          :> Capture "message_id" MessageId
+          :> Get '[OctetStream] BS.ByteString, -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
+    readMessageWithTimeStamp ::
+      mode
+        :- "read_message_timestamp"
+          :> Description "Returns timestamp + content of the message"
+          :> Capture "topic_id" TopicId
+          :> Capture "message_id" MessageId
+          :> Get '[OctetStream] BS.ByteString
+  }
+  deriving stock (Generic)
 
 -- TODO: better descriptions
-type ProtectedTopicAPI =
-  Summary "Private part of the DA API"
-    :> ( "create"
-           :> Description "Create new topic"
-           :> Post '[JSON] TopicId
-       )
-    :<|> "publish_message"
-      :> Description "Publish message at topic_id"
-      :> Capture "topic_id" TopicId
-      :> ReqBody '[OctetStream] BS.ByteString
-      :> Post '[JSON] MessageId
+data ProtectedDaApi mode = ProtectedDaApi
+  { createTopic ::
+      mode
+        :- "create_topic"
+          :> Description "Create new topic"
+          :> Post '[JSON] TopicId,
+    publishMessage ::
+      mode
+        :- "publish_message"
+          :> Description "Publish message at topic_id"
+          :> Capture "topic_id" TopicId
+          :> ReqBody '[OctetStream] BS.ByteString
+          :> Post '[JSON] MessageId
+  }
+  deriving stock (Generic)
 
-topicServer :: ServerT TopicAPI AppM
-topicServer = unprotectedServer :<|> protectedServer
+daServer :: DaApi (AsServerT AppM)
+daServer =
+  DaApi
+    { public = publicServer,
+      protected = protectedServer
+    }
   where
-    unprotectedServer = readTopic :<|> getProof :<|> readMessage
-    protectedServer u = createTopic u :<|> publishMessage u
+    publicServer =
+      PublicDaApi
+        { readMessage = readTopicH,
+          getProof = getProofH,
+          readMessageWithTimeStamp = readMessageH
+        }
+    protectedServer u =
+      ProtectedDaApi
+        { createTopic = createTopicH u,
+          publishMessage = publishMessageH u
+        }
 
-readTopic :: TopicId -> MessageId -> AppM BS.ByteString
-readTopic tId mId = do
+readTopicH :: TopicId -> MessageId -> AppM BS.ByteString
+readTopicH tId mId = do
   stateR <- asks appStateR
   state <- liftIO $ readMVar stateR
   let SkyDa {..} = view (blockState . skyDa) state
@@ -79,8 +111,8 @@ readTopic tId mId = do
         Nothing -> throwError . APIError $ "Can't find message with id " <> show (toInt mId)
         Just (_mMeta, mData) -> builtinByteStringToByteString <$> unwrap mData
 
-createTopic :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
-createTopic _user = do
+createTopicH :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
+createTopicH _user = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   topicId <- liftIO . modifyMVar stateW $ \state -> do
@@ -105,8 +137,8 @@ currentPOSIXTime = do
   let (MkFixed nominalDiffTime) = nominalDiffTimeToSeconds $ diffUTCTime utcTime utcTimeEpoch
   return . T.POSIXTime $ nominalDiffTime `div` 1000000000
 
-publishMessage :: User -> TopicId -> BS.ByteString -> AppM MessageId
-publishMessage _user topicId msgBody = do
+publishMessageH :: User -> TopicId -> BS.ByteString -> AppM MessageId
+publishMessageH _user topicId msgBody = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
@@ -122,8 +154,8 @@ publishMessage _user topicId msgBody = do
       logTrace "Published message" messageId
       return messageId
 
-getProof :: TopicId -> MessageId -> AppM BS.ByteString
-getProof topicId messageId = do
+getProofH :: TopicId -> MessageId -> AppM BS.ByteString
+getProofH topicId messageId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
   let da = view (bridgeState . bridgedSkyDa) state
@@ -134,8 +166,8 @@ getProof topicId messageId = do
       return . builtinByteStringToByteString . toByteString $ (rmd, proof)
 
 -- TODO: Why do we need this?
-readMessage :: TopicId -> MessageId -> AppM BS.ByteString
-readMessage topicId msgId = do
+readMessageH :: TopicId -> MessageId -> AppM BS.ByteString
+readMessageH topicId msgId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
   let da = view (blockState . skyDa) state

@@ -1,4 +1,4 @@
-module API.Bridge (BridgeAPI, bridgeServer) where
+module API.Bridge (BridgeApi (..), bridgeServer) where
 
 import API.Bridge.Contracts
 import API.SkyMintingPolicy
@@ -12,6 +12,7 @@ import Control.Monad.Reader
 import Data.Maybe (isJust)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeASCII)
+import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
@@ -20,27 +21,37 @@ import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
+import Servant.Server.Generic
 
 -- TODO: better descriptions
-type BridgeAPI =
-  Summary "Part of the API designed to interact with bridge"
-    :> "bridge"
-    :> ( ( "create"
-             :> Description "Mint token and create bridge"
-             :> ReqBody '[JSON] CreateBridgeRequest
-             :> Post '[JSON] GYTxId
-         )
-           :<|> "read"
-             :> Description "Read current datum from bridge"
-             :> Get '[JSON] Text
-           :<|> "update"
-             :> Description "Update bridge datum"
-             :> ReqBody '[JSON] UpdateBridgeRequest
-             :> Post '[JSON] GYTxId
-       )
+data BridgeApi mode = BridgeApi
+  { create ::
+      mode
+        :- "create"
+          :> Description "Mint token and create bridge"
+          :> ReqBody '[JSON] CreateBridgeRequest
+          :> Post '[JSON] GYTxId,
+    read ::
+      mode
+        :- "read"
+          :> Description "Read current datum from bridge"
+          :> Get '[JSON] Text,
+    update ::
+      mode
+        :- "update"
+          :> Description "Update bridge datum"
+          :> ReqBody '[JSON] UpdateBridgeRequest
+          :> Post '[JSON] GYTxId
+  }
+  deriving stock (Generic)
 
-bridgeServer :: ServerT BridgeAPI AppM
-bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
+bridgeServer :: BridgeApi (AsServerT AppM)
+bridgeServer =
+  BridgeApi
+    { create = createBridgeH,
+      read = readBridgeH,
+      update = updateBridgeH
+    }
   where
     createBridgeH CreateBridgeRequest {..} = do
       AppEnv {..} <- ask
