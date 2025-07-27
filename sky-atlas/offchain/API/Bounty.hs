@@ -23,11 +23,13 @@ data BountyApi mode = BountyApi
   { offer ::
       mode
         :- Description "Offer bounty"
+          :> "offer"
           :> ReqBody '[JSON] OfferBountyRequest
           :> Post '[JSON] GYTxId,
     claim ::
       mode
         :- Description "Claim bounty"
+          :> "claim"
           :> ReqBody '[JSON] ClaimBountyRequest
           :> Post '[JSON] ()
   }

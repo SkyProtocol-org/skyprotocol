@@ -14,7 +14,7 @@ USERNAME="$API_USER"
 PASSWORD="$API_PASS"
 
 # ---- Request ----
-response=$(curl -s -u "$USERNAME:$PASSWORD" -X POST "$BASE_URL/topic/publish_message/$TOPIC_ID" \
+response=$(curl -s -u "$USERNAME:$PASSWORD" -X POST "$BASE_URL/da/publish_message/$TOPIC_ID" \
   -H "Content-Type: application/octet-stream" \
   -H "Accept: application/json" \
   --data-binary @"$FILE")

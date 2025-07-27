@@ -11,9 +11,6 @@ BASE_URL="http://localhost:8080"
 changeAddress="$1"
 usedAddrs="[\"$1\"]"
 
-echo $changeAddress
-echo $usedAddrs
-
 # Construct JSON body
 payload=$(jq -n \
   --arg change "$changeAddress" \

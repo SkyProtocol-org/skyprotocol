@@ -112,13 +112,14 @@ bridgeServer =
         utxos <- utxosAtAddress addr $ Just skyToken
         pure (addr, utxos)
 
+      logTrace_ $ pack (show bridgeUtxos)
       let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
             let assets = valueToList $ utxoValue out
              in flip any assets $ \case
                   (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
                   _ -> False
       bridgeUtxo <- case utxo of
-        [u] -> pure u
+        u : _ -> pure u
         _ -> throwError $ APIError "Can't find bridge utxos"
       logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 

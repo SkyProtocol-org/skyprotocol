@@ -137,13 +137,13 @@ currentPOSIXTime = do
   return . T.POSIXTime $ nominalDiffTime `div` 1000000000
 
 publishMessageH :: User -> TopicId -> RawBytes -> AppM MessageId
-publishMessageH _user topicId msgBody = do
+publishMessageH _user topicId (RawBytes msgBody) = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
-    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString $ getRawBytes msgBody) topicId da
+    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString msgBody) topicId da
     let newState = (set (blockState . skyDa) newDa state, maybeMessageId)
     modifyMVar_ stateR . const . return $ fst newState
     return newState

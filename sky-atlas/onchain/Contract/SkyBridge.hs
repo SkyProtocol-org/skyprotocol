@@ -75,23 +75,25 @@ data BridgeRedeemer = UpdateBridge
 -- PlutusTx.makeLift ''BridgeRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
--- instance FromByteString BridgeRedeemer where
---   byteStringIn isTerminal = byteStringIn isTerminal <&> uncurry5 UpdateBridge
-
 ------------------------------------------------------------------------------
 -- NFT Utilities
 ------------------------------------------------------------------------------
 
 -- Function to find an input UTXO with a specific CurrencySymbol
+{-# INLINEABLE findInputByCurrencySymbol #-}
 findInputByCurrencySymbol :: CurrencySymbol -> [TxInInfo] -> Maybe TxInInfo
 findInputByCurrencySymbol targetSymbol inputs =
   let assetClass = AssetClass (targetSymbol, TokenName "SkyBridge")
       findSymbol :: TxInInfo -> Bool
       findSymbol txInInfo =
         assetClassValueOf (txOutValue (txInInfoResolved txInInfo)) assetClass == 1
-   in find findSymbol inputs
+      {-# INLINEABLE findSymbolTrace #-}
+      findSymbolTrace :: TxInInfo -> Bool
+      findSymbolTrace txInfo = traceIfTrue "Found input by Currency symbol" (findSymbol txInfo)
+   in find findSymbolTrace inputs
 
 -- Function to get a Datum from a TxOut, handling both inline data and hashed data
+{-# INLINEABLE getDatumFromTxOut #-}
 getDatumFromTxOut :: TxOut -> ScriptContext -> Maybe Datum
 getDatumFromTxOut txOut ctx = case txOutDatum txOut of
   OutputDatumHash dh -> findDatum dh (scriptContextTxInfo ctx) -- Lookup the datum using the hash
@@ -113,7 +115,7 @@ getBridgeNFTDatumFromContext currencySymbol scriptContext = do
   -- Get the datum from the transaction output
   datum <- getDatumFromTxOut txOut scriptContext
   -- Get the BridgeNFTDatum from the datum
-  getBridgeNFTDatum datum
+  getBridgeNFTDatum $ trace "I'm getting to getBridgeNFTDatum" datum
 
 -- Given a transaction output extract its serialized bridge NFT datum
 getBridgeNFTDatumFromTxOut :: TxOut -> ScriptContext -> Maybe BridgeNFTDatum
@@ -155,17 +157,20 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       -- Update the bridge state
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
         [ -- Core validation, below
-          bridgeTypedValidatorCore
-            daSchema
-            daCommittee
-            oldRootHash
-            newTopHash
-            sig
-            oldNFTTopHash,
+          traceBool
+            "core validation passed"
+            "core validation didn't pass"
+            $ bridgeTypedValidatorCore
+              daSchema
+              daCommittee
+              oldRootHash
+              newTopHash
+              sig
+              oldNFTTopHash,
           -- The NFT must be again included in the outputs
-          outputHasNFT,
+          traceBool "output has nft" "output doesn't have nft" outputHasNFT,
           -- The NFT's data must have been updated
-          nftUpdated newTopHash
+          traceBool "nft updated" "nft isn't updated" $ nftUpdated newTopHash
         ]
 
     ownOutput :: TxOut
@@ -174,10 +179,14 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       _ -> PlutusTx.traceError "expected exactly one output"
 
     oldBridgeNFTDatum :: BridgeNFTDatum
-    oldBridgeNFTDatum = fromJust $ getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx
+    oldBridgeNFTDatum = case getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx of
+      Just datum -> datum
+      Nothing -> PlutusTx.traceError "Can't find old bridge datum"
 
     newBridgeNFTDatum :: BridgeNFTDatum
-    newBridgeNFTDatum = fromJust $ getBridgeNFTDatumFromTxOut ownOutput ctx
+    newBridgeNFTDatum = case getBridgeNFTDatumFromTxOut ownOutput ctx of
+      Just datum -> datum
+      Nothing -> PlutusTx.traceError "Can't find new bridge datum"
 
     oldNFTTopHash :: Hash
     oldNFTTopHash = bridgeNFTTopHash oldBridgeNFTDatum

@@ -360,3 +360,5 @@ P.makeLift ''MultiSigPubKey
 P.makeLift ''MultiSig
 
 P.makeLift ''Blake2b_256
+
+-- PlutusTx.makeIsDataSchemaIndexed ''Blake2b_256 [('Blake2b_256, 0)]
