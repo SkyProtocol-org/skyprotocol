@@ -116,7 +116,7 @@ getBridgeNFTDatumFromContext currencySymbol scriptContext = do
   -- Get the datum from the transaction output
   datum <- getDatumFromTxOut txOut scriptContext
   -- Get the BridgeNFTDatum from the datum
-  getBridgeNFTDatum $ trace "I'm getting to getBridgeNFTDatum" datum
+  getBridgeNFTDatum $ trace "I'm getting to getBridgeNFTDatum for old datum" datum
 
 -- Given a transaction output extract its serialized bridge NFT datum
 getBridgeNFTDatumFromTxOut :: TxOut -> ScriptContext -> Maybe BridgeNFTDatum
@@ -124,7 +124,7 @@ getBridgeNFTDatumFromTxOut ownOutput ctx = do
   -- Get the Datum from the TxOut
   datum <- getDatumFromTxOut ownOutput ctx
   -- Extract the BridgeNFTDatum from the Datum
-  getBridgeNFTDatum datum
+  getBridgeNFTDatum $ trace "I'm getting to getBridgeNFTDatum for new datum" datum
 
 -- Given a script context, find the bridge NFT UTXO
 -- XXX copypasta for reference inputs, could probably be unified with getBridgeNFTDatumFromContext
@@ -213,7 +213,7 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
     &&
     -- \^ The new top hash must be signed by the committee
     oldTopHash
-      == computedOldTopHash
+    == computedOldTopHash
   where
     -- \^ The old top hash must be the hash of the concatenation of committee fingerprint
     --   and old root hash

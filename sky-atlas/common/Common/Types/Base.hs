@@ -992,27 +992,7 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
-fromJust Nothing = traceError "fromJust Nothing" -- XXX Plutus can't compile that!!!
-
--- | Generic failure
--- Trying to use it from Plutus will fail at compile-time:
--- Error: Unsupported feature: Type constructor: GHC.Prim.Char#
--- Context: Compiling definition of: PlutusTx.Builtins.HasOpaque.stringToBuiltinString
--- Context: Compiling definition of: Common.Types.Base.failTE
-failTE :: a
-failTE = traceError ("foo" :: BuiltinString)
-
--- Trying to use it from Plutus will fail at compile-time:
--- Error: Unsupported feature: Type constructor: GHC.Prim.Char#
--- Unsupported feature: Type constructor: GHC.Prim.Char#
-failTEE :: a
-failTEE = traceError emptyString
-
--- Trying to use it from Plutus will fail at compile-time:
--- Error: Unsupported feature: Cannot case on a value of type: forall a. a
--- But instead of calling it, you can macroexpand in context (fromJust Nothing :: FOO).
-failAA :: a
-failAA = fromJust Nothing
+fromJust Nothing = traceError "fromJust Nothing"
 
 -- ** For testing and debugging purposes
 

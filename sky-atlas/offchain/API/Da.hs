@@ -9,16 +9,12 @@ import Control.Concurrent.MVar
 import Control.Lens
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
-import Data.Fixed
-import Data.Time
-import Data.Time.Clock qualified as DTC
-import Data.Time.Clock.POSIX qualified as DTCP
 import GHC.Generics (Generic)
 import Log
-import PlutusLedgerApi.V1.Time qualified as T (POSIXTime (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 import Servant.Server.Generic
+import Utils
 
 -- TODO: better descriptions
 data DaApi mode = DaApi
@@ -125,16 +121,6 @@ createTopicH _user = do
         pure (newState, topicId)
   logTrace "Created topic " topicId
   return topicId
-
-utcTimeEpoch :: DTC.UTCTime
-utcTimeEpoch = DTCP.posixSecondsToUTCTime 0
-
--- Get current time in Plutus-friendly format
-currentPOSIXTime :: IO T.POSIXTime
-currentPOSIXTime = do
-  utcTime <- getCurrentTime
-  let (MkFixed nominalDiffTime) = nominalDiffTimeToSeconds $ diffUTCTime utcTime utcTimeEpoch
-  return . T.POSIXTime $ nominalDiffTime `div` 1000000000
 
 publishMessageH :: User -> TopicId -> RawBytes -> AppM MessageId
 publishMessageH _user topicId (RawBytes msgBody) = do
