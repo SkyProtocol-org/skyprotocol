@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Contract.SkyBridge where
+module Contract.Bridge where
 
 import Common
 import GHC.Generics (Generic)
@@ -72,7 +72,7 @@ data BridgeRedeemer = UpdateBridge
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
--- PlutusTx.makeLift ''BridgeRedeemer
+PlutusTx.makeLift ''BridgeRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''BridgeRedeemer [('UpdateBridge, 0)]
 
 ------------------------------------------------------------------------------
@@ -102,8 +102,9 @@ getDatumFromTxOut txOut ctx = case txOutDatum txOut of
 
 -- Deserialize a serialized bridge NFT datum
 getBridgeNFTDatum :: Datum -> Maybe BridgeNFTDatum
--- getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
-getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d >>= maybeFromByteStringIn
+getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
+
+-- getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d >>= maybeFromByteStringIn
 
 -- Given a script context, find the bridge NFT UTXO
 getBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
@@ -212,7 +213,7 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
     &&
     -- \^ The new top hash must be signed by the committee
     oldTopHash
-    == computedOldTopHash
+      == computedOldTopHash
   where
     -- \^ The old top hash must be the hash of the concatenation of committee fingerprint
     --   and old root hash

@@ -5,7 +5,7 @@ import API.SkyMintingPolicy
 import API.Types
 import App
 import Common
-import Contract.SkyBridge
+import Contract.Bridge
 import Control.Concurrent
 import Control.Lens
 import Control.Monad.Reader

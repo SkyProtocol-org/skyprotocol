@@ -148,7 +148,7 @@ instance ToJSON ClaimBountyRequest where
 
 newtype ProofBytes = ProofBytes {getProofBytes :: BS.ByteString}
   deriving (Generic)
-  deriving newtype (ToJSON, FromJSON)
+  deriving newtype (ToJSON, FromJSON, Eq, Show)
 
 instance ToSchema ProofBytes where
   declareNamedSchema _ = pure $ (NamedSchema $ Just "ProofBytes") binarySchema
@@ -156,9 +156,12 @@ instance ToSchema ProofBytes where
 instance MimeRender OctetStream ProofBytes where
   mimeRender _ (ProofBytes bs) = BS.fromStrict bs
 
+instance MimeUnrender OctetStream ProofBytes where
+  mimeUnrender _ bs = Right $ ProofBytes $ BS.toStrict bs
+
 newtype RawBytes = RawBytes {getRawBytes :: BS.ByteString}
   deriving (Generic)
-  deriving newtype (ToJSON, FromJSON)
+  deriving newtype (ToJSON, FromJSON, Eq, Show)
 
 instance ToSchema RawBytes where
   declareNamedSchema _ = pure $ (NamedSchema $ Just "RawBytes") binarySchema

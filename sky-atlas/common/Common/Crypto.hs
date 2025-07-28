@@ -70,7 +70,7 @@ newtype Digest d a = Digest {getDigest :: d}
 
 newtype Blake2b_256 = Blake2b_256 {getBlake2b_256 :: Bytes32}
   deriving newtype (HP.Eq, HP.Show)
-  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -126,11 +126,6 @@ instance (IsHash d) => LiftFromData (Digest d) where
 
 instance (IsHash d) => LiftUnsafeFromData (Digest d) where
   liftUnsafeFromBuiltinData = unsafeFromBuiltinData
-
--- ** Blake2b_256
-
-instance IsHash Blake2b_256 where
-  hashFunction = Blake2b_256 . Bytes32 . blake2b_256
 
 -- ** HashRef
 
@@ -360,5 +355,9 @@ P.makeLift ''MultiSigPubKey
 P.makeLift ''MultiSig
 
 P.makeLift ''Blake2b_256
+P.makeIsDataSchemaIndexed ''Blake2b_256 [('Blake2b_256, 0)]
 
--- PlutusTx.makeIsDataSchemaIndexed ''Blake2b_256 [('Blake2b_256, 0)]
+-- ** Blake2b_256
+
+instance IsHash Blake2b_256 where
+  hashFunction = Blake2b_256 . Bytes32 . blake2b_256

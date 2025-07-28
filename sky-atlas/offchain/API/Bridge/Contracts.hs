@@ -2,7 +2,7 @@ module API.Bridge.Contracts where
 
 import API.SkyMintingPolicy
 import Common.Crypto (Hash)
-import Contract.SkyBridge
+import Contract.Bridge
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types

@@ -95,8 +95,8 @@ library onchain
     Contract
     Contract.Bounty
     Contract.DaH
-    Contract.SkyBridge
-    Contract.SkyMintingPolicy
+    Contract.Bridge
+    Contract.MintingPolicy
     Contract.TrieH
 
   build-depends:

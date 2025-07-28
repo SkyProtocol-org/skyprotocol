@@ -4,6 +4,7 @@ module OffChain.API (apiSpec) where
 
 import API
 import API.Da
+import API.Types
 import App
 import Common
 import Common.OffChain ()
@@ -138,11 +139,11 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
                 res @?= Right (topicIdFromInteger 0),
               testCase "should return MessageId 0 when creating new message in an empty da with 1 topic" $ do
                 TestEnv {..} <- getTestEnv
-                res <- liftIO $ flip runClientM clientEnv $ publishMessageC (topicIdFromInteger 0) "keklolarbidol"
+                res <- liftIO $ flip runClientM clientEnv $ publishMessageC (topicIdFromInteger 0) $ RawBytes "keklolarbidol"
                 res @?= Right (messageIdFromInteger 0),
               testCase "should return the same message we published in the previous test" $ do
                 TestEnv {..} <- getTestEnv
                 res <- liftIO $ flip runClientM clientEnv $ readMessageC (topicIdFromInteger 0) (messageIdFromInteger 0)
-                res @?= Right "keklolarbidol"
+                res @?= Right (RawBytes "keklolarbidol")
             ]
     ]

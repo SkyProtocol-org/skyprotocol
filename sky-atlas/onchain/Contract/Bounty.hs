@@ -5,8 +5,8 @@
 module Contract.Bounty where
 
 import Common
+import Contract.Bridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import Contract.DaH
-import Contract.SkyBridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1

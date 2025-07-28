@@ -1,8 +1,8 @@
 module API.SkyMintingPolicy where
 
 import Contract.Bounty
-import Contract.SkyBridge
-import Contract.SkyMintingPolicy
+import Contract.Bridge
+import Contract.MintingPolicy
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types

@@ -6,7 +6,7 @@ import API.Types
 import App
 import Common
 import Contract.Bounty
-import Contract.SkyBridge
+import Contract.Bridge
 import Control.Monad.Reader
 import Data.Text (pack)
 import GHC.Generics (Generic)
