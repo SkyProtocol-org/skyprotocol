@@ -5,10 +5,11 @@ module OnChain.BridgeSpec (bridgeSpec) where
 
 import App.Env
 import Common
-import Contract.Bridge (bridgeTypedValidatorCore)
+import Contract.Bridge
 import Data.Functor.Identity (Identity (..))
 import GeniusYield.Types
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import PlutusTx.Prelude qualified as PlutusTx
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util
@@ -21,7 +22,11 @@ bridgeSpec =
     "Bridge Contract"
     [ testGroup
         "Bridge validator"
-        [ testCase "multiSigValid" $ do
+        [ testCase "to/from builtin data BridgeNFTDatum" $ do
+            let datum = BridgeNFTDatum $ ofHex "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
+            let builtinDatum = PlutusTx.toBuiltinData datum
+            PlutusTx.fromBuiltinData builtinDatum @?= Just datum,
+          testCase "multiSigValid" $ do
             admin <- getAdmin "tests/OffChain/admin/"
             let (da', _schema, committee) = createTestDa $ cuserVerificationKey admin
             timestamp <- currentPOSIXTime

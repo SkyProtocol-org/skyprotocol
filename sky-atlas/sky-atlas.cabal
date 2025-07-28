@@ -94,8 +94,8 @@ library onchain
   exposed-modules:
     Contract
     Contract.Bounty
-    Contract.DaH
     Contract.Bridge
+    Contract.DaH
     Contract.MintingPolicy
     Contract.TrieH
 
@@ -220,6 +220,7 @@ test-suite onchain-tests
     OnChain.BountySpec
     OnChain.BridgeSpec
     OnChain.ContractSpec
+    Util
 
   build-depends:
     , atlas-cardano

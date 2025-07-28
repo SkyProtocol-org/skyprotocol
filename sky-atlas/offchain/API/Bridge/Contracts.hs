@@ -1,30 +1,28 @@
 module API.Bridge.Contracts where
 
-import API.SkyMintingPolicy
 import Common.Crypto (Hash)
 import Contract.Bridge
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
-import PlutusLedgerApi.Common hiding (PlutusV2)
-import PlutusLedgerApi.V1 (ScriptHash (..))
-import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 
 mkMintingSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
+  -- | Token name
   GYTokenName ->
-  -- | Minting policy signer
-  GYPubKeyHash ->
+  -- | Token to send
+  GYAssetClass ->
+  -- | Minting policy
+  GYScript 'PlutusV2 ->
   -- | Top hash
   Hash ->
+  -- | Addr of the bridge validator
+  GYAddress ->
+  -- | Minting policy signer
+  GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkMintingSkeleton tokenName mintSigner topHash = do
+mkMintingSkeleton tokenName skyToken skyPolicy topHash bvAddr mintSigner = do
   let bridgeNFTDatum = BridgeNFTDatum topHash
-      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus mintSigner
-      skyToken = GYToken (mintingPolicyId skyPolicy) tokenName
-      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-
-  bvAddr <- bridgeValidatorAddress $ BridgeParams curSym
 
   -- skeleton for minting transaction
   pure $
@@ -55,7 +53,7 @@ mkUpdateBridgeSkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkUpdateBridgeSkeleton validator bridgeRef newDatum redeemer skyToken addr signer =
+mkUpdateBridgeSkeleton validator bridgeRef newDatum redeemer skyToken bvAddr signer =
   pure $
     -- bridge input
     mustHaveInput
@@ -65,13 +63,12 @@ mkUpdateBridgeSkeleton validator bridgeRef newDatum redeemer skyToken addr signe
               GYTxInWitnessScript
                 (GYBuildPlutusScriptInlined validator)
                 Nothing -- datum can be omitted if it was inlined
-                $ redeemerFromPlutus'
-                $ toBuiltinData redeemer
+                $ redeemerFromPlutusData redeemer
           }
       )
       <> mustHaveOutput
         ( GYTxOut
-            { gyTxOutAddress = addr,
+            { gyTxOutAddress = bvAddr,
               gyTxOutValue = valueSingleton skyToken 1,
               gyTxOutDatum = Just (datumFromPlutusData newDatum, GYTxOutUseInlineDatum),
               gyTxOutRefS = Nothing

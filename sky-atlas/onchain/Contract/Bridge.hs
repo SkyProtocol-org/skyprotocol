@@ -29,6 +29,7 @@ import PlutusTx.Blueprint
 import PlutusTx.List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
+import Prelude qualified as HP
 
 ------------------------------------------------------------------------------
 -- Datum Stored in Bridge NFT
@@ -38,6 +39,7 @@ newtype BridgeNFTDatum = BridgeNFTDatum
   { bridgeNFTTopHash :: Hash
   }
   deriving (Eq, FromByteString, ToByteString) via BuiltinByteString
+  deriving (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -103,8 +105,6 @@ getDatumFromTxOut txOut ctx = case txOutDatum txOut of
 -- Deserialize a serialized bridge NFT datum
 getBridgeNFTDatum :: Datum -> Maybe BridgeNFTDatum
 getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
-
--- getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d >>= maybeFromByteStringIn
 
 -- Given a script context, find the bridge NFT UTXO
 getBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
@@ -198,7 +198,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
     -- The output NFT UTXO's datum must match the new values for the root hashes
     nftUpdated :: Hash -> Bool
     nftUpdated newTopHash =
-      newNFTTopHash == newTopHash
+      traceBool "new top hash = old top hash" "new top hash != old top hash" $ newNFTTopHash == newTopHash
 
     -- There must be exactly one output UTXO with our NFT's unique currency symbol
     outputHasNFT :: Bool
@@ -209,11 +209,18 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
 -- Core validation function, for easy testing
 bridgeTypedValidatorCore :: Hash -> MultiSigPubKey -> Hash -> Hash -> MultiSig -> Hash -> Bool
 bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
-  multiSigValid daCommittee newTopHash sig
+  traceBool
+    "multi sig is valid"
+    "multi sig isn't valid"
+    (multiSigValid daCommittee newTopHash sig)
     &&
     -- \^ The new top hash must be signed by the committee
-    oldTopHash
-    == computedOldTopHash
+    traceBool
+      "old top hash = computed top hash"
+      "old top hash != computed top hash"
+      ( oldTopHash
+          == computedOldTopHash
+      )
   where
     -- \^ The old top hash must be the hash of the concatenation of committee fingerprint
     --   and old root hash

@@ -60,6 +60,41 @@ updateBridgeTest TestInfo {..} = do
       oldTopHash = computeDigest da
       topHash = computeDigest @Blake2b_256 newDa
 
+  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      skyPolicyId = mintingPolicyId skyPolicy
+      skyToken = GYToken skyPolicyId "SkyBridge"
+      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+
+  bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
+  -- create bridge and mint some nft
+  asUser (admin testWallets) $ do
+    mintSkeleton <-
+      mkMintingSkeleton
+        "SkyBridge"
+        skyToken
+        skyPolicy
+        oldTopHash
+        bridgeVAddr
+        pkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
+
+  bridgeUtxos <- utxosAtAddress bridgeVAddr $ Just skyToken
+
+  gyLogDebug' "" $ printf "bridge utxos: %s" bridgeUtxos
+
+  let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
+        let assets = valueToList $ utxoValue out
+         in flip any assets $ \case
+              (GYToken pId _name, _) -> pId == skyPolicyId
+              _ -> False
+  bridgeUtxo <- case utxo of
+    [u] -> do
+      gyLogDebug' "" $ printf "bridge utxo: %s" (show u)
+      pure u
+    _ -> throwAppError $ someBackendError "Can't find bridge utxo"
+
   let bridgeSchema = schema
       bridgeCommittee = committee
       bridgeOldRootHash = oldTopHash
@@ -73,33 +108,6 @@ updateBridgeTest TestInfo {..} = do
       bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
       bridgeRedeemer = UpdateBridge {..}
 
-  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
-      skyPolicyId = mintingPolicyId skyPolicy
-      skyToken = GYToken skyPolicyId "536B79427269646765"
-      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-
-  -- create bridge and mint some nft
-  asUser (admin testWallets) $ do
-    mintSkeleton <- mkMintingSkeleton "536B79427269646765" pkh oldTopHash
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
-    txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
-    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
-
-  bridgeUtxos <- do
-    bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
-    utxosAtAddress bridgeVAddr $ Just skyToken
-
-  gyLogDebug' "" $ printf "bridge utxos: %s" bridgeUtxos
-
-  let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
-        let assets = valueToList $ utxoValue out
-         in flip any assets $ \case
-              (GYToken pId name, _) -> pId == skyPolicyId
-              _ -> False
-  bridgeUtxo <- case utxo of
-    u : _ -> pure u
-    _ -> throwAppError $ someBackendError "Can't find bridge utxo"
-
   -- update bridge
   asUser (admin testWallets) $ do
     updateBridgeSkeleton <-
@@ -109,7 +117,7 @@ updateBridgeTest TestInfo {..} = do
         (BridgeNFTDatum topHash)
         bridgeRedeemer
         skyToken
-        addr
+        bridgeVAddr
         pkh
     gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
     txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
@@ -127,7 +135,7 @@ sendFundsTest TestInfo {..} = do
   -- with no way to actually check the balances
   asUser (admin testWallets) $ do
     sendFundsSkeleton <- mkSendSkeleton addr amount GYLovelace pkh
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
@@ -137,9 +145,23 @@ mintingPolicyTest TestInfo {..} = do
   gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
   pkh <- addressToPubKeyHash' addr
 
+  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      skyPolicyId = mintingPolicyId skyPolicy
+      skyToken = GYToken skyPolicyId "SkyBridge"
+      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+
+  bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
+
   asUser (admin testWallets) $ do
-    mintSkeleton <- mkMintingSkeleton "TestSkyToken" pkh (computeDigest (Byte 1))
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    mintSkeleton <-
+      mkMintingSkeleton
+        "SkyBridge"
+        skyToken
+        skyPolicy
+        (computeDigest (Byte 1)) -- dummy top hash
+        bridgeVAddr
+        pkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 

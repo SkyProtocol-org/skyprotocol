@@ -16,7 +16,7 @@ import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
-import PlutusLedgerApi.Data.V2 (FromData (..), ToData (..))
+import PlutusLedgerApi.Data.V2 (FromData (..))
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
@@ -55,8 +55,14 @@ bridgeServer =
   where
     createBridgeH CreateBridgeRequest {..} = do
       AppEnv {..} <- ask
-      state <- liftIO $ readMVar appStateR
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
+          skyPolicyId = mintingPolicyId skyPolicy
+          skyToken = GYToken skyPolicyId $ configTokenName appConfig
+          curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
 
+      bridgeAddr <- runQuery $ bridgeValidatorAddress $ BridgeParams curSym
+
+      state <- liftIO $ readMVar appStateR
       let SkyDa {..} = view (blockState . skyDa) state
           topHash = computeDigest @Blake2b_256 $ SkyDa {..}
 
@@ -68,7 +74,13 @@ bridgeServer =
       logTrace_ "Building, signing and submitting minting policy"
       tId <-
         buildAndRunGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $
-          mkMintingSkeleton (configTokenName appConfig) (cuserAddressPubKey appAdmin) topHash
+          mkMintingSkeleton
+            (configTokenName appConfig)
+            skyToken
+            skyPolicy
+            topHash
+            bridgeAddr
+            (cuserAddressPubKey appAdmin)
       logTrace_ $ "Transaction id: " <> pack (show tId)
       pure tId
 
@@ -76,10 +88,10 @@ bridgeServer =
     -- TODO: consider comparing to the bridged version?
     readBridgeH = do
       AppEnv {..} <- ask
-      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
           skyPolicyId = mintingPolicyId skyPolicy
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
-          curSym = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
+          curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
           bridgeParams = BridgeParams curSym
 
       utxoWithDatums <- runQuery $ do
@@ -92,7 +104,7 @@ bridgeServer =
                   (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
                   _ -> False
       maybeBridgeDatum <- case utxoWithDatum of
-        [(_, Just datum)] -> pure $ fromBuiltinData $ toBuiltinData datum
+        [(_, Just datum)] -> pure $ fromBuiltinData $ datumToPlutus' datum
         _ -> throwError $ APIError "Can't find bridge utxos"
       case maybeBridgeDatum of
         -- will decodeASCII work here? topHash is in hex, if I'm not mistaken
