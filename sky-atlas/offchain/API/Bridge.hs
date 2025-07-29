@@ -143,18 +143,19 @@ bridgeServer =
           Just c -> pure c
 
       state <- liftIO $ readMVar appStateR
-      let SkyDa {..} = view (blockState . skyDa) state
-          topHash = computeDigest @Blake2b_256 $ SkyDa {..}
+      let da = view (blockState . skyDa) state
+          topHash = computeDigest @Blake2b_256 $ da
           newDatum = BridgeNFTDatum topHash
       logTrace_ $ "New utxo datum: " <> pack (show topHash)
 
       (schema, committee) <- do
-        DaMetaDataOfTuple (schema, committee) <- unwrap skyMetaData
+        DaMetaDataOfTuple (schema, committee) <- unwrap $ skyMetaData da
         cmt <- unwrap committee
         pure (schema, cmt)
 
       let bridgedDa = view (bridgeState . bridgedSkyDa) state
-          oldRootHash = computeDigest @Blake2b_256 bridgedDa
+      daData <- unwrap $ skyTopicTrie bridgedDa
+      let oldRootHash = computeDigest @Blake2b_256 daData
 
       let bridgeSchema = schema
           bridgeCommittee = committee
@@ -189,7 +190,7 @@ bridgeServer =
 
       -- update the bridged state after we update the bridge
       liftIO $ modifyMVar_ appStateW $ \state' -> do
-        let newState = set (bridgeState . bridgedSkyDa) SkyDa {..} state'
+        let newState = set (bridgeState . bridgedSkyDa) da state'
         modifyMVar_ appStateR . const . return $ newState
         pure newState
 

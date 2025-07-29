@@ -4,8 +4,8 @@
 module OnChain.BountySpec (bountySpec) where
 
 import Common
-import Contract.DaH
 import Contract.Bounty (validateClaimBounty, validateTimeout)
+import Contract.DaH
 import Data.Functor.Identity (Identity (..))
 import PlutusLedgerApi.V2
 import PlutusTx.Prelude
@@ -39,35 +39,35 @@ aroundDeadline =
 testMessage :: BuiltinByteString
 testMessage = "Hello, Bounty World!"
 
-testMessageHash :: Hash
+testMessageHash :: Blake2b_256
 testMessageHash = computeDigest testMessage
 
 -- Create test DA structure and proof
-createTestDaAndProof :: (SkyDa (HashRef Hash), TopicId, MessageId, SkyDataProofH, Hash)
+createTestDaAndProof :: (SkyDa (HashRef Blake2b_256), TopicId, MessageId, SkyDataProofH, Blake2b_256)
 createTestDaAndProof =
-  let daSchema = computeDigest @Hash @Bytes4 $ ofHex "deadbeef"
+  let daSchema = computeDigest @Blake2b_256 @Bytes4 $ ofHex "deadbeef"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
       sk2 = ofHex "B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F"
       pk1 = derivePubKey sk1
       pk2 = derivePubKey sk2
       committee = MultiSigPubKey ([pk1, pk2], UInt16 2)
-      topicSchema = computeDigest @Hash @Bytes4 $ ofHex "1ea7f00d"
+      topicSchema = computeDigest @Blake2b_256 @Bytes4 $ ofHex "1ea7f00d"
       timestamp = POSIXTime 455155200000 -- June 4th 1989
-      da0 = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
+      da0 = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Blake2b_256)
       (da1, maybeTopicId) = runIdentity $ insertTopic topicSchema da0
       topicId = fromJust maybeTopicId
       (da2, maybeMessageId) = runIdentity $ insertMessage timestamp testMessage topicId da1
       messageId = fromJust maybeMessageId
-      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Hash, SkyDataProofH)
+      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Blake2b_256, SkyDataProofH)
       topHash = computeDigest da2
    in (da2, topicId, messageId, proof, topHash)
 
 -- Extract test components
-_testDa :: SkyDa (HashRef Hash)
+_testDa :: SkyDa (HashRef Blake2b_256)
 testTopicIdFromDa :: TopicId
 testMessageId :: MessageId
 testProof :: SkyDataProofH
-testTopHash :: Hash
+testTopHash :: Blake2b_256
 (_testDa, testTopicIdFromDa, testMessageId, testProof, testTopHash) = createTestDaAndProof
 
 -- Type annotations for clarity
@@ -77,19 +77,19 @@ testProofTyped = testProof
 -- Create invalid proofs for negative testing
 createInvalidProof :: SkyDataProofH
 createInvalidProof =
-  let daSchema = computeDigest @Hash @Bytes4 $ ofHex "baadf00d"
+  let daSchema = computeDigest @Blake2b_256 @Bytes4 $ ofHex "baadf00d"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
       pk1 = derivePubKey sk1
       committee = MultiSigPubKey ([pk1], UInt16 1)
-      topicSchema = computeDigest @Hash @Bytes4 $ ofHex "deadc0de"
+      topicSchema = computeDigest @Blake2b_256 @Bytes4 $ ofHex "deadc0de"
       timestamp = POSIXTime 455155200000
       wrongMessage = "Wrong message content"
-      da0 = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
+      da0 = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Blake2b_256)
       (da1, maybeTopicId) = runIdentity $ insertTopic topicSchema da0
       topicId = fromJust maybeTopicId
       (da2, maybeMessageId) = runIdentity $ insertMessage timestamp wrongMessage topicId da1
       messageId = fromJust maybeMessageId
-      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Hash, SkyDataProofH)
+      (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Blake2b_256, SkyDataProofH)
    in proof
 
 invalidProof :: SkyDataProofH
@@ -120,7 +120,7 @@ bountySpec =
               testTopHash
               @?= False,
           testCase "should reject bounty claim with wrong message hash" $ do
-            let wrongHash = computeDigest @Hash ("wrong message" :: BuiltinString)
+            let wrongHash = computeDigest @Blake2b_256 ("wrong message" :: BuiltinString)
             validateClaimBounty
               testDeadline
               beforeDeadline
@@ -140,7 +140,7 @@ bountySpec =
               testTopHash
               @?= False,
           testCase "should reject bounty claim with wrong DA top hash" $ do
-            let wrongTopHash = computeDigest @Hash ("wrong top hash" :: BuiltinString)
+            let wrongTopHash = computeDigest @Blake2b_256 ("wrong top hash" :: BuiltinString)
             validateClaimBounty
               testDeadline
               beforeDeadline
@@ -193,7 +193,7 @@ bountySpec =
             let proofResult = applySkyDataProofH testProofTyped testMessageHash
             proofResult @?= testTopHash,
           testCase "should reject proof with wrong message hash" $ do
-            let wrongHash = computeDigest @Hash ("different message" :: BuiltinString)
+            let wrongHash = computeDigest @Blake2b_256 ("different message" :: BuiltinString)
                 proofResult = applySkyDataProofH testProofTyped wrongHash
             proofResult == testTopHash @?= False,
           testCase "should validate proof structure matches topic requirements" $ do

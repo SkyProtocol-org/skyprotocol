@@ -30,9 +30,9 @@ type S = Trie Identity Byte Bytes8 BuiltinString
 
 type SR = TrieNodeRef Identity Byte Bytes8 BuiltinString
 
-type T = Trie (HashRef Hash) Integer Integer BuiltinString
+type T = Trie (HashRef Blake2b_256) Integer Integer BuiltinString
 
-type TR = TrieNodeRef (HashRef Hash) Integer Integer BuiltinString
+type TR = TrieNodeRef (HashRef Blake2b_256) Integer Integer BuiltinString
 
 initialValues :: (FromInt a) => [(a, BuiltinString)]
 initialValues = [(fromInt 13, "13"), (fromInt 34, "34"), (fromInt 1597, "1597")]
@@ -41,7 +41,7 @@ trieSpec :: TestTree
 trieSpec =
   testGroup "Spec.TrieSpec"
     $ [ testCase "empty Trie" $ do
-          let e0 = Empty :: TrieNodeF Byte Bytes8 (MessageEntry (HashRef Hash)) (TrieNodeRef (HashRef Hash) Byte Bytes8 (MessageEntry (HashRef Hash)))
+          let e0 = Empty :: TrieNodeF Byte Bytes8 (MessageEntry (HashRef Blake2b_256)) (TrieNodeRef (HashRef Blake2b_256) Byte Bytes8 (MessageEntry (HashRef Blake2b_256)))
           let e1 = Fix (TrieNodeFL Empty) :: TrieNode Identity Byte Bytes8 Integer
           let e2 = LiftRef (Identity e1) :: TrieNodeRef Identity Byte Bytes8 Integer
           let e3 = TrieTop (-1) e2 :: Trie64 Identity Integer
@@ -151,9 +151,9 @@ trieSpec =
                       testCase "should generate a proof, validate it, and compute the root hash correctly" $ do
                         let t1 :: T
                             t1 = runIdentity $ olt [(1, "value1"), (2, "value2")]
-                            t1d :: Hash = computeDigest @Hash t1
+                            t1d = computeDigest @Blake2b_256 t1
                             proof1 = runIdentity $ getMerkleProof 1 t1
-                            l1d :: Hash =
+                            l1d :: Blake2b_256 =
                               refDigest
                                 . liftref
                                 . runIdentity

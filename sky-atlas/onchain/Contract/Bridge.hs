@@ -36,7 +36,7 @@ import Prelude qualified as HP
 ------------------------------------------------------------------------------
 
 newtype BridgeNFTDatum = BridgeNFTDatum
-  { bridgeNFTTopHash :: Hash
+  { bridgeNFTTopHash :: Blake2b_256
   }
   deriving (Eq, FromByteString, ToByteString) via BuiltinByteString
   deriving (HP.Eq, HP.Show)
@@ -65,10 +65,10 @@ PlutusTx.makeIsDataSchemaIndexed ''BridgeParams [('BridgeParams, 0)]
 ------------------------------------------------------------------------------
 
 data BridgeRedeemer = UpdateBridge
-  { bridgeSchema :: Hash,
+  { bridgeSchema :: Blake2b_256,
     bridgeCommittee :: MultiSigPubKey,
-    bridgeOldRootHash :: Hash,
-    bridgeNewTopHash :: Hash,
+    bridgeOldRootHash :: Blake2b_256,
+    bridgeNewTopHash :: Blake2b_256,
     bridgeSig :: MultiSig -- signature over new top hash
   }
   deriving stock (Generic)
@@ -89,10 +89,7 @@ findInputByCurrencySymbol targetSymbol inputs =
       findSymbol :: TxInInfo -> Bool
       findSymbol txInInfo =
         assetClassValueOf (txOutValue (txInInfoResolved txInInfo)) assetClass == 1
-      {-# INLINEABLE findSymbolTrace #-}
-      findSymbolTrace :: TxInInfo -> Bool
-      findSymbolTrace txInfo = traceIfTrue "Found input by Currency symbol" (findSymbol txInfo)
-   in find findSymbolTrace inputs
+   in find findSymbol inputs
 
 -- Function to get a Datum from a TxOut, handling both inline data and hashed data
 {-# INLINEABLE getDatumFromTxOut #-}
@@ -158,6 +155,23 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       -- Update the bridge state
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
         [ -- Core validation, below
+          -- let daCommitteeFingerprint :: Hash
+          --     daCommitteeFingerprint = computeDigest daCommittee
+          --     computedOldDaMetaData :: Hash
+          --     computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
+          --     computedOldTopHash :: Hash
+          --     computedOldTopHash = computeDigest (computedOldDaMetaData, oldRootHash)
+          --  in traceBool
+          --       "old top hash = computed top hash"
+          --       "old top hash != computed top hash"
+          --       ( oldNFTTopHash
+          --           == computedOldTopHash
+          --       ),
+          -- The NFT must be again included in the outputs
+          -- traceBool
+          --   "multi sig is valid"
+          --   "multi sig isn't valid"
+          --   (multiSigValid daCommittee newTopHash sig),
           traceBool
             "core validation passed"
             "core validation didn't pass"
@@ -168,7 +182,6 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
               newTopHash
               sig
               oldNFTTopHash,
-          -- The NFT must be again included in the outputs
           traceBool "output has nft" "output doesn't have nft" outputHasNFT,
           -- The NFT's data must have been updated
           traceBool "nft updated" "nft isn't updated" $ nftUpdated newTopHash
@@ -189,14 +202,14 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       Just datum -> datum
       Nothing -> PlutusTx.traceError "Can't find new bridge datum"
 
-    oldNFTTopHash :: Hash
+    oldNFTTopHash :: Blake2b_256
     oldNFTTopHash = bridgeNFTTopHash oldBridgeNFTDatum
 
-    newNFTTopHash :: Hash
+    newNFTTopHash :: Blake2b_256
     newNFTTopHash = bridgeNFTTopHash newBridgeNFTDatum
 
     -- The output NFT UTXO's datum must match the new values for the root hashes
-    nftUpdated :: Hash -> Bool
+    nftUpdated :: Blake2b_256 -> Bool
     nftUpdated newTopHash =
       traceBool "new top hash = old top hash" "new top hash != old top hash" $ newNFTTopHash == newTopHash
 
@@ -207,28 +220,27 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
        in assetClassValueOf (txOutValue ownOutput) assetClass == 1
 
 -- Core validation function, for easy testing
-bridgeTypedValidatorCore :: Hash -> MultiSigPubKey -> Hash -> Hash -> MultiSig -> Hash -> Bool
+bridgeTypedValidatorCore :: Blake2b_256 -> MultiSigPubKey -> Blake2b_256 -> Blake2b_256 -> MultiSig -> Blake2b_256 -> Bool
 bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
   traceBool
-    "multi sig is valid"
-    "multi sig isn't valid"
-    (multiSigValid daCommittee newTopHash sig)
-    &&
-    -- \^ The new top hash must be signed by the committee
-    traceBool
-      "old top hash = computed top hash"
-      "old top hash != computed top hash"
-      ( oldTopHash
-          == computedOldTopHash
-      )
+    "old top hash = computed top hash"
+    "old top hash != computed top hash"
+    ( oldTopHash
+        == computedOldTopHash
+    )
+    && traceBool
+      "multi sig is valid"
+      "multi sig isn't valid"
+      (multiSigValid daCommittee newTopHash sig)
   where
-    -- \^ The old top hash must be the hash of the concatenation of committee fingerprint
-    --   and old root hash
-    daCommitteeFingerprint :: Hash
+    -- \^ The new top hash must be signed by the committee
+    daCommitteeFingerprint :: Blake2b_256
     daCommitteeFingerprint = computeDigest daCommittee
-    computedOldDaMetaData :: Hash
+    computedOldDaMetaData :: Blake2b_256
     computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
-    computedOldTopHash :: Hash
+    -- \| The old top hash must be the hash of the concatenation of committee fingerprint
+    -- and old root hash
+    computedOldTopHash :: Blake2b_256
     computedOldTopHash = computeDigest (computedOldDaMetaData, daData)
 
 ------------------------------------------------------------------------------

@@ -101,8 +101,6 @@ P.makeIsDataSchemaIndexed ''Blake2b_256 [('Blake2b_256, 0)]
 instance IsHash Blake2b_256 where
   hashFunction = Blake2b_256 . Bytes32 . blake2b_256
 
-type Hash = Blake2b_256
-
 data HashRef d x = HashRef {hashRefHash :: d, hashRefValue :: x}
   deriving (HP.Eq, HP.Show)
   deriving stock (Generic)

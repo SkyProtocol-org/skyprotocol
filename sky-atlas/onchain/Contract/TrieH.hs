@@ -11,13 +11,13 @@ import PlutusTx.Prelude
 -- * Types
 
 -- | TrieTopH has height then H(TrieNodeH)
-type TrieTopH = TrieTop Hash
+type TrieTopH = TrieTop Blake2b_256
 
-type TrieNodeH h k c = TrieNodeF h k c Hash
+type TrieNodeH h k c = TrieNodeF h k c Blake2b_256
 
 -- ** Zippers
 
-type TrieZipperH h k = TrieZip h k Hash Hash
+type TrieZipperH h k = TrieZip h k Blake2b_256 Blake2b_256
 
 -- * Typeclasses
 

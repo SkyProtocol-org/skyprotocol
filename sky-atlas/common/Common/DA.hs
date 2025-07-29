@@ -34,12 +34,12 @@ data SkyDa r = SkyDa
 instance (LiftDato r) => ToByteString (SkyDa r) where
   byteStringOut SkyDa {..} isTerminal s = byteStringOut skyMetaData NonTerminal $ byteStringOut skyTopicTrie isTerminal s
 
-newtype DaMetaData r = DaMetaDataOfTuple {tupleOfDaMetaData :: (Hash, LiftRef r Committee)}
+newtype DaMetaData r = DaMetaDataOfTuple {tupleOfDaMetaData :: (Blake2b_256, LiftRef r Committee)}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 -- deriving (HP.Eq, HP.Show)
 
-pattern DaMetaData :: forall r. Hash -> LiftRef r Committee -> DaMetaData r
+pattern DaMetaData :: forall r. Blake2b_256 -> LiftRef r Committee -> DaMetaData r
 pattern DaMetaData {daSchema, daCommittee} = DaMetaDataOfTuple (daSchema, daCommittee)
 
 {-# COMPLETE DaMetaData #-}
@@ -49,10 +49,10 @@ type TopicTrie r = Trie r Byte TopicId (TopicEntry r)
 type TopicEntry r = (LiftRef r (TopicMetaData r), LiftRef r (MessageTrie r))
 
 newtype TopicMetaData r
-  = TopicMetaDataOfTuple {tupleOfTopicMetaData :: (Hash, LiftRef r Committee)}
+  = TopicMetaDataOfTuple {tupleOfTopicMetaData :: (Blake2b_256, LiftRef r Committee)}
   deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
-pattern TopicMetaData :: forall r. Hash -> LiftRef r Committee -> TopicMetaData r
+pattern TopicMetaData :: forall r. Blake2b_256 -> LiftRef r Committee -> TopicMetaData r
 pattern TopicMetaData {topicSchema, topicCommittee} = TopicMetaDataOfTuple (topicSchema, topicCommittee)
 
 {-# COMPLETE TopicMetaData #-}
@@ -184,7 +184,7 @@ committeeOfDaMetaData (DaMetaData _ c) = c
 -- TODO: add authentication, payment, etc., if not in this function, in one that wraps around it.
 insertTopic ::
   (Monad e, Functor e, LiftWrapping e r, LiftDato r) =>
-  Hash ->
+  Blake2b_256 ->
   SkyDa r ->
   e (SkyDa r, Maybe TopicId)
 insertTopic newTopicSchema da@SkyDa {..} =
@@ -292,7 +292,7 @@ proofOfSkyDataPath SkyDataPath {..} =
   where
     lcg = LiftRef . Digest . refDigest
 
-initDa :: (LiftDato r, LiftWrapping e r) => Hash -> Committee -> e (SkyDa r)
+initDa :: (LiftDato r, LiftWrapping e r) => Blake2b_256 -> Committee -> e (SkyDa r)
 initDa daSchema daCommittee = do
   skyTopicTrie <- empty >>= wrap
   rCommittee <- wrap daCommittee

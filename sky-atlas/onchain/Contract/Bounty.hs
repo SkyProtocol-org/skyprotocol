@@ -42,7 +42,7 @@ data ClientParams = ClientParams
     -- | ID of topic in which data must be published
     bountyTopicId :: TopicId,
     -- | Hash of data that must be proven to be present in DA
-    bountyMessageHash :: Hash,
+    bountyMessageHash :: Blake2b_256,
     bountyDeadline :: POSIXTime
   }
   deriving stock (Generic)
@@ -65,7 +65,7 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 ------------------------------------------------------------------------------
 
 -- Separating validation logic to make for easy testing
-validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
+validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Blake2b_256 -> TopicId -> SkyDataProofH -> Blake2b_256 -> Bool
 validateClaimBounty
   bountyDeadline
   txValidRange
@@ -119,7 +119,7 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
         && allPaidToCredential bountyOffererPubKeyHash
   where
     -- DA Top hash stored in NFT
-    daTopHash :: Hash
+    daTopHash :: Blake2b_256
     daTopHash =
       bridgeNFTTopHash
         . fromJust

@@ -8,13 +8,13 @@ import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Test.Tasty.HUnit
 
 -- Create test DA structure and proof
-createTestDa :: GYPaymentVerificationKey -> (SkyDa (HashRef Hash), Hash, MultiSigPubKey)
+createTestDa :: GYPaymentVerificationKey -> (SkyDa (HashRef Blake2b_256), Blake2b_256, MultiSigPubKey)
 createTestDa pubKey =
   let schema = computeDigest (ofHex "deadbeef" :: Bytes4)
       adminPubKeyBytes = paymentVerificationKeyRawBytes pubKey
       adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
       committee = MultiSigPubKey ([adminPubKey], UInt16 1)
-      da = runIdentity $ initDa schema committee :: SkyDa (HashRef Hash)
+      da = runIdentity $ initDa schema committee :: SkyDa (HashRef Blake2b_256)
    in (da, schema, committee)
 
 getAdmin :: FilePath -> IO CardanoUser

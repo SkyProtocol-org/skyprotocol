@@ -72,10 +72,10 @@ instance FromJSON Bytes32 where
 instance ToSchema Bytes32
 
 -- TODO: should make conversion to/from hex string
-instance FromJSON Hash where
+instance FromJSON Blake2b_256 where
   parseJSON = withObject "Blake2b_256" $ \v -> Blake2b_256 <$> v .: "hash"
 
-instance ToJSON Hash where
+instance ToJSON Blake2b_256 where
   toJSON (Blake2b_256 h) = object ["hash" .= h]
 
-instance ToSchema Hash
+instance ToSchema Blake2b_256

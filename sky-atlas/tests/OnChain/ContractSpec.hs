@@ -60,6 +60,10 @@ updateBridgeTest TestInfo {..} = do
       oldTopHash = computeDigest da
       topHash = computeDigest @Blake2b_256 newDa
 
+  daData <- unwrap $ skyTopicTrie da'
+
+  let daDataHash = computeDigest @Blake2b_256 daData
+
   let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId "SkyBridge"
@@ -97,7 +101,7 @@ updateBridgeTest TestInfo {..} = do
 
   let bridgeSchema = schema
       bridgeCommittee = committee
-      bridgeOldRootHash = oldTopHash
+      bridgeOldRootHash = daDataHash
       bridgeNewTopHash = topHash
       -- TODO: make this safe
       adminSecKeyBytes = signingKeyToRawBytes $ userPaymentSKey' $ admin testWallets

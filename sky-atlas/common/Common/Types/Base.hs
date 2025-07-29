@@ -405,6 +405,8 @@ instance FromByteString P.BuiltinString where
   fromByteString = decodeUtf8 -- XXX
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
+-- looks like nonsense instances?
+-- upd: instances for testing (why?)
 instance P.ToData P.BuiltinString where
   toBuiltinData = toBuiltinData . toByteString
 
