@@ -11,8 +11,6 @@ import Common.Trie
 import Common.Types
 import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
--- import Data.Kind (Type)
--- import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusTx
 import PlutusTx.Functor as PlutusTx
 import PlutusTx.Prelude as PlutusTx
@@ -57,66 +55,6 @@ pattern TopicMetaDataH {topicSchemaH, topicCommitteeH} =
   TopicMetaDataOfTupleH (topicSchemaH, topicCommitteeH)
 
 {-# COMPLETE TopicMetaDataH #-}
-
-{-
--- TODO: add message length in the metadata
--- NB: same as MessageMetaData
-newtype MessageMetaDataH
-  = MessageMetaDataH {getMessageMetaDataH :: POSIXTime}
-  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-
--- NB: same as MessageData
-type MessageDataH = BuiltinByteString
-
--- so we can publish it piecemeal on the chain and/or use ZK Proofs about it.
-type Committee = MultiSigPubKey
-
-newtype TopicId = TopicId {getTopicId :: Bytes8}
-  deriving newtype
-    ( ToInt,
-      FromInt,
-      UnsafeFromData,
-      ToData,
-      FromData,
-      BitLogic,
-      FromByteString,
-      ToByteString,
-      PlutusTx.Show,
-      PlutusTx.Eq,
-      HP.Show,
-      HP.Eq
-    )
-
-topicIdFromInteger :: Integer -> TopicId
-topicIdFromInteger = fromInt
-
-instance TrieKey TopicId
-
-instance TrieHeightKey Byte TopicId
-
-newtype MessageId = MessageId {getMessageId :: Bytes8}
-  deriving newtype
-    ( ToInt,
-      FromInt,
-      UnsafeFromData,
-      ToData,
-      FromData,
-      BitLogic,
-      FromByteString,
-      ToByteString,
-      PlutusTx.Show,
-      PlutusTx.Eq,
-      HP.Show,
-      HP.Eq
-    )
-
-messageIdFromInteger :: Integer -> MessageId
-messageIdFromInteger = fromInt
-
-instance TrieKey MessageId
-
-instance TrieHeightKey Byte MessageId
--}
 
 type TrieTopicPathH t = TriePath Byte TopicId t
 

@@ -676,14 +676,16 @@ fr w = do u <- unwrap w; case getFix u of TrieNodeFL x -> return x
 
 triePathSkipDown :: (TrieHeightKey h k) => Integer -> k -> TriePath h k d -> TriePath h k d
 triePathSkipDown sl sk p@(TriePath h k m d) =
-  if sl == 0
-    then p -- is this check an optimization or pessimization?
-    else if sl < 0 then traceError "bad sl"
-    else
+  if sl > 0
+    then
       let h' = h - sl
           k' = shiftLeftWithBits k sl sk
           m' = shiftLeftWithBits m sl $ lowBitsMask sl
        in TriePath h' k' m' d
+    else if sl == 0 then
+      p
+    else -- sl < 0 -- Should not happen. Should we even test for it instead of assuming sl == 0 ?
+      traceError "bad sl"
 
 trieNodeSkipUp :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Integer -> k -> TrieNodeRef r h k c -> e (TrieNodeRef r h k c)
 trieNodeSkipUp l k x =
