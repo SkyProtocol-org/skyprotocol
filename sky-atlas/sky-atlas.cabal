@@ -51,6 +51,7 @@ common plutus-ghc-options
 
   -- set target plutus-core version
   ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
+  ghc-options: -fplugin-opt PlutusTx.Plugin:dump-pir
 
 library common
   import:             common, plutus-ghc-options
@@ -164,6 +165,19 @@ executable sky-atlas
     , wai-extra
     , warp
     , yaml
+
+executable show-pir
+  hs-source-dirs: app
+  main-is: ShowPir.hs
+  build-depends:
+    , plutus-ledger-api ^>=1.49.0.0
+    , base
+    , bytestring
+    , sky-atlas:onchain
+    , plutus-ledger-api
+    , plutus-tx
+    , plutus-core
+
 
 test-suite common-tests
   import:         common
