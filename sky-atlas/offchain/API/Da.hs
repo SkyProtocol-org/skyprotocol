@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
 import GHC.Generics (Generic)
 import Log
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import PlutusLedgerApi.V1 (toBuiltin)
 import Servant
 import Servant.Server.Generic
 import Utils
@@ -129,7 +129,7 @@ publishMessageH _user topicId (RawBytes msgBody) = do
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
     let da = view (blockState . skyDa) state
     timestamp <- currentPOSIXTime
-    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (BuiltinByteString msgBody) topicId da
+    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (toBuiltin msgBody) topicId da
     let newState = (set (blockState . skyDa) newDa state, maybeMessageId)
     modifyMVar_ stateR . const . return $ fst newState
     return newState

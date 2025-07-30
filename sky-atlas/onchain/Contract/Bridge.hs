@@ -167,11 +167,10 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
           --       ( oldNFTTopHash
           --           == computedOldTopHash
           --       ),
-          -- The NFT must be again included in the outputs
-          -- traceBool
-          --   "multi sig is valid"
-          --   "multi sig isn't valid"
-          --   (multiSigValid daCommittee newTopHash sig),
+          traceBool
+            "multi sig is valid"
+            "multi sig isn't valid"
+            (multiSigValid daCommittee newTopHash sig),
           traceBool
             "core validation passed"
             "core validation didn't pass"
@@ -182,6 +181,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
               newTopHash
               sig
               oldNFTTopHash,
+          -- The NFT must be again included in the outputs
           traceBool "output has nft" "output doesn't have nft" outputHasNFT,
           -- The NFT's data must have been updated
           traceBool "nft updated" "nft isn't updated" $ nftUpdated newTopHash

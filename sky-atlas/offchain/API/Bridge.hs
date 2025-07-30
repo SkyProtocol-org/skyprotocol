@@ -17,9 +17,8 @@ import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
 import PlutusLedgerApi.Data.V2 (FromData (..))
-import PlutusLedgerApi.V1 (ScriptHash (..))
+import PlutusLedgerApi.V1 (ScriptHash (..), toBuiltin)
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Servant
 import Servant.Server.Generic
 
@@ -163,10 +162,10 @@ bridgeServer =
           bridgeNewTopHash = topHash
           -- TODO: make this safe
           adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey appAdmin in signingKeyToRawBytes sk
-          adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
+          adminSecKey = fromByteString $ toBuiltin adminSecKeyBytes
           signature = signMessage adminSecKey topHash
           adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
-          adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+          adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
           bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
           bridgeRedeemer = UpdateBridge {..}
 

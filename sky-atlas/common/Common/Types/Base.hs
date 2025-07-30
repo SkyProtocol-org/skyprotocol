@@ -176,11 +176,13 @@ class FromInt a where
 -- But keep the bytestring variant for the sake of other chains?
 class ToByteString a where
   -- | convert to String
+  {-# INLINEABLE toByteString #-}
   toByteString :: a -> P.BuiltinByteString
   toByteString = toByteStringOut
 
   -- | append to a String in Terminal or NonTerminal position
   -- default method assumes self-delimitation (e.g. fixed length, length prefix, or terminator)
+  {-# INLINEABLE byteStringOut #-}
   byteStringOut :: a -> IsTerminal -> P.BuiltinByteString -> P.BuiltinByteString
   byteStringOut a _ = appendByteString $ toByteString a
 

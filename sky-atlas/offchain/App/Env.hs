@@ -10,7 +10,7 @@ import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import PlutusLedgerApi.V1 (toBuiltin)
 import Utils
 
 -- TODO: add updatable whitelist for users here or in the AppState
@@ -170,7 +170,7 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
     Left err -> pure $ Left err
     Right [appAdmin, appOfferer, appClaimant] -> do
       let adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
-          adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+          adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
       let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
           committee = MultiSigPubKey ([adminPubKey], UInt16 1)
           _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Blake2b_256)
