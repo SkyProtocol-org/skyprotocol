@@ -58,11 +58,11 @@ updateBridgeTest TestInfo {..} = do
       topicId = fromJust maybeTopicId
       (newDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da'
       oldTopHash = computeDigest da
-      topHash = computeDigest @Blake2b_256 newDa
+      topHash = computeDigest @Hash newDa
 
   daData <- unwrap $ skyTopicTrie da'
 
-  let daDataHash = computeDigest @Blake2b_256 daData
+  let daDataHash = computeDigest @Hash daData
 
   let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy

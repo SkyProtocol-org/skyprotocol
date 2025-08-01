@@ -77,7 +77,7 @@ instance ToJSON UpdateBridgeRequest where
 
 data OfferBountyRequest = OfferBountyRequest
   { obrTopicId :: TopicId,
-    obrMessageHash :: Blake2b_256,
+    obrMessageHash :: Hash,
     obrDeadline :: POSIXTime,
     obrChangeAddr :: GYAddress,
     obrUsedAddrs :: [GYAddress],
@@ -114,7 +114,7 @@ instance ToJSON OfferBountyRequest where
 -- (why claimant must know about the deadline?)
 data ClaimBountyRequest = ClaimBountyRequest
   { cbrTopicId :: TopicId,
-    cbrMessageHash :: Blake2b_256,
+    cbrMessageHash :: Hash,
     cbrDeadline :: POSIXTime,
     cBountyrChangeAddr :: GYAddress,
     cBountyrUsedAddrs :: [GYAddress],

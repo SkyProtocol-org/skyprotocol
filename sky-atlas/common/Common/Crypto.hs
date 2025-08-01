@@ -98,8 +98,7 @@ newtype Blake2b_256 = Blake2b_256 {getBlake2b_256 :: Bytes32}
 P.makeLift ''Blake2b_256
 P.makeIsDataSchemaIndexed ''Blake2b_256 [('Blake2b_256, 0)]
 
-instance IsHash Blake2b_256 where
-  hashFunction = Blake2b_256 . Bytes32 . blake2b_256
+type Hash = Blake2b_256
 
 data HashRef d x = HashRef {hashRefHash :: d, hashRefValue :: x}
   deriving (HP.Eq, HP.Show)
@@ -151,6 +150,11 @@ instance (IsHash d) => LiftFromData (Digest d) where
 
 instance (IsHash d) => LiftUnsafeFromData (Digest d) where
   liftUnsafeFromBuiltinData = unsafeFromBuiltinData
+
+-- ** Blake2b_256
+
+instance IsHash Blake2b_256 where
+  hashFunction = Blake2b_256 . Bytes32 . blake2b_256
 
 -- ** HashRef
 
@@ -293,8 +297,6 @@ instance FromJSON SecKey where
     return $ SecKey $ ofHex k
 
 -- ** PubKeyHash
-
--- TODO implement isomorphism between builtin PubKeyHash and our (Digest Blake2b_256 PubKey)
 
 instance ToByteString PubKeyHash where
   toByteString = getPubKeyHash

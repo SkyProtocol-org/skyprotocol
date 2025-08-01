@@ -110,7 +110,7 @@ data AppState = AppState
 
 data BlockState = BlockState
   { -- | data published on the DA
-    _skyDa :: SkyDa (HashRef Blake2b_256),
+    _skyDa :: SkyDa (HashRef Hash),
     -- | Not Implemented Yet:
     -- | current topic
     _topic :: (),
@@ -125,7 +125,7 @@ data BlockState = BlockState
   }
 
 data BridgeState = BridgeState
-  { _bridgedSkyDa :: SkyDa (HashRef Blake2b_256) -- data published on the DA *and* bridged on the blockchain
+  { _bridgedSkyDa :: SkyDa (HashRef Hash) -- data published on the DA *and* bridged on the blockchain
   }
 
 -- TODO: the use of TemplateHaskell is messing with compilers order of definition.
@@ -134,7 +134,7 @@ $(makeLenses ''BridgeState)
 $(makeLenses ''AppState)
 $(makeLenses ''BlockState)
 
-initBlockState :: SkyDa (HashRef Blake2b_256) -> BlockState
+initBlockState :: SkyDa (HashRef Hash) -> BlockState
 initBlockState da =
   BlockState
     { _skyDa = da,
@@ -173,7 +173,7 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
           adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
       let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
           committee = MultiSigPubKey ([adminPubKey], UInt16 1)
-          _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Blake2b_256)
+          _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
           _blockState = initBlockState _skyDa
           appState = initAppState _blockState $ BridgeState _skyDa
 

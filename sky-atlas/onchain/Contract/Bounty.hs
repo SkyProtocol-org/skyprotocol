@@ -42,7 +42,7 @@ data ClientParams = ClientParams
     -- | ID of topic in which data must be published
     bountyTopicId :: TopicId,
     -- | Hash of data that must be proven to be present in DA
-    bountyMessageHash :: Blake2b_256,
+    bountyMessageHash :: Hash,
     bountyDeadline :: POSIXTime
   }
   deriving stock (Generic)
@@ -65,7 +65,7 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 ------------------------------------------------------------------------------
 
 -- Separating validation logic to make for easy testing
-validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Blake2b_256 -> TopicId -> SkyDataProofH -> Blake2b_256 -> Bool
+validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
 validateClaimBounty
   bountyDeadline
   txValidRange
@@ -142,7 +142,7 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
       Just d -> d
       Nothing -> traceError "Can't get nft datum from context"
     -- DA Top hash stored in NFT
-    daTopHash :: Blake2b_256
+    daTopHash :: Hash
     daTopHash = bridgeNFTTopHash bridgeNftDatum
     -- Tx validity interval
     txValidRange = txInfoValidRange . scriptContextTxInfo $ ctx

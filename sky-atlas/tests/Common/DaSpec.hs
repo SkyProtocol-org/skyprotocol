@@ -123,34 +123,34 @@ fingerprintSpec =
     [ testCase "multi sig 1 serialization should match" $ do
         mpk1 `shouldBeHex` "00033363a313e34cf6d3b9e0ce44aed5a54567c4302b873dd69ec7f37b9e83aabf6542fb07466d301ca2cc2eff2fd93a67eb1ebbec213e6532a04dc82be6a41329ae22b9524d37a16c945deec3455d92a1ebc5ac857174f5a0a8b376517a205dca730002",
       testCase "multi sig 1 fingerprint should match" $ do
-        computeDigest @Blake2b_256 mpk1 `shouldBeHex` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327",
+        computeDigest @Hash mpk1 `shouldBeHex` "6f25872869654adb946b83b82490b2f38c001212e6815f86f41134ffd05c8327",
       testCase "multi sig 2 fingerprint should match" $ do
-        computeDigest @Blake2b_256 mpk2 `shouldBeHex` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
+        computeDigest @Hash mpk2 `shouldBeHex` "1e974300f36903173a25402220e346503bc747e4549b608543939566f74ffe83"
     ]
 
-daSchema0 :: Blake2b_256
-daSchema0 = computeDigest @Blake2b_256 @Bytes4 $ ofHex "deadbeef"
+daSchema0 :: Hash
+daSchema0 = computeDigest @Hash @Bytes4 $ ofHex "deadbeef"
 
-topicSchema0 :: Blake2b_256
-topicSchema0 = computeDigest @Blake2b_256 @Bytes4 $ ofHex "1ea7f00d"
+topicSchema0 :: Hash
+topicSchema0 = computeDigest @Hash @Bytes4 $ ofHex "1ea7f00d"
 
 committee0 :: Committee
 committee0 = MultiSigPubKey ([pk1, pk2], UInt16 2)
 
-daMetaData0 :: DaMetaData (HashRef Blake2b_256)
+daMetaData0 :: DaMetaData (HashRef Hash)
 daMetaData0 = DaMetaData daSchema0 (LiftRef (digestRef committee0))
 
 timestamp1 :: POSIXTime
 timestamp1 = 455155200000 -- June 4th 1989
 
-msgMeta1 :: MessageMetaData (HashRef Blake2b_256)
+msgMeta1 :: MessageMetaData (HashRef Hash)
 msgMeta1 = MessageMetaData timestamp1
 
 msg1 :: BuiltinByteString
 msg1 = stringToBuiltinByteString "Hello, World!"
 
-msg1Hash :: Blake2b_256
-msg1Hash = computeDigest @Blake2b_256 msg1
+msg1Hash :: Hash
+msg1Hash = computeDigest @Hash msg1
 
 msg2 :: BuiltinByteString
 msg2 = stringToBuiltinByteString "Taxation is Theft"
@@ -158,30 +158,30 @@ msg2 = stringToBuiltinByteString "Taxation is Theft"
 msg3 :: BuiltinByteString
 msg3 = stringToBuiltinByteString "Slava Drakonu"
 
-msg3Hash :: Blake2b_256
-msg3Hash = computeDigest @Blake2b_256 msg3
+msg3Hash :: Hash
+msg3Hash = computeDigest @Hash msg3
 
 daSpec :: TestTree
 daSpec =
   testGroup
     "simple tests for SkyDA"
-    let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa (HashRef Blake2b_256)
+    let da0 = runIdentity $ initDa daSchema0 committee0 :: SkyDa (HashRef Hash)
         (da1, Just topic0) = runIdentity $ insertTopic topicSchema0 da0
         (da2, Just msg1i) = runIdentity $ insertMessage timestamp1 msg1 topic0 da1
         (da3, _) = runIdentity $ insertMessage timestamp1 msg2 topic0 da2
-        Just (msg1b, proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3 :: Maybe (LiftRef (HashRef Blake2b_256) BuiltinByteString, SkyDataProof Blake2b_256)
+        Just (msg1b, proof1) = runIdentity $ getSkyDataProof (topic0, msg1i) da3 :: Maybe (LiftRef (HashRef Hash) BuiltinByteString, SkyDataProof Hash)
      in [ -- Create an empty SkyDA, check its digest
           testCase "hash of empty DA" $ do
-            let topHash0 = computeDigest @Blake2b_256 da0
+            let topHash0 = computeDigest @Hash da0
             topHash0 `shouldBeHex` "8fb3f562be2da84052ca81850060c549ac8b9914799885c8e1651405a3c38d19",
           -- Check that proofs come in empty
           testCase "No proof for (0,0) in empty Da" $ do
-            let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0 :: Maybe (LiftRef (HashRef Blake2b_256) BuiltinByteString, SkyDataProof Blake2b_256)
+            let maybeProof0 = runIdentity $ getSkyDataProof (fromInt 0, fromInt 0) da0 :: Maybe (LiftRef (HashRef Hash) BuiltinByteString, SkyDataProof Hash)
             maybeProof0 `shouldBeHex` "00",
           testCase "msg1 matches" $ do
             msg1b == LiftRef (digestRef msg1) @?= True,
-          let l1d = (refDigest . liftref $ msg1b) :: Blake2b_256
-              topHash1 = computeDigest @Blake2b_256 da3 :: Blake2b_256
+          let l1d = (refDigest . liftref $ msg1b) :: Hash
+              topHash1 = computeDigest @Hash da3 :: Hash
            in testCase "proof1 correct" $ do
                 applySkyDataProof proof1 l1d == topHash1 @?= True
                 (triePathHeight . pathTopicTriePath $ proof1) == 0 @?= True
@@ -190,37 +190,37 @@ daSpec =
                 (triePathKey . pathMessageTriePath $ proof1) == msg1i @?= True,
           let (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
               (da11, Just msg3i) = runIdentity $ insertMessage timestamp1 msg3 topic1 da10
-              Just (msg3b, _proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef (HashRef Blake2b_256) BuiltinByteString, SkyDataProof Blake2b_256)
+              Just (msg3b, _proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef (HashRef Hash) BuiltinByteString, SkyDataProof Hash)
            in testCase "msg3 matches" $ do
                 msg3b == LiftRef (digestRef msg3) @?= True,
           let (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
               (da11, Just msg3i) = runIdentity $ insertMessage timestamp1 msg3 topic1 da10
-              Just (msg3b, proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef (HashRef Blake2b_256) BuiltinByteString, SkyDataProof Blake2b_256)
-              l3d = (refDigest . liftref $ msg3b) :: Blake2b_256
-              topHash3 = computeDigest @Blake2b_256 da11 :: Blake2b_256
+              Just (msg3b, proof3) = runIdentity $ getSkyDataProof (topic1, msg3i) da11 :: Maybe (LiftRef (HashRef Hash) BuiltinByteString, SkyDataProof Hash)
+              l3d = (refDigest . liftref $ msg3b) :: Hash
+              topHash3 = computeDigest @Hash da11 :: Hash
            in testCase "proof3 correct" $ do
                 applySkyDataProof proof3 l3d == topHash3 @?= True
                 (triePathHeight . pathTopicTriePath $ proof3) == 0 @?= True
                 (triePathKey . pathTopicTriePath $ proof3) == topic1 @?= True
                 (triePathHeight . pathMessageTriePath $ proof3) == 0 @?= True
                 (triePathKey . pathMessageTriePath $ proof3) == msg3i @?= True,
-          let topHash1 = computeDigest @Blake2b_256 da3 :: Blake2b_256
+          let topHash1 = computeDigest @Hash da3 :: Hash
               (da10, Just topic1) = runIdentity $ insertTopic topicSchema0 da3
               (da11, Just _msg3i) = runIdentity $ insertMessage timestamp1 msg3 topic1 da10
-              topHash3 = computeDigest @Blake2b_256 da11 :: Blake2b_256
+              topHash3 = computeDigest @Hash da11 :: Hash
            in testCase "hashes differ" $ do
                 topHash1 == topHash3 @?= False
                 topHash1 `shouldBeHex` "d06aed04494431af51e7bb5b08af4c8652392f38de2c82793689874131796fd7"
                 topHash3 `shouldBeHex` "15bdb37f0ca57026161993a51674fb346fc114237a45339adac5e58940c5118b",
-          let topHash1 = computeDigest @Blake2b_256 da3 :: Blake2b_256
+          let topHash1 = computeDigest @Hash da3 :: Hash
               topHash1Sig1 = SingleSig (pk1, signMessage sk1 topHash1)
            in testCase "topHash1Sig1 signature should be valid" $ do
                 singleSigValid topHash1 topHash1Sig1 @?= True,
-          let topHash1 = computeDigest @Blake2b_256 da3 :: Blake2b_256
+          let topHash1 = computeDigest @Hash da3 :: Hash
               topHash1Sig2 = SingleSig (pk2, signMessage sk2 topHash1)
            in testCase "topHash1Sig2 signature should be valid" $ do
                 singleSigValid topHash1 topHash1Sig2 @?= True,
-          let topHash1 = computeDigest @Blake2b_256 da3 :: Blake2b_256
+          let topHash1 = computeDigest @Hash da3 :: Hash
               topHash1Sig1 = SingleSig (pk1, signMessage sk1 topHash1)
               topHash1Sig2 = SingleSig (pk2, signMessage sk2 topHash1)
               topHash1Sig = MultiSig [topHash1Sig1, topHash1Sig2]

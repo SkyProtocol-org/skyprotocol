@@ -1,6 +1,6 @@
 module API.Bridge.Contracts where
 
-import Common.Crypto (Blake2b_256)
+import Common.Crypto (Hash)
 import Contract.Bridge
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
@@ -15,7 +15,7 @@ mkMintingSkeleton ::
   -- | Minting policy
   GYScript 'PlutusV2 ->
   -- | Top hash
-  Blake2b_256 ->
+  Hash ->
   -- | Addr of the bridge validator
   GYAddress ->
   -- | Minting policy signer
