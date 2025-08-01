@@ -463,7 +463,11 @@ instance FromInt UInt16 where
   maybeFromInt = maybeValidate . UInt16
 
 instance ToByteString UInt16 where
-  toByteString (UInt16 n) = integerToByteString BigEndian 2 n
+  -- using integerToByteString seems to cause a resource exhaustion when executing the contract(!!!)
+  -- toByteString (UInt16 n) = integerToByteString BigEndian 2 n
+  toByteString (UInt16 n) = consByteString (divideInteger n 256) $ consByteString (modInteger n 256) emptyByteString
+  -- This is the default method, we shouldn't have to repeat it:
+  -- byteStringOut a _ = appendByteString $ toByteString a
 
 instance FromByteString UInt16 where
   -- {-# INLINEABLE fromByteString #-}

@@ -451,12 +451,14 @@ instance
 -- ** Lists
 
 instance (ToByteString a) => ToByteString [a {- length limit 65535. -}] where
+  toByteString l = appendByteString (toByteString . toUInt16 $ length l) emptyByteString
   byteStringOut l isTerminal s =
     byteStringOut (toUInt16 $ length l) NonTerminal $ loop s l
     where
-      loop bs [] = bs
-      loop bs [a] = byteStringOut a isTerminal bs
-      loop bs (a : l') = byteStringOut a NonTerminal (loop bs l')
+      loop bs = \case
+        [] -> bs
+        [a] -> byteStringOut a isTerminal bs
+        (a : l') -> byteStringOut a NonTerminal (loop bs l')
 
 instance (FromByteString a) => FromByteString [a {- length limit 65535 -}] where
   byteStringIn isTerminal = byteStringIn NonTerminal >>= \(UInt16 len) -> loop len

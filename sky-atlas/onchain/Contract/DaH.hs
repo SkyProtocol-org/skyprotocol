@@ -9,6 +9,7 @@ import Common.Crypto
 import Common.DA
 import Common.Trie
 import Common.Types
+import Contract.TrieH
 import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
 import PlutusTx
@@ -24,33 +25,33 @@ import PlutusTx.Show as PlutusTx
 
 -- * Types
 
-newtype SkyDaH = SkyDaOfTupleH {tupleOfSkyDaH :: (Blake2b_256, Blake2b_256)} -- H(DaMetaData), H(TopicTrie)
+newtype SkyDaH = SkyDaOfTupleH {tupleOfSkyDaH :: (Hash, Hash)} -- H(DaMetaData), H(TopicTrie)
   deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 -- deriving (HP.Eq, HP.Show)
 
-pattern SkyDaH :: Blake2b_256 -> Blake2b_256 -> SkyDaH
+pattern SkyDaH :: Hash -> Hash -> SkyDaH
 pattern SkyDaH {skyMetaDataH, skyTopicTrieH} = SkyDaOfTupleH (skyMetaDataH, skyTopicTrieH)
 
 {-# COMPLETE SkyDaH #-}
 
-newtype DaMetaDataH = DaMetaDataOfTupleH {tupleOfDaMetaDataH :: (Blake2b_256, Blake2b_256)}
+newtype DaMetaDataH = DaMetaDataOfTupleH {tupleOfDaMetaDataH :: (Hash, Hash)}
   deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 -- deriving (HP.Eq, HP.Show)
 
-pattern DaMetaDataH :: Blake2b_256 -> Blake2b_256 -> DaMetaDataH -- schema, committee
+pattern DaMetaDataH :: Hash -> Hash -> DaMetaDataH -- schema, committee
 pattern DaMetaDataH {daSchemaH, daCommitteeH} = DaMetaDataOfTupleH (daSchemaH, daCommitteeH)
 
 {-# COMPLETE DaMetaDataH #-}
 
-type TopicEntryH = (Blake2b_256, Blake2b_256) -- H(TopicMetaDataH), H(MessageTrieH)
+type TopicEntryH = (Hash, Hash) -- H(TopicMetaDataH), H(MessageTrieH)
 
 newtype TopicMetaDataH
-  = TopicMetaDataOfTupleH {tupleOfTopicMetaDataH :: (Blake2b_256, Blake2b_256)}
+  = TopicMetaDataOfTupleH {tupleOfTopicMetaDataH :: (Hash, Hash)}
   deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
-pattern TopicMetaDataH :: Blake2b_256 -> Blake2b_256 -> TopicMetaDataH
+pattern TopicMetaDataH :: Hash -> Hash -> TopicMetaDataH
 pattern TopicMetaDataH {topicSchemaH, topicCommitteeH} =
   TopicMetaDataOfTupleH (topicSchemaH, topicCommitteeH)
 
@@ -61,12 +62,12 @@ type TrieTopicPathH t = TriePath Byte TopicId t
 type TrieMessagePathH t = TriePath Byte MessageId t
 
 newtype SkyDataProofH = SkyDataProofOfTupleH
-  {tupleOfSkyDataProofH :: (Blake2b_256, TrieTopicPathH Blake2b_256, Blake2b_256, TrieMessagePathH Blake2b_256, Blake2b_256)}
+  {tupleOfSkyDataProofH :: (Hash, TrieTopicPathH Hash, Hash, TrieMessagePathH Hash, Hash)}
   deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
 
 -- deriving (HP.Eq, HP.Show)
 
-pattern SkyDataProofH :: Blake2b_256 -> TrieTopicPathH Blake2b_256 -> Blake2b_256 -> TrieMessagePathH Blake2b_256 -> Blake2b_256 -> SkyDataProofH
+pattern SkyDataProofH :: Hash -> TrieTopicPathH Hash -> Hash -> TrieMessagePathH Hash -> Hash -> SkyDataProofH
 pattern SkyDataProofH {proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH, proofMessageTriePathH, proofMessageMetaDataH} = SkyDataProofOfTupleH (proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH, proofMessageTriePathH, proofMessageMetaDataH)
 
 {-# COMPLETE SkyDataProofH #-}
@@ -77,21 +78,21 @@ pattern SkyDataProofH {proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaData
 
 -- TODO: In the future, also support proof of non-inclusion.
 {-# INLINEABLE applySkyDataProofH #-}
-applySkyDataProofH :: SkyDataProofH -> Blake2b_256 -> Blake2b_256
+applySkyDataProofH :: SkyDataProofH -> Hash -> Hash
 applySkyDataProofH SkyDataProofH {..} messageDataHash =
   runIdentity $ do
     let messageLeaf = Leaf (proofMessageMetaDataH, messageDataHash) :: TrieNodeF Byte Bytes8 _ ()
     let messageLeafHash = computeDigest messageLeaf
-    topicDataHash <- applyMerkleProof messageLeafHash proofMessageTriePathH
+    topicDataHash <- applyTrieMerkleProof messageLeafHash proofMessageTriePathH
     let topicLeaf = Leaf (proofTopicMetaDataH, topicDataHash) :: TrieNodeF Byte Bytes8 _ ()
     let topicLeafHash = computeDigest topicLeaf
-    daDataHash <- applyMerkleProof topicLeafHash proofTopicTriePathH
+    daDataHash <- applyTrieMerkleProof topicLeafHash proofTopicTriePathH
     return . computeDigest $ (proofDaMetaDataH, daDataHash)
 
 skyDataProofToH ::
-  (LiftDato r, DigestibleRef Blake2b_256 (LiftRef r)) =>
-  (LiftRef r (MessageData r), SkyDataProof Blake2b_256) ->
-  (Blake2b_256, SkyDataProofH)
+  (LiftDato r, DigestibleRef Hash (LiftRef r)) =>
+  (LiftRef r (MessageData r), SkyDataProof Hash) ->
+  (Hash, SkyDataProofH)
 skyDataProofToH (messageHash, SkyDataPath {..}) =
   ( refDigest messageHash,
     SkyDataProofH
@@ -107,11 +108,11 @@ getSkyDataProofH ::
     Functor e,
     LiftWrapping e r,
     LiftDato r,
-    DigestibleRef Blake2b_256 (LiftRef r)
+    DigestibleRef Hash (LiftRef r)
   ) =>
   (TopicId, MessageId) ->
   SkyDa r ->
-  e (Maybe (Blake2b_256, SkyDataProofH))
+  e (Maybe (Hash, SkyDataProofH))
 getSkyDataProofH ids da = getSkyDataProof ids da >>= return . fmap skyDataProofToH
 
 -- * Meta Declarations

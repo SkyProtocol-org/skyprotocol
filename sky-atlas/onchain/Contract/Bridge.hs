@@ -6,6 +6,7 @@ module Contract.Bridge where
 
 import Common
 import GHC.Generics (Generic)
+import GHC.ByteOrder (ByteOrder (..))
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value
   ( AssetClass (..),
@@ -155,8 +156,19 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
       -- Update the bridge state
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
         [ -- Core validation, below
-          -- let daCommitteeFingerprint :: Hash
-          --     daCommitteeFingerprint = computeDigest daCommittee
+         let
+            -- daCommitteeFingerprint :: Hash
+            daCommitteeFingerprint = computeDigest @Blake2b_256 daCommittee in
+            -- daCommitteeFingerprint = toByteString daCommittee in
+            -- daCommitteeFingerprint = toByteString (UInt16 6) in
+            -- daCommitteeFingerprint = integerToByteString BigEndian 2 6
+            -- daCommitteeFingerprint = computeDigest @Blake2b_256 emptyByteString in
+            -- daCommitteeFingerprint = emptyByteString in
+          toByteString daCommitteeFingerprint == toByteString daCommitteeFingerprint,
+          -- integerToByteString BigEndian 1 1 == integerToByteString BigEndian 1 1,
+          -- emptyByteString == emptyByteString,
+          -- (Byte 4) == (Byte 4),
+          -- emptyByteString == emptyByteString,
           --     computedOldDaMetaData :: Hash
           --     computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
           --     computedOldTopHash :: Hash
