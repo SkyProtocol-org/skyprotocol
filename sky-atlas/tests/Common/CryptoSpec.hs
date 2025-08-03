@@ -16,7 +16,7 @@ cryptoSpec =
   testGroup
     "SkyCrypto"
     [ testCase "to/from builtin data Bake2b_256" $ do
-        let datum = Hash $ ofHex "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
+        let datum = ofHex @Hash "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
         let builtinDatum = toBuiltinData datum
         fromBuiltinData builtinDatum @?= Just datum,
       testCase "simple tries" $ do

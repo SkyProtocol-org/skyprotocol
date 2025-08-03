@@ -8,6 +8,9 @@ result
 .gerbil
 *.pir-flat
 
+# dumps of different kinds for debugging purposes(e.g. Plutus IR)
+*.dump
+
 # Runtime data
 run/
 mukn/
