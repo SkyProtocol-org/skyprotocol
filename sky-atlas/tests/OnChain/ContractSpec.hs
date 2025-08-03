@@ -52,19 +52,34 @@ updateBridgeTest TestInfo {..} = do
   pkh <- addressToPubKeyHash' addr
 
   let uvk = userPaymentVKey $ admin testWallets
-      (da, schema, committee) = createTestDa uvk
-      oldTopHash = computeDigest da
-      (da', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
+
+      -- da0 initial version, to initialize the bridge with
+      (da0, schema, committee) = createTestDa uvk
+      daMetaH0 = refDigest (skyMetaData da0)
+      daTopicsH0 = refDigest (skyTopicTrie da0)
+      topH0 = computeDigest da0
+
+      -- da2 updated version (da1 intermediate one), to update the bridge to
+      (da1, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da0
       topicId = fromJust maybeTopicId
-      (newDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da'
-      topHash = computeDigest @Hash newDa
-      daData = refDigest (skyTopicTrie da')
-      daDataHash = computeDigest @Hash daData
+      (da2, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da1
+      topH2 = computeDigest @Hash da2
+      daMetaH2 = refDigest (skyMetaData da2) -- should be same as daMetaH0
+      daTopicsH2 = refDigest (skyTopicTrie da2)
+
       skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId "SkyBridge"
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-  gyLogDebug' "" $ printf "AAAA oldTopHash: %s" (hexOf oldTopHash :: String)
+
+  gyLogDebug' "" $ printf "AAAA daMetaH0: %s" (hexOf daMetaH0 :: String)
+  gyLogDebug' "" $ printf "AAAA daTopicsH0: %s" (hexOf daTopicsH0 :: String)
+  gyLogDebug' "" $ printf "AAAA topH0: %s" (hexOf topH0 :: String)
+  gyLogDebug' "" $ printf "AAAA recomputed topH0: %s" (hexOf . computeDigest @Hash $ (daMetaH0, daTopicsH0) :: String)
+
+  gyLogDebug' "" $ printf "AAAA daMetaH2: %s" (hexOf daMetaH2 :: String)
+  gyLogDebug' "" $ printf "AAAA daTopicsH2: %s" (hexOf daTopicsH2 :: String)
+  gyLogDebug' "" $ printf "AAAA topH2: %s" (hexOf topH2 :: String)
 
   bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
   -- create bridge and mint some nft
@@ -74,7 +89,7 @@ updateBridgeTest TestInfo {..} = do
         "SkyBridge"
         skyToken
         skyPolicy
-        oldTopHash
+        topH0
         bridgeVAddr
         pkh
     gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
@@ -98,12 +113,12 @@ updateBridgeTest TestInfo {..} = do
 
   let bridgeSchema = schema
       bridgeCommittee = committee
-      bridgeOldRootHash = daDataHash
-      bridgeNewTopHash = topHash
+      bridgeOldRootHash = daTopicsH0
+      bridgeNewTopHash = topH2
       -- TODO: make this safe
       adminSecKeyBytes = signingKeyToRawBytes $ userPaymentSKey' $ admin testWallets
       adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
-      signature = signMessage adminSecKey topHash
+      signature = signMessage adminSecKey topH2
       adminPubKeyBytes = paymentVerificationKeyRawBytes uvk
       adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
       bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
@@ -115,7 +130,7 @@ updateBridgeTest TestInfo {..} = do
       mkUpdateBridgeSkeleton
         (bridgeValidator' $ BridgeParams curSym)
         (utxoRef bridgeUtxo)
-        (BridgeNFTDatum topHash)
+        (BridgeNFTDatum topH2)
         bridgeRedeemer
         skyToken
         bridgeVAddr
