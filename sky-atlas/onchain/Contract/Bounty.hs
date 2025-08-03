@@ -5,8 +5,8 @@
 module Contract.Bounty where
 
 import Common
+import Contract.Bridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import Contract.DaH
-import Contract.SkyBridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1
@@ -74,22 +74,42 @@ validateClaimBounty
   proof@SkyDataProofH {..}
   daTopHash =
     -- Check if the current slot is within the deadline
-    to bountyDeadline
-      `contains` txValidRange
+    traceBool
+      "Bounty deadline in the valid range"
+      "Bounty deadline is not in the valid range"
+      ( to bountyDeadline
+          `contains` txValidRange
+      )
       &&
       -- The bounty's message hash is in the DA
-      daTopHash
-      == applySkyDataProofH proof messageHash
+      traceBool
+        "message hash is in the DA"
+        "message hash is not in the DA"
+        ( daTopHash
+            == applySkyDataProofH proof messageHash
+        )
       &&
       -- topic ID matches
-      topicId
-      == triePathKey proofTopicTriePathH
+      traceBool
+        "TopicId matches"
+        "TopicId doesn't match"
+        ( topicId
+            == triePathKey proofTopicTriePathH
+        )
       &&
       -- heights are 0 (lead top top from leafs)
-      triePathHeight proofTopicTriePathH
-      == 0
-      && triePathHeight proofMessageTriePathH
-      == 0
+      traceBool
+        "Topic trie path is 0"
+        "Topic trie path is not 0"
+        ( triePathHeight proofTopicTriePathH
+            == 0
+        )
+      && traceBool
+        "Message trie path is 0"
+        "Message trie path is not 0"
+        ( triePathHeight proofMessageTriePathH
+            == 0
+        )
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =
@@ -118,12 +138,12 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
   where
+    bridgeNftDatum = case getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx of
+      Just d -> d
+      Nothing -> traceError "Can't get nft datum from context"
     -- DA Top hash stored in NFT
     daTopHash :: Hash
-    daTopHash =
-      bridgeNFTTopHash
-        . fromJust
-        $ getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx
+    daTopHash = bridgeNFTTopHash bridgeNftDatum
     -- Tx validity interval
     txValidRange = txInfoValidRange . scriptContextTxInfo $ ctx
     -- Bounty prize funds are sent to pre-configured address
@@ -139,14 +159,12 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
 {-# INLINEABLE clientUntypedValidator #-}
 clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
 clientUntypedValidator params _datum redeemer ctx =
-  PlutusTx.check True
-
--- TODO: make sure to uncomment once monomorphized version of Trie is available
--- \$ clientTypedValidator
---   (fromByteStringIn params)
---   () -- ignore the untyped datum, it's unused
---   (fromByteStringIn $ PlutusTx.unsafeFromBuiltinData redeemer)
---   (PlutusTx.unsafeFromBuiltinData ctx)
+  PlutusTx.check
+    $ clientTypedValidator
+      params
+      () -- ignore the untyped datum, it's unused
+      (PlutusTx.unsafeFromBuiltinData redeemer)
+      (PlutusTx.unsafeFromBuiltinData ctx)
 
 clientValidatorScript ::
   ClientParams ->

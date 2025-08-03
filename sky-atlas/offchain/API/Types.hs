@@ -1,12 +1,17 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module API.Types where
 
 import Common
 import Common.OffChain ()
 import Data.Aeson
 import Data.ByteString qualified as BS
+import Data.OpenApi
 import Data.Time.Clock.POSIX (POSIXTime)
 import GHC.Generics
 import GeniusYield.Types
+import Servant
+import Servant.OpenApi
 
 newtype User = User
   { userEmail :: BS.ByteString
@@ -23,6 +28,7 @@ data CreateBridgeRequest = CreateBridgeRequest
     cbrCollateral :: Maybe GYTxOutRefCbor
   }
   deriving (Show, Generic)
+  deriving anyclass (ToSchema)
 
 instance FromJSON CreateBridgeRequest where
   parseJSON = withObject "CreateBridgeRequest" $ \v -> do
@@ -47,6 +53,7 @@ data UpdateBridgeRequest = UpdateBridgeRequest
     ubrCollateral :: Maybe GYTxOutRefCbor
   }
   deriving (Show, Generic)
+  deriving anyclass (ToSchema)
 
 instance FromJSON UpdateBridgeRequest where
   parseJSON = withObject "UpdateBridgeRequest" $ \v -> do
@@ -77,6 +84,7 @@ data OfferBountyRequest = OfferBountyRequest
     obrCollateral :: Maybe GYTxOutRefCbor
   }
   deriving (Show, Generic)
+  deriving anyclass (ToSchema)
 
 instance FromJSON OfferBountyRequest where
   parseJSON = withObject "OfferBountyRequest" $ \v -> do
@@ -113,6 +121,7 @@ data ClaimBountyRequest = ClaimBountyRequest
     cBountyrCollateral :: Maybe GYTxOutRefCbor
   }
   deriving (Show, Generic)
+  deriving anyclass (ToSchema)
 
 instance FromJSON ClaimBountyRequest where
   parseJSON = withObject "ClaimBountyRequest" $ \v -> do
@@ -137,33 +146,31 @@ instance ToJSON ClaimBountyRequest where
         "collateral" .= cBountyrCollateral
       ]
 
-data CreateCollateralRequest = CreateCollateralRequest
-  { clrAddr :: GYAddress,
-    clrAddrPubKey :: GYPubKeyHash,
-    clrSigningKey :: GYSomePaymentSigningKey,
-    clrFunds :: Integer,
-    clrCollateral :: Integer
-  }
-  deriving (Show, Generic)
+newtype ProofBytes = ProofBytes {getProofBytes :: BS.ByteString}
+  deriving (Generic)
+  deriving newtype (ToJSON, FromJSON, Eq, Show)
 
-instance FromJSON CreateCollateralRequest where
-  parseJSON = withObject "CreateCollateralRequest" $ \v -> do
-    addr <- v .: "addr"
-    signingKey <- v .: "signingKey"
-    clrFunds <- v .: "funds"
-    clrCollateral <- v .: "collateral"
-    let clrAddr = unsafeAddressFromText addr
-        addrPubKey = addressToPubKeyHash clrAddr
-        clrSigningKey = AGYPaymentSigningKey signingKey
-    case addrPubKey of
-      Just clrAddrPubKey -> pure CreateCollateralRequest {..}
-      Nothing -> fail "Can't create pubkeyhash from address"
+instance ToSchema ProofBytes where
+  declareNamedSchema _ = pure $ (NamedSchema $ Just "ProofBytes") binarySchema
 
-instance ToJSON CreateCollateralRequest where
-  toJSON CreateCollateralRequest {..} =
-    object
-      [ "addr" .= addressToText clrAddr,
-        "signingKey" .= let (AGYPaymentSigningKey k) = clrSigningKey in k,
-        "funds" .= clrFunds,
-        "collateral" .= clrCollateral
-      ]
+instance MimeRender OctetStream ProofBytes where
+  mimeRender _ (ProofBytes bs) = BS.fromStrict bs
+
+instance MimeUnrender OctetStream ProofBytes where
+  mimeUnrender _ bs = Right $ ProofBytes $ BS.toStrict bs
+
+newtype RawBytes = RawBytes {getRawBytes :: BS.ByteString}
+  deriving (Generic)
+  deriving newtype (ToJSON, FromJSON, Eq, Show)
+
+instance ToSchema RawBytes where
+  declareNamedSchema _ = pure $ (NamedSchema $ Just "RawBytes") binarySchema
+
+instance MimeRender OctetStream RawBytes where
+  mimeRender _ (RawBytes bs) = BS.fromStrict bs
+
+instance MimeUnrender OctetStream RawBytes where
+  mimeUnrender _ bs = Right $ RawBytes $ BS.toStrict bs
+
+instance (HasOpenApi api) => HasOpenApi (BasicAuth realm user :> api) where
+  toOpenApi _ = mempty

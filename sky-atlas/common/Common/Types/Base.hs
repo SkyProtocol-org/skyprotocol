@@ -75,43 +75,43 @@ data IsTerminal = NonTerminal | Terminal
 -- ** Fixed size data structures
 
 newtype Bytes4 = Bytes4 {getBytes4 :: BBS}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving (HP.Eq, P.Eq, ToInt) via BBS
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
 
 newtype Bytes8 = Bytes8 {getBytes8 :: BBS}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving (HP.Eq, P.Eq, ToInt) via BBS
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
 
 newtype Bytes32 = Bytes32 {getBytes32 :: BBS}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving (HP.Eq, P.Eq, ToInt) via BBS
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
 
 newtype Bytes64 = Bytes64 {getBytes64 :: BBS}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via BBS
+  deriving (HP.Eq, P.Eq, ToInt) via BBS
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
 
 newtype UInt32 = UInt32 {getUInt32 :: Integer}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via Integer
+  deriving (HP.Eq, P.Eq, ToInt) via Integer
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
 
 newtype UInt64 = UInt64 {getUInt64 :: Integer}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via Integer
+  deriving (HP.Eq, P.Eq, ToInt) via Integer
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
 
 newtype UInt256 = UInt256 {getUInt256 :: Integer}
-  deriving (HP.Eq, P.Eq, ToInt, ToData) via Integer
+  deriving (HP.Eq, P.Eq, ToInt) via Integer
   deriving newtype (HP.Show, P.Show)
   deriving stock (Generic)
   deriving anyclass (P.HasBlueprintDefinition)
@@ -176,11 +176,13 @@ class FromInt a where
 -- But keep the bytestring variant for the sake of other chains?
 class ToByteString a where
   -- | convert to String
+  {-# INLINEABLE toByteString #-}
   toByteString :: a -> P.BuiltinByteString
   toByteString = toByteStringOut
 
   -- | append to a String in Terminal or NonTerminal position
   -- default method assumes self-delimitation (e.g. fixed length, length prefix, or terminator)
+  {-# INLINEABLE byteStringOut #-}
   byteStringOut :: a -> IsTerminal -> P.BuiltinByteString -> P.BuiltinByteString
   byteStringOut a _ = appendByteString $ toByteString a
 
@@ -259,15 +261,6 @@ instance BitLogic Bytes4 where
   shiftRight (Bytes4 b) l = Bytes4 $ shiftRightFLBBS 4 b l
   shiftLeft (Bytes4 b) l = Bytes4 $ shiftLeftFLBBS 4 b l
 
-instance P.HasBlueprintSchema Bytes4 referencedTypes where
-  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
-
-instance P.FromData Bytes4 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
-
-instance P.UnsafeFromData Bytes4 where
-  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
-
 -- ** Bytes8
 
 instance Partial Bytes8 where
@@ -296,15 +289,6 @@ instance BitLogic Bytes8 where
   logicalXor (Bytes8 a) (Bytes8 b) = Bytes8 $ xorByteString False a b
   shiftRight (Bytes8 b) l = Bytes8 $ shiftRightFLBBS 8 b l
   shiftLeft (Bytes8 b) l = Bytes8 $ shiftLeftFLBBS 8 b l
-
-instance P.HasBlueprintSchema Bytes8 referencedTypes where
-  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
-
-instance P.FromData Bytes8 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
-
-instance P.UnsafeFromData Bytes8 where
-  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** Bytes32
 
@@ -335,15 +319,6 @@ instance BitLogic Bytes32 where
   shiftRight (Bytes32 b) l = Bytes32 $ shiftRightFLBBS 32 b l
   shiftLeft (Bytes32 b) l = Bytes32 $ shiftLeftFLBBS 32 b l
 
-instance P.HasBlueprintSchema Bytes32 referencedTypes where
-  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
-
-instance P.FromData Bytes32 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
-
-instance P.UnsafeFromData Bytes32 where
-  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
-
 -- ** Bytes64
 
 instance Partial Bytes64 where
@@ -372,15 +347,6 @@ instance BitLogic Bytes64 where
   logicalXor (Bytes64 a) (Bytes64 b) = Bytes64 $ xorByteString False a b
   shiftRight (Bytes64 b) l = Bytes64 $ shiftRightFLBBS 64 b l
   shiftLeft (Bytes64 b) l = Bytes64 $ shiftLeftFLBBS 64 b l
-
-instance P.HasBlueprintSchema Bytes64 referencedTypes where
-  schema = SchemaBytes emptySchemaInfo emptyBytesSchema
-
-instance P.FromData Bytes64 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromByteString
-
-instance P.UnsafeFromData Bytes64 where
-  unsafeFromBuiltinData = fromByteString . unsafeFromBuiltinData
 
 -- ** BuiltinByteString
 
@@ -441,6 +407,8 @@ instance FromByteString P.BuiltinString where
   fromByteString = decodeUtf8 -- XXX
   byteStringIn isTerminal = byteStringIn isTerminal <&> decodeUtf8
 
+-- looks like nonsense instances?
+-- upd: instances for testing (why?)
 instance P.ToData P.BuiltinString where
   toBuiltinData = toBuiltinData . toByteString
 
@@ -485,18 +453,6 @@ instance BitLogic Byte where
   shiftLeft b i = Byte $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (Byte a) l (Byte b) = Byte $ (a `shiftLeft` l) + b
 
-instance P.ToData Byte where
-  toBuiltinData = toBuiltinData . getByte
-
-instance P.FromData Byte where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
-
-instance P.UnsafeFromData Byte where
-  unsafeFromBuiltinData = toByte . unsafeFromBuiltinData
-
-instance P.HasBlueprintSchema Byte referencedTypes where
-  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
-
 -- ** UInt16
 
 instance Partial UInt16 where
@@ -507,7 +463,11 @@ instance FromInt UInt16 where
   maybeFromInt = maybeValidate . UInt16
 
 instance ToByteString UInt16 where
-  toByteString (UInt16 n) = integerToByteString BigEndian 2 n
+  -- using integerToByteString seems to cause a resource exhaustion when executing the contract(!!!)
+  -- toByteString (UInt16 n) = integerToByteString BigEndian 2 n
+  toByteString (UInt16 n) = consByteString (divideInteger n 256) $ consByteString (modInteger n 256) emptyByteString
+  -- This is the default method, we shouldn't have to repeat it:
+  -- byteStringOut a _ = appendByteString $ toByteString a
 
 instance FromByteString UInt16 where
   -- {-# INLINEABLE fromByteString #-}
@@ -531,18 +491,6 @@ instance BitLogic UInt16 where
   shiftRight b i = UInt16 $ indexByteString (shiftByteString (toByteString b) $ -i) 0
   shiftLeft b i = UInt16 $ indexByteString (shiftByteString (toByteString b) i) 0
   shiftLeftWithBits (UInt16 a) l (UInt16 b) = UInt16 $ (a `shiftLeft` l) + b
-
-instance P.ToData UInt16 where
-  toBuiltinData = toBuiltinData . getUInt16
-
-instance P.FromData UInt16 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
-
-instance P.UnsafeFromData UInt16 where
-  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
-
-instance P.HasBlueprintSchema UInt16 referencedTypes where
-  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** UInt32
 
@@ -576,15 +524,6 @@ instance BitLogic UInt32 where
   shiftLeft (UInt32 b) i = UInt32 . toInt $ shiftByteString (toByteString b) i
   shiftLeftWithBits (UInt32 a) l (UInt32 b) = UInt32 $ (a `shiftLeft` l) + b
 
-instance P.FromData UInt32 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
-
-instance P.UnsafeFromData UInt32 where
-  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
-
-instance P.HasBlueprintSchema UInt32 referencedTypes where
-  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
-
 -- ** UInt64
 
 instance Partial UInt64 where
@@ -617,15 +556,6 @@ instance BitLogic UInt64 where
   shiftLeft (UInt64 b) i = UInt64 . toInt $ shiftByteString (toByteString b) i
   shiftLeftWithBits (UInt64 a) l (UInt64 b) = UInt64 $ (a `shiftLeft` l) + b
 
-instance P.FromData UInt64 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
-
-instance P.UnsafeFromData UInt64 where
-  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
-
-instance P.HasBlueprintSchema UInt64 referencedTypes where
-  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
-
 -- ** UInt256
 
 instance Partial UInt256 where
@@ -657,15 +587,6 @@ instance BitLogic UInt256 where
   shiftRight (UInt256 b) i = UInt256 $ shiftRight b i
   shiftLeft (UInt256 b) i = UInt256 . toInt $ shiftByteString (toByteString b) i
   shiftLeftWithBits (UInt256 a) l (UInt256 b) = UInt256 $ (a `shiftLeft` l) + b
-
-instance P.FromData UInt256 where
-  fromBuiltinData d = fromBuiltinData d >>= maybeFromInt
-
-instance P.UnsafeFromData UInt256 where
-  unsafeFromBuiltinData = fromInt . unsafeFromBuiltinData
-
-instance P.HasBlueprintSchema UInt256 referencedTypes where
-  schema = SchemaInteger emptySchemaInfo emptyIntegerSchema
 
 -- ** VariableLengthInteger
 
@@ -861,7 +782,7 @@ isBBSLength :: Integer -> BBS -> Bool
 isBBSLength n b = lengthOfByteString b == n
 
 validateFLBBS :: Integer -> BBS -> BBS
-validateFLBBS l b = if isBBSLength l b then b else fromJust Nothing -- traceError "blah"
+validateFLBBS l b = if isBBSLength l b then b else traceError "Wrong size for ByteString"
 
 maybeFLBBSFromInt :: Integer -> Integer -> Maybe BBS
 maybeFLBBSFromInt len =
@@ -946,8 +867,7 @@ shiftRightFLBBS len =
    in \fb i ->
         if i < 0
           then
-            -- traceError "Illegal negative index in shiftRight" -- DEBUG: no trace error for now.
-            fb -- DEBUG: NOP while debugging
+            traceError "Illegal negative index in shiftRight"
           else
             if i > nBits
               then
@@ -955,6 +875,7 @@ shiftRightFLBBS len =
               else
                 shiftByteString fb $ -i
 
+{-# INLINEABLE shiftLeftFLBBS #-}
 shiftLeftFLBBS :: Integer -> BBS -> Integer -> BBS
 shiftLeftFLBBS len =
   let noBits = replicateByte len 0
@@ -962,8 +883,7 @@ shiftLeftFLBBS len =
    in \fb i ->
         if i < 0
           then
-            -- traceError "Illegal negative index in shiftLeft" -- DEBUG: no trace error for now.
-            fb -- DEBUG: NOP while debugging
+            traceError ("Illegal negative index in shiftLeft: len=" <> show len <> " i=" <> show i)
           else
             if i > nBits
               then
@@ -1080,28 +1000,7 @@ showSpaced (sa : sas) = showString " " . sa . showSpaced sas
 -- | Data.Maybe.fromJust reimplemented in Plutus-friendly way. Unsafe.
 fromJust :: Maybe a -> a
 fromJust (Just a) = a
-
--- fromJust Nothing = traceError "fromJust Nothing" -- XXX Plutus can't compile that!!!
-
--- | Generic failure
--- Trying to use it from Plutus will fail at compile-time:
--- Error: Unsupported feature: Type constructor: GHC.Prim.Char#
--- Context: Compiling definition of: PlutusTx.Builtins.HasOpaque.stringToBuiltinString
--- Context: Compiling definition of: Common.Types.Base.failTE
-failTE :: a
-failTE = traceError ("foo" :: BuiltinString)
-
--- Trying to use it from Plutus will fail at compile-time:
--- Error: Unsupported feature: Type constructor: GHC.Prim.Char#
--- Unsupported feature: Type constructor: GHC.Prim.Char#
-failTEE :: a
-failTEE = traceError emptyString
-
--- Trying to use it from Plutus will fail at compile-time:
--- Error: Unsupported feature: Cannot case on a value of type: forall a. a
--- But instead of calling it, you can macroexpand in context (fromJust Nothing :: FOO).
-failAA :: a
-failAA = fromJust Nothing
+fromJust Nothing = traceError "fromJust Nothing"
 
 -- ** For testing and debugging purposes
 
@@ -1120,43 +1019,34 @@ hexB = ofHex
 -- ** Template Haskell declarations
 
 P.makeLift ''Byte
-
--- P.makeIsDataSchemaIndexed ''Byte [('Byte, 0)]
+P.makeIsDataSchemaIndexed ''Byte [('Byte, 0)]
 
 P.makeLift ''UInt16
+P.makeIsDataSchemaIndexed ''UInt16 [('UInt16, 0)]
 
--- P.makeIsDataSchemaIndexed ''UInt16 [('UInt16, 0)]
+P.makeLift ''UInt32
+P.makeIsDataSchemaIndexed ''UInt32 [('UInt32, 0)]
+
+P.makeLift ''UInt64
+P.makeIsDataSchemaIndexed ''UInt64 [('UInt64, 0)]
+
+P.makeLift ''UInt256
+P.makeIsDataSchemaIndexed ''UInt256 [('UInt256, 0)]
 
 -- P.makeLift ''VariableLengthInteger
 -- P.makeIsDataSchemaIndexed ''VariableLengthInteger [('VariableLengthInteger, 0)]
 
--- P.makeLift ''IsTerminal
+P.makeLift ''IsTerminal
 P.makeIsDataSchemaIndexed ''IsTerminal [('NonTerminal, 0), ('Terminal, 1)]
 
 P.makeLift ''Bytes4
-
--- P.makeIsDataSchemaIndexed ''Bytes4 [('Bytes4, 0)]
+P.makeIsDataSchemaIndexed ''Bytes4 [('Bytes4, 0)]
 
 P.makeLift ''Bytes8
-
--- P.makeIsDataSchemaIndexed ''Bytes8 [('Bytes8, 0)]
+P.makeIsDataSchemaIndexed ''Bytes8 [('Bytes8, 0)]
 
 P.makeLift ''Bytes32
-
--- P.makeIsDataSchemaIndexed ''Bytes32 [('Bytes32, 0)]
+P.makeIsDataSchemaIndexed ''Bytes32 [('Bytes32, 0)]
 
 P.makeLift ''Bytes64
-
--- P.makeIsDataSchemaIndexed ''Bytes64 [('Bytes64, 0)]
-
-P.makeLift ''UInt32
-
--- P.makeIsDataSchemaIndexed ''UInt32 [('UInt32, 0)]
-
-P.makeLift ''UInt64
-
--- P.makeIsDataSchemaIndexed ''UInt64 [('UInt64, 0)]
-
-P.makeLift ''UInt256
-
--- P.makeIsDataSchemaIndexed ''UInt256 [('UInt256, 0)]
+P.makeIsDataSchemaIndexed ''Bytes64 [('Bytes64, 0)]

@@ -4,13 +4,16 @@ import App.Error
 import Common
 import Control.Concurrent.MVar
 import Control.Lens
+import Control.Monad.IO.Class
 import Data.Aeson
 import Data.Text.IO qualified as T
+import Data.Yaml.Config (loadYamlSettings, useEnv)
 import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import Log.Backend.StandardOutput
+import PlutusLedgerApi.V1 (toBuiltin)
 import Utils
 
 -- TODO: add updatable whitelist for users here or in the AppState
@@ -79,8 +82,8 @@ getCardanoUser fp = do
       maybeAddr = addressFromTextMaybe address
       addr = maybe (Left $ StartupError "can't get address") Right maybeAddr
       addrPubKey = maybe (Left $ StartupError "Can't get pubkey from address") Right (maybeAddr >>= addressToPubKeyHash)
-  putStrLn $ "Initializing cardano user: " <> fp
-  putStrLn $ "\tverKey: " <> show verKey <> ",\n\tsigKey: " <> show sigKey <> ",\n\taddr: " <> show addr <> ",\n\taddrPubKey: " <> show addrPubKey
+  -- putStrLn $ "Initializing cardano user: " <> fp
+  -- putStrLn $ "\tverKey: " <> show verKey <> ",\n\tsigKey: " <> show sigKey <> ",\n\taddr: " <> show addr <> ",\n\taddrPubKey: " <> show addrPubKey
   pure $ CardanoUser <$> verKey <*> sigKey <*> addr <*> addrPubKey
 
 data AppState = AppState
@@ -170,7 +173,7 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
     Left err -> pure $ Left err
     Right [appAdmin, appOfferer, appClaimant] -> do
       let adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
-          adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+          adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
       let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
           committee = MultiSigPubKey ([adminPubKey], UInt16 1)
           _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
@@ -181,3 +184,15 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
       appStateR <- newMVar appState
       pure $ Right AppEnv {..}
     _ -> pure $ Left $ StartupError "Something went wrong when initializing the environment"
+
+withAppEnv :: FilePath -> FilePath -> FilePath -> (AppEnv -> LogT IO ()) -> IO ()
+withAppEnv adminKeys offererKeys claimantKeys fun = do
+  config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
+  withCfgProviders (configAtlas config) "api-server" $ \providers -> do
+    withStdOutLogger $ \logger -> do
+      runLogT "main" logger defaultLogLevel $ do
+        logInfo_ "Initialized logger"
+        eitherAppEnv <- liftIO $ initEnv config logger providers adminKeys offererKeys claimantKeys
+        case eitherAppEnv of
+          Left err -> liftIO $ print err
+          Right appEnv -> fun appEnv

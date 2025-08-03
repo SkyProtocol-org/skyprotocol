@@ -1,61 +1,100 @@
-module API.Bridge (BridgeAPI, bridgeServer) where
+module API.Bridge (BridgeApi (..), bridgeServer) where
 
 import API.Bridge.Contracts
 import API.SkyMintingPolicy
 import API.Types
 import App
 import Common
-import Contract.SkyBridge
+import Contract.Bridge
 import Control.Concurrent
 import Control.Lens
 import Control.Monad.Reader
 import Data.Maybe (isJust)
 import Data.Text (Text, pack)
 import Data.Text.Encoding (decodeASCII)
+import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
-import PlutusLedgerApi.Data.V2 (FromData (..), ToData (..))
-import PlutusLedgerApi.V1 (ScriptHash (..))
+import PlutusLedgerApi.Data.V2 (FromData (..))
+import PlutusLedgerApi.V1 (ScriptHash (..), toBuiltin)
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
+import Servant.Server.Generic
 
-type BridgeAPI =
-  "bridge"
-    :> ( "create" :> ReqBody '[JSON] CreateBridgeRequest :> Post '[JSON] ()
-           :<|> "read" :> Get '[JSON] Text
-           :<|> "update" :> ReqBody '[JSON] UpdateBridgeRequest :> Post '[JSON] Text
-       )
+-- TODO: better descriptions
+data BridgeApi mode = BridgeApi
+  { create ::
+      mode
+        :- "create"
+          :> Description "Mint token and create bridge"
+          :> ReqBody '[JSON] CreateBridgeRequest
+          :> Post '[JSON] GYTxId,
+    read ::
+      mode
+        :- "read"
+          :> Description "Read current datum from bridge"
+          :> Get '[JSON] Text,
+    update ::
+      mode
+        :- "update"
+          :> Description "Update bridge datum"
+          :> ReqBody '[JSON] UpdateBridgeRequest
+          :> Post '[JSON] GYTxId
+  }
+  deriving stock (Generic)
 
-bridgeServer :: ServerT BridgeAPI AppM
-bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
+bridgeServer :: BridgeApi (AsServerT AppM)
+bridgeServer =
+  BridgeApi
+    { create = createBridgeH,
+      read = readBridgeH,
+      update = updateBridgeH
+    }
   where
-    -- TODO: create a bridged version of the skyda and store it in app state
     createBridgeH CreateBridgeRequest {..} = do
       AppEnv {..} <- ask
-      state <- liftIO $ readMVar appStateR
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
+          skyPolicyId = mintingPolicyId skyPolicy
+          skyToken = GYToken skyPolicyId $ configTokenName appConfig
+          curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
 
+      bridgeAddr <- runQuery $ bridgeValidatorAddress $ BridgeParams curSym
+
+      state <- liftIO $ readMVar appStateR
       let SkyDa {..} = view (blockState . skyDa) state
           topHash = computeDigest @Blake2b_256 $ SkyDa {..}
 
-      logTrace_ "Constructing body for the minting policy"
-      body <-
-        runBuilder cbrUsedAddrs cbrChangeAddr cbrCollateral $
-          mkMintingSkeleton (configTokenName appConfig) (cuserAddressPubKey appAdmin) topHash
-      logTrace_ "Signing and submitting minting policy"
-      tId <- runGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $ pure body
-      logTrace_ $ "Transaction id: " <> pack (show tId)
+      liftIO $ modifyMVar_ appStateW $ \state' -> do
+        let newState = set (bridgeState . bridgedSkyDa) SkyDa {..} state'
+        modifyMVar_ appStateR . const . return $ newState
+        pure newState
 
+      logTrace_ "Building, signing and submitting minting policy"
+      tId <-
+        buildAndRunGY (cuserSigningKey appAdmin) Nothing cbrUsedAddrs cbrChangeAddr cbrCollateral $
+          mkMintingSkeleton
+            (configTokenName appConfig)
+            skyToken
+            skyPolicy
+            topHash
+            bridgeAddr
+            (cuserAddressPubKey appAdmin)
+      logTrace_ $ "Transaction id: " <> pack (show tId)
+      pure tId
+
+    -- TODO: consider returning topHash from the bridged version of the da?
+    -- TODO: consider comparing to the bridged version?
     readBridgeH = do
       AppEnv {..} <- ask
-      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
           skyPolicyId = mintingPolicyId skyPolicy
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
-          curSym = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
+          curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
           bridgeParams = BridgeParams curSym
+
       utxoWithDatums <- runQuery $ do
         bvAddr <- bridgeValidatorAddress bridgeParams
-        -- TODO: what is AssetClass here? Do we need it?
         utxosAtAddressWithDatums bvAddr (Just skyToken)
 
       let utxoWithDatum = flip filter utxoWithDatums $ \(out, _) ->
@@ -64,7 +103,7 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
                   (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
                   _ -> False
       maybeBridgeDatum <- case utxoWithDatum of
-        [(_, Just datum)] -> pure $ fromBuiltinData $ toBuiltinData datum
+        [(_, Just datum)] -> pure $ fromBuiltinData $ datumToPlutus' datum
         _ -> throwError $ APIError "Can't find bridge utxos"
       case maybeBridgeDatum of
         -- will decodeASCII work here? topHash is in hex, if I'm not mistaken
@@ -81,75 +120,77 @@ bridgeServer = createBridgeH :<|> readBridgeH :<|> updateBridgeH
 
       (bridgeAddr, bridgeUtxos) <- runQuery $ do
         addr <- bridgeValidatorAddress $ BridgeParams curSym
-        utxos <- utxosAtAddressWithDatums addr $ Just skyToken
+        utxos <- utxosAtAddress addr $ Just skyToken
         pure (addr, utxos)
 
-      let utxoWithDatum = flip filter bridgeUtxos $ \(out, _) ->
+      logTrace_ $ pack (show bridgeUtxos)
+      let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
             let assets = valueToList $ utxoValue out
              in flip any assets $ \case
                   (GYToken pId name, _) -> name == configTokenName appConfig && pId == skyPolicyId
                   _ -> False
-      (bridgeUtxo, maybeBridgeDatum) <- case utxoWithDatum of
-        [(utxo, Just datum)] -> pure . (utxo,) $ fromBuiltinData $ toBuiltinData datum
+      bridgeUtxo <- case utxo of
+        u : _ -> pure u
         _ -> throwError $ APIError "Can't find bridge utxos"
+      logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 
       -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
-      collateral <- do
-        logTrace_ "Creating utxos for collateral"
-        utxos' <- runQuery $ utxosAtAddress (cuserAddress appAdmin) Nothing
-        let utxos = utxosToList utxos'
-        logTrace_ $ "Found utxos: " <> pack (show utxos)
-        case utxos of
-          (utxo : _) -> pure $ utxoRef utxo
-          _ -> throwError $ APIError "Can't find utxo for collateral"
+      (collateral, _amt) <- do
+        mC <- runQuery $ getCollateral' (cuserAddress appAdmin) 10
+        case mC of
+          Nothing -> throwError $ APIError "Can't find utxo for collateral"
+          Just c -> pure c
 
-      (BridgeNFTDatum oldTopHash) <- case maybeBridgeDatum of
-        Nothing -> throwError $ APIError "Can't get the bridge datum from utxo"
-        Just d -> pure d
-
-      logTrace_ $ "Found bridge utxo with datum: " <> pack (show oldTopHash)
-
-      -- TODO: what state do we want here? We also need to update it after the successfull update of bridge?
       state <- liftIO $ readMVar appStateR
-      let SkyDa {..} = view (blockState . skyDa) state
-          topHash = computeDigest @Blake2b_256 $ SkyDa {..}
+      let da = view (blockState . skyDa) state
+          topHash = computeDigest @Blake2b_256 $ da
           newDatum = BridgeNFTDatum topHash
       logTrace_ $ "New utxo datum: " <> pack (show topHash)
 
       (schema, committee) <- do
-        DaMetaDataOfTuple (schema, committee) <- unwrap skyMetaData
+        DaMetaDataOfTuple (schema, committee) <- unwrap $ skyMetaData da
         cmt <- unwrap committee
         pure (schema, cmt)
 
+      let bridgedDa = view (bridgeState . bridgedSkyDa) state
+      daData <- unwrap $ skyTopicTrie bridgedDa
+      let oldRootHash = computeDigest @Blake2b_256 daData
+
       let bridgeSchema = schema
           bridgeCommittee = committee
-          bridgeOldRootHash = oldTopHash
+          bridgeOldRootHash = oldRootHash
           bridgeNewTopHash = topHash
-          bridgeSig = MultiSig [] -- TODO: not yet sure how to init this
+          -- TODO: make this safe
+          adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey appAdmin in signingKeyToRawBytes sk
+          adminSecKey = fromByteString $ toBuiltin adminSecKeyBytes
+          signature = signMessage adminSecKey topHash
+          adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
+          adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
+          bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
           bridgeRedeemer = UpdateBridge {..}
-      logTrace_ "Constructing body for the bridge update"
-      body <-
-        runBuilder
+
+      logTrace_ "Building, signing and submitting bridge update"
+      tId <-
+        buildAndRunGY
+          (cuserSigningKey appAdmin)
+          Nothing
           ubrUsedAddrs
           ubrChangeAddr
           (if isJust ubrCollateral then ubrCollateral else Just $ GYTxOutRefCbor collateral)
           $ mkUpdateBridgeSkeleton
             (bridgeValidator' $ BridgeParams curSym)
             (utxoRef bridgeUtxo)
-            collateral
             newDatum
             bridgeRedeemer
             skyToken
             bridgeAddr
             (cuserAddressPubKey appAdmin)
-      logTrace_ "Signing and submitting bridge update"
-      tId <-
-        runGY
-          (cuserSigningKey appAdmin)
-          Nothing
-          ubrUsedAddrs
-          ubrChangeAddr
-          (if isJust ubrCollateral then ubrCollateral else Just $ GYTxOutRefCbor collateral)
-          $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tId)
-      pure $ pack (show tId)
+
+      -- update the bridged state after we update the bridge
+      liftIO $ modifyMVar_ appStateW $ \state' -> do
+        let newState = set (bridgeState . bridgedSkyDa) da state'
+        modifyMVar_ appStateR . const . return $ newState
+        pure newState
+
+      pure tId

@@ -33,12 +33,6 @@ echo "Payload to submit:"
 echo "$payload"
 
 # Submit to API
-response=$(curl -s -X POST "$BASE_URL/bounty/offer" \
+curl -s -X POST "$BASE_URL/bounty/offer" \
   -H "Content-Type: application/json" \
-  -d "$payload")
-
-echo "Response: $response"
-
-tx_id=$(echo "$response" | jq -r '.tx_id')
-
-echo "Transaction id: $tx_id"
+  -d "$payload"

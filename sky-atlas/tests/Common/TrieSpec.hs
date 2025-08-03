@@ -151,7 +151,7 @@ trieSpec =
                       testCase "should generate a proof, validate it, and compute the root hash correctly" $ do
                         let t1 :: T
                             t1 = runIdentity $ olt [(1, "value1"), (2, "value2")]
-                            t1d :: Hash = computeDigest @Hash t1
+                            t1d = computeDigest @Hash t1
                             proof1 = runIdentity $ getMerkleProof 1 t1
                             l1d :: Hash =
                               refDigest

@@ -1,6 +1,5 @@
 module API
-  ( API,
-    api,
+  ( SkyApi (..),
     server,
     app,
     User (..),
@@ -9,28 +8,64 @@ where
 
 import API.Bounty
 import API.Bridge
-import API.Topic
+import API.Da
 import API.Types
-import API.Util
 import App
+import Data.OpenApi
 import Data.Text (Text)
+import GHC.Generics (Generic)
 import Servant
+import Servant.OpenApi
+import Servant.Server.Generic
+import Servant.Swagger.UI
 
-type HealthAPI = "health" :> Get '[JSON] Text
+data SkyApi mode = SkyApi
+  { health :: mode :- "health" :> Description "Health EndPoint" :> Get '[JSON] Text,
+    bridge ::
+      mode
+        :- Summary "Part of the API designed to interact with the bridge"
+          :> "bridge"
+          :> NamedRoutes BridgeApi,
+    bounty ::
+      mode
+        :- Summary "Part of the API to offer and claim a bounty"
+          :> "bounty"
+          :> NamedRoutes BountyApi,
+    da ::
+      mode
+        :- Summary "Part of the API designed to interact with DA"
+          :> "da"
+          :> NamedRoutes DaApi
+  }
+  deriving stock (Generic)
 
-healthServer :: ServerT HealthAPI AppM
-healthServer = pure "OK"
+skyApiSwagger :: OpenApi
+skyApiSwagger = toOpenApi $ Proxy @(ToServantApi SkyApi)
 
-type API = HealthAPI :<|> BridgeAPI :<|> BountyAPI :<|> TopicAPI :<|> UtilAPI
+data Api mode = Api
+  { skyApi :: mode :- NamedRoutes SkyApi,
+    docApi :: mode :- SwaggerSchemaUI "swagger-ui" "swagger.json"
+  }
+  deriving (Generic)
 
-api :: Proxy API
-api = Proxy
+skyServer :: SkyApi (AsServerT AppM)
+skyServer =
+  SkyApi
+    { health = pure "OK",
+      bridge = bridgeServer,
+      bounty = bountyServer,
+      da = daServer
+    }
 
-server :: ServerT API AppM
-server = healthServer :<|> bridgeServer :<|> bountyServer :<|> topicServer :<|> utilServer
+apiServer :: Api (AsServerT AppM)
+apiServer =
+  Api
+    { skyApi = skyServer,
+      docApi = swaggerSchemaUIServerT skyApiSwagger
+    }
 
 appCtx :: Context (BasicAuthCheck User ': '[])
 appCtx = authCheck :. EmptyContext
 
 app :: AppEnv -> Application
-app env = serveWithContext api appCtx $ hoistServerWithContext api (Proxy @(BasicAuthCheck User ': '[])) (nt env) server
+app env = genericServeTWithContext (nt env) apiServer appCtx

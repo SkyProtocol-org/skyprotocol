@@ -1,6 +1,3 @@
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
 module Contract.TrieH where
 
 import Common.Crypto
@@ -8,13 +5,9 @@ import Common.Trie
 -- import PlutusTx.Blueprint
 
 import Common.Types
-import Control.Monad (Monad, (>=>))
-import Data.Function ((&))
-import PlutusTx
-import PlutusTx.Builtins
-import PlutusTx.Functor
+import Control.Monad (Monad)
 import PlutusTx.Prelude
-import PlutusTx.Show
+import GHC.ByteOrder (ByteOrder (..))
 
 -- * Types
 
@@ -29,29 +22,12 @@ type TrieZipperH h k = TrieZip h k Hash Hash
 
 -- * Typeclasses
 
-class (Monad e, TrieHeightKey h k) =>
+class
+  (Monad e, TrieHeightKey h k) =>
   TriePathing e h k
   where
   triePathStep :: TriePath h k a -> e (Maybe (TrieStep h k a, TriePath h k a))
   trieStepDown :: TrieStep h k a -> TriePath h k a -> e (TriePath h k a)
-
-{-
-class
-  (Monad e, TriePathing e h k, Dato node, Dato (TriePath h k node)) =>
-  TrieTopping e h k t node
-  where
-  trieZipperOf :: t -> e (TrieZip h k node node)
-  ofTopTrieZipper :: TrieZip h k node node -> e t
-
-class
-  (Monad e, Dato node) =>
-  TrieSteppingUp e h k node
-  where
-  trieStepUp :: TrieStep h k node -> node -> e node
-
-class FocusableTrieZipping e h k node focusKey where
-  refocusTrie :: focusKey -> TrieZip h k node node -> e (TrieZip h k node node)
--}
 
 -- * Instances
 
@@ -90,40 +66,6 @@ instance
               RightStep t -> branch t $ shiftLeftWithBits k 1 $ lowBitsMask 1
               SkipStep hd kd -> triePathSkipDown (1 + toInt hd) kd p
 
-{-
-instance
-  (TrieHeightKey h k, Dato c) =>
-  TrieTopping e h k (TrieNodeF h k c Hash) Hash
-  where
-  trieZipperOf (TrieTop h t) = return $ Zip t (TriePath h (lowBitsMask 0) (lowBitsMask 0) [])
-  ofTopTrieZipper = ofTrieZipperFocus
-
-instance
-  (TrieHeightKey h k) =>
-  TrieSteppingUp e h k Hash
-  where
-  trieStepUp step x =
-    x >>= \case
-      Empty -> case step of
-        LeftStep r -> trieStepUp (SkipStep (fromInt 0) $ lowBitsMask 1) r
-        RightStep l -> trieStepUp (SkipStep (fromInt 0) $ lowBitsMask 0) l
-        SkipStep _ _ -> return x
-      Skip hn kn cn ->
-        case step of
-          SkipStep hs ks ->
-            Skip
-              (fromInt $ toInt hn + toInt hs + 1)
-              (shiftLeftWithBits ks (1 + toInt hn) kn)
-              cn
-          _ -> up
-      _ -> up
-    where
-      up = case step of
-        LeftStep r -> Branch x r
-        RightStep l -> Branch l x
-        SkipStep h k -> Skip h k x
--}
-
 -- * Helpers
 
 {-# INLINEABLE trieZipUp #-}
@@ -137,7 +79,24 @@ trieZipUp synth z@(Zip f p) =
     Just (s, p') -> synth s f >>= \a -> trieZipUp synth (Zip a p')
     Nothing -> return z
 
-applyTrieMerkleProof :: (TrieHeightKey h k, Monad e, IsHash d) => d -> TriePath h k d -> e d
+applyTrieMerkleProof :: (TrieHeightKey h k, Monad e) => Hash -> TriePath h k Hash -> e Hash
 applyTrieMerkleProof leafDigest proof =
   trieZipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof)
-    >>= \(Zip d (TriePath hh _ _ _)) -> return . computeDigest . toByteString $ TrieTop hh d
+    >>= \(Zip d (TriePath hh _ _ _)) -> return . hashFunction . trieTopToByteString hashToByteString $ TrieTop hh d
+
+{-# INLINEABLE pairToByteString #-}
+pairToByteString :: (a -> BuiltinByteString) -> (b -> BuiltinByteString) -> (a, b) -> BuiltinByteString
+pairToByteString fstTBS sndTBS (a, b) = appendByteString (fstTBS a) (sndTBS b)
+
+{-# INLINEABLE trieTopToByteString #-}
+trieTopToByteString :: (t -> BuiltinByteString) -> TrieTop t -> BuiltinByteString
+trieTopToByteString tbs (TrieTop h t) =
+  pairToByteString uint16ToByteString tbs (toUInt16 $ h + 1, t)
+
+{-# INLINEABLE uint16ToByteString #-}
+uint16ToByteString :: UInt16 -> BuiltinByteString
+uint16ToByteString (UInt16 n) = integerToByteString BigEndian 2 n
+
+{-# INLINEABLE hashToByteString #-}
+hashToByteString :: Blake2b_256 -> BuiltinByteString
+hashToByteString (Blake2b_256 (Bytes32 b)) = b

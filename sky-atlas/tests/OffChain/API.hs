@@ -3,6 +3,8 @@
 module OffChain.API (apiSpec) where
 
 import API
+import API.Da
+import API.Types
 import App
 import Common
 import Common.OffChain ()
@@ -19,6 +21,7 @@ import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.Client
+import Servant.Client.Generic
 import System.Exit (exitFailure)
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -103,11 +106,8 @@ closeAPI TestEnv {..} = do
   shutdownLogger $ logger appEnv
 
 -- TODO: add tests for the rest of the endpoints
-healthClient
-  :<|> _bridgeClient
-  :<|> _bountyClient
-  :<|> (publicTopicApi :<|> protectedTopicApi) =
-    client api
+skyClient :: SkyApi (AsClientT ClientM)
+skyClient = genericClient
 
 testUser :: BasicAuthData
 testUser = BasicAuthData "skyAdmin" "1234"
@@ -119,26 +119,31 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
     "API Tests"
     [ testGroup
         "Health client"
-        [ testCase "health endpoint" $ do
-            TestEnv {..} <- getTestEnv
-            res <- liftIO $ runClientM healthClient clientEnv
-            res @?= Right "OK"
-        ],
+        let healthC = skyClient // health
+         in [ testCase "health endpoint" $ do
+                TestEnv {..} <- getTestEnv
+                res <- liftIO $ runClientM healthC clientEnv
+                res @?= Right "OK"
+            ],
       -- NOTE: this ensures, that the tests in this test group run in sequence
       sequentialTestGroup "Topic client" AllFinish $
-        let createTopic :<|> publishMessage = protectedTopicApi testUser
-            readTopic :<|> _getProof :<|> _readMessage = publicTopicApi
-         in [ testCase "should return TopicId 0 when creating new topic in empty da" $ do
+        let protectedDaClient user = skyClient // da // protected /: user
+            createTopicC = protectedDaClient testUser // createTopic
+            publishMessageC = protectedDaClient testUser // publishMessage
+            readMessageC = skyClient // da // public // readMessage
+         in -- _getProof
+            -- _readMessage = publicTopicApi
+            [ testCase "should return TopicId 0 when creating new topic in empty da" $ do
                 TestEnv {..} <- getTestEnv
-                res <- liftIO $ runClientM createTopic clientEnv
+                res <- liftIO $ runClientM createTopicC clientEnv
                 res @?= Right (topicIdFromInteger 0),
               testCase "should return MessageId 0 when creating new message in an empty da with 1 topic" $ do
                 TestEnv {..} <- getTestEnv
-                res <- liftIO $ flip runClientM clientEnv $ publishMessage (topicIdFromInteger 0) "keklolarbidol"
+                res <- liftIO $ flip runClientM clientEnv $ publishMessageC (topicIdFromInteger 0) $ RawBytes "keklolarbidol"
                 res @?= Right (messageIdFromInteger 0),
               testCase "should return the same message we published in the previous test" $ do
                 TestEnv {..} <- getTestEnv
-                res <- liftIO $ flip runClientM clientEnv $ readTopic (topicIdFromInteger 0) (messageIdFromInteger 0)
-                res @?= Right "keklolarbidol"
+                res <- liftIO $ flip runClientM clientEnv $ readMessageC (topicIdFromInteger 0) (messageIdFromInteger 0)
+                res @?= Right (RawBytes "keklolarbidol")
             ]
     ]

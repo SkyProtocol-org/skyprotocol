@@ -1,31 +1,28 @@
 module API.Bridge.Contracts where
 
-import API.SkyMintingPolicy
 import Common.Crypto (Hash)
-import Contract.SkyBridge
+import Contract.Bridge
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
-import PlutusLedgerApi.Common hiding (PlutusV2)
-import PlutusLedgerApi.V1 (ScriptHash (..))
-import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 
 mkMintingSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
+  -- | Token name
   GYTokenName ->
-  -- | Minting policy signer
-  GYPubKeyHash ->
+  -- | Token to send
+  GYAssetClass ->
+  -- | Minting policy
+  GYScript 'PlutusV2 ->
   -- | Top hash
   Hash ->
+  -- | Addr of the bridge validator
+  GYAddress ->
+  -- | Minting policy signer
+  GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkMintingSkeleton tokenName mintSigner topHash = do
+mkMintingSkeleton tokenName skyToken skyPolicy topHash bvAddr mintSigner = do
   let bridgeNFTDatum = BridgeNFTDatum topHash
-      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus mintSigner
-      skyToken = GYToken (mintingPolicyId skyPolicy) tokenName
-      -- should be at least 1
-      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-
-  bvAddr <- bridgeValidatorAddress $ BridgeParams curSym
 
   -- skeleton for minting transaction
   pure $
@@ -45,9 +42,7 @@ mkUpdateBridgeSkeleton ::
   GYScript 'PlutusV2 ->
   -- | Bridge ref
   GYTxOutRef ->
-  -- | Collateral ref
-  GYTxOutRef ->
-  -- | Bridge Datum
+  -- | New bridge Datum
   BridgeNFTDatum ->
   -- | Redeemer
   BridgeRedeemer ->
@@ -58,27 +53,24 @@ mkUpdateBridgeSkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV2)
-mkUpdateBridgeSkeleton validator bridgeRef collateralRef bridgeDatum redeemer skyToken addr signer =
+mkUpdateBridgeSkeleton validator bridgeRef newDatum redeemer skyToken bvAddr signer =
   pure $
-    -- collateral input
+    -- bridge input
     mustHaveInput
       ( GYTxIn
-          { gyTxInTxOutRef = collateralRef,
-            gyTxInWitness = GYTxInWitnessKey
+          { gyTxInTxOutRef = bridgeRef,
+            gyTxInWitness =
+              GYTxInWitnessScript
+                (GYBuildPlutusScriptInlined validator)
+                Nothing -- datum can be omitted if it was inlined
+                $ redeemerFromPlutusData redeemer
           }
       )
-      -- bridge input
-      <> mustHaveInput
-        ( GYTxIn
-            { gyTxInTxOutRef = bridgeRef,
-              gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptInlined validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
-            }
-        )
       <> mustHaveOutput
         ( GYTxOut
-            { gyTxOutAddress = addr,
+            { gyTxOutAddress = bvAddr,
               gyTxOutValue = valueSingleton skyToken 1,
-              gyTxOutDatum = Just (datumFromPlutusData bridgeDatum, GYTxOutUseInlineDatum),
+              gyTxOutDatum = Just (datumFromPlutusData newDatum, GYTxOutUseInlineDatum),
               gyTxOutRefS = Nothing
             }
         )

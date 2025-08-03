@@ -106,6 +106,7 @@
                 shell.buildInputs = with final; [
                   nixpkgs-fmt
                   cardano-cli
+                  haskellPackages.lzma
                 ];
 
                 # ???: Fix for `nix flake show --allow-import-from-derivation`

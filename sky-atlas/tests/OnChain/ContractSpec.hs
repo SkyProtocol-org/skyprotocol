@@ -4,9 +4,11 @@ module OnChain.ContractSpec (contractSpec) where
 
 import API.Bounty.Contracts
 import API.Bridge.Contracts
-import Common.Crypto (computeDigest)
-import Common.Types (Byte (..))
+import API.SkyMintingPolicy
+import Common
+import Contract.Bridge
 import Control.Monad.Extra (maybeM)
+import Control.Monad.IO.Class
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (listToMaybe)
 import GeniusYield.HTTP.Errors
@@ -15,7 +17,12 @@ import GeniusYield.Test.Clb
 import GeniusYield.Test.Utils
 import GeniusYield.TxBuilder
 import GeniusYield.Types
+import PlutusLedgerApi.V1 (ScriptHash (..))
+import PlutusLedgerApi.V1.Time (POSIXTime (..))
+import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
+import PlutusTx.Builtins.Internal (BuiltinByteString (..), BuiltinString)
 import Test.Tasty
+import Util
 
 -- | Test environment 'WalletInfo' among other things provides nine wallets that
 -- be used in tests. For convinience we assign some meaningful names to them.
@@ -33,9 +40,89 @@ contractSpec =
     [ testGroup
         "Compiling contracts"
         [ mkTestFor "Create Minting Policy" mintingPolicyTest,
-          mkTestFor "Send funds test" sendFundsTest
+          mkTestFor "Send funds" sendFundsTest,
+          mkTestFor "Update bridge" updateBridgeTest
         ]
     ]
+
+updateBridgeTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
+updateBridgeTest TestInfo {..} = do
+  addr <- getUserAddr $ admin testWallets
+  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
+  pkh <- addressToPubKeyHash' addr
+
+  let uvk = userPaymentVKey $ admin testWallets
+      (da, schema, committee) = createTestDa uvk
+      oldTopHash = computeDigest da
+      (da', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
+      topicId = fromJust maybeTopicId
+      (newDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da'
+      topHash = computeDigest @Hash newDa
+      daData = refDigest (skyTopicTrie da')
+      daDataHash = computeDigest @Hash daData
+      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      skyPolicyId = mintingPolicyId skyPolicy
+      skyToken = GYToken skyPolicyId "SkyBridge"
+      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+  gyLogDebug' "" $ printf "AAAA oldTopHash: %s" (hexOf oldTopHash :: String)
+
+  bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
+  -- create bridge and mint some nft
+  asUser (admin testWallets) $ do
+    mintSkeleton <-
+      mkMintingSkeleton
+        "SkyBridge"
+        skyToken
+        skyPolicy
+        oldTopHash
+        bridgeVAddr
+        pkh
+    gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
+
+  bridgeUtxos <- utxosAtAddress bridgeVAddr $ Just skyToken
+
+  gyLogDebug' "" $ printf "bridge utxos: %s" bridgeUtxos
+
+  let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
+        let assets = valueToList $ utxoValue out
+         in flip any assets $ \case
+              (GYToken pId _name, _) -> pId == skyPolicyId
+              _ -> False
+  bridgeUtxo <- case utxo of
+    [u] -> do
+      gyLogDebug' "" $ printf "bridge utxo: %s" (show u)
+      pure u
+    _ -> throwAppError $ someBackendError "Can't find bridge utxo"
+
+  let bridgeSchema = schema
+      bridgeCommittee = committee
+      bridgeOldRootHash = daDataHash
+      bridgeNewTopHash = topHash
+      -- TODO: make this safe
+      adminSecKeyBytes = signingKeyToRawBytes $ userPaymentSKey' $ admin testWallets
+      adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
+      signature = signMessage adminSecKey topHash
+      adminPubKeyBytes = paymentVerificationKeyRawBytes uvk
+      adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+      bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
+      bridgeRedeemer = UpdateBridge {..}
+
+  -- update bridge
+  asUser (admin testWallets) $ do
+    updateBridgeSkeleton <-
+      mkUpdateBridgeSkeleton
+        (bridgeValidator' $ BridgeParams curSym)
+        (utxoRef bridgeUtxo)
+        (BridgeNFTDatum topHash)
+        bridgeRedeemer
+        skyToken
+        bridgeVAddr
+        pkh
+    gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
+    txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
 sendFundsTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
 sendFundsTest TestInfo {..} = do
@@ -49,7 +136,7 @@ sendFundsTest TestInfo {..} = do
   -- with no way to actually check the balances
   asUser (admin testWallets) $ do
     sendFundsSkeleton <- mkSendSkeleton addr amount GYLovelace pkh
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
@@ -59,9 +146,23 @@ mintingPolicyTest TestInfo {..} = do
   gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
   pkh <- addressToPubKeyHash' addr
 
+  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      skyPolicyId = mintingPolicyId skyPolicy
+      skyToken = GYToken skyPolicyId "SkyBridge"
+      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+
+  bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
+
   asUser (admin testWallets) $ do
-    mintSkeleton <- mkMintingSkeleton "TestSkyToken" pkh (computeDigest (Byte 1))
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    mintSkeleton <-
+      mkMintingSkeleton
+        "SkyBridge"
+        skyToken
+        skyPolicy
+        (computeDigest (Byte 1)) -- dummy top hash
+        bridgeVAddr
+        pkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 

@@ -21,58 +21,82 @@ import Prelude qualified as HP
 
 -- * Types
 
--- A pair (pubKey, signature) of signature by a single authority
-newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Signature)}
-  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-  deriving newtype (HP.Eq, HP.Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
--- Signatures produced by data operators for top hash
-newtype MultiSig = MultiSig [SingleSig]
-  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-  deriving newtype (HP.Eq, HP.Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
--- List of pubkeys that must sign and minimum number of them that must sign
-newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
-  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-  deriving newtype (HP.Eq, HP.Show)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
-
 newtype PubKey = PubKey {getPubKey :: Bytes32}
-  deriving newtype (P.Show, P.Eq, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (P.Show, P.Eq, ToByteString, FromByteString)
   deriving newtype (HP.Show, HP.Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''PubKey
+P.makeIsDataSchemaIndexed ''PubKey [('PubKey, 0)]
+
+newtype Signature = Signature {getSignature :: Bytes64}
+  deriving newtype (P.Show, P.Eq, ToByteString, FromByteString)
+  deriving newtype (HP.Show, HP.Eq)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''Signature
+P.makeIsDataSchemaIndexed ''Signature [('Signature, 0)]
+
+-- A pair (pubKey, signature) of signature by a single authority
+newtype SingleSig = SingleSig {getSingleSig :: (PubKey, Signature)}
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString)
+  deriving newtype (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''SingleSig
+P.makeIsDataSchemaIndexed ''SingleSig [('SingleSig, 0)]
+
+-- Signatures produced by data operators for top hash
+newtype MultiSig = MultiSig [SingleSig]
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString)
+  deriving newtype (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''MultiSig
+P.makeIsDataSchemaIndexed ''MultiSig [('MultiSig, 0)]
+
+-- List of pubkeys that must sign and minimum number of them that must sign
+newtype MultiSigPubKey = MultiSigPubKey {getMultiSigPubKey :: ([PubKey], UInt16)}
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString)
+  deriving newtype (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''MultiSigPubKey
+P.makeIsDataSchemaIndexed ''MultiSigPubKey [('MultiSigPubKey, 0)]
 
 -- Don't use that on-chain! At least not without say much homomorphic encryption.
 -- TODO: move that to a separate file, too, that is incompatible with on-chain
 newtype SecKey = SecKey {getSecKey :: Bytes32}
-  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (P.Eq, P.Show, ToByteString, FromByteString)
   deriving newtype (HP.Show, HP.Eq)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-newtype Signature = Signature {getSignature :: Bytes64}
-  deriving newtype (P.Show, P.Eq, ToByteString, FromByteString, UnsafeFromData, ToData, FromData)
-  deriving newtype (HP.Show, HP.Eq)
-  deriving stock (Generic)
-  deriving anyclass (HasBlueprintDefinition)
+P.makeLift ''SecKey
+P.makeIsDataSchemaIndexed ''SecKey [('SecKey, 0)]
 
 newtype Digest d a = Digest {getDigest :: d}
-  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString)
   deriving newtype (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''Digest
+P.makeIsDataSchemaIndexed ''Digest [('Digest, 0)]
 
 newtype Blake2b_256 = Blake2b_256 {getBlake2b_256 :: Bytes32}
   deriving newtype (HP.Eq, HP.Show)
-  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+  deriving newtype (P.Eq, P.Show, ToInt, FromInt, ToByteString, FromByteString)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
+
+P.makeLift ''Blake2b_256
+P.makeIsDataSchemaIndexed ''Blake2b_256 [('Blake2b_256, 0)]
 
 type Hash = Blake2b_256
 
@@ -149,9 +173,9 @@ instance (ToByteString d) => ToByteString (HashRef d x) where
   byteStringOut = byteStringOut . hashRefHash
 
 -- fake for the sake of Dato
-instance (Dato d, ToByteString x) => FromByteString (HashRef d x) where
-  fromByteString = fromJust Nothing -- XXX lookupHashRef @d . fromByteString
-  byteStringIn _ = fromJust Nothing -- XXX byteStringIn isTerminal <&> lookupHashRef @d
+instance (IsHash d, ToByteString x) => FromByteString (HashRef d x) where
+  fromByteString = lookupHashRef @d . fromByteString
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashRef @d
 
 instance (IsHash d, Dato a, Monad e) => PreWrapping e (HashRef d) a where
   wrap = return . digestRef_
@@ -213,7 +237,7 @@ instance (IsHash d) => ToByteString (HashMRef d x) where
 
 instance (IsHash d, ToByteString x, FromByteString x) => FromByteString (HashMRef d x) where
   fromByteString = lookupHashRef . fromByteString
-  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashRef
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashMRef
 
 instance (IsHash d, Dato a) => PreWrapping Identity (HashMRef d) a where
   wrap = return . digestRef
@@ -274,8 +298,6 @@ instance FromJSON SecKey where
 
 -- ** PubKeyHash
 
--- TODO implement isomorphism between builtin PubKeyHash and our (Digest Blake2b_256 PubKey)
-
 instance ToByteString PubKeyHash where
   toByteString = getPubKeyHash
   byteStringOut = byteStringOut . getPubKeyHash
@@ -298,10 +320,7 @@ digestRef a = HashRef (computeDigest a) a
 
 -- Make that a monadic method on a typeclass with a cache/db for lookup
 lookupDigest :: (IsHash d) => d -> a
-lookupDigest = fromJust Nothing -- XXX traceError "Cannot get a value from its digest"
-
--- lookupHashRef :: (IsHash d) => d -> HashRef d a
--- lookupHashRef d = HashRef d $ lookupDigest d
+lookupDigest = traceError "Cannot lookup a digest without side-effect lookup to a cache"
 
 -- ** Ed25519 Signatures
 
@@ -349,17 +368,3 @@ multiSigValid (MultiSigPubKey (pubKeys, minSigs)) message (MultiSig singleSigs) 
            in length validSignatures >= toInt minSigs
 
 -- ** Template Haskell declarations
-
-P.makeLift ''SecKey
-
-P.makeLift ''PubKey
-
-P.makeLift ''Signature
-
-P.makeLift ''SingleSig
-
-P.makeLift ''MultiSigPubKey
-
-P.makeLift ''MultiSig
-
-P.makeLift ''Blake2b_256

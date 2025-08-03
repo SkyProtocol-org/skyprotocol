@@ -4,8 +4,8 @@
 module OnChain.BountySpec (bountySpec) where
 
 import Common
-import Contract.DaH
 import Contract.Bounty (validateClaimBounty, validateTimeout)
+import Contract.DaH
 import Data.Functor.Identity (Identity (..))
 import PlutusLedgerApi.V2
 import PlutusTx.Prelude

@@ -1,8 +1,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -Wno-partial-type-signatures #-}
-
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Common.DA where
 
@@ -112,6 +111,7 @@ newtype MessageId = MessageId {getMessageId :: Bytes8}
       HP.Show,
       HP.Eq
     )
+  deriving stock (Generic)
 
 messageIdFromInteger :: Integer -> MessageId
 messageIdFromInteger = fromInt

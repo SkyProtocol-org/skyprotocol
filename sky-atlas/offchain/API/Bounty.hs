@@ -1,4 +1,4 @@
-module API.Bounty (BountyAPI, bountyServer) where
+module API.Bounty (BountyApi (..), bountyServer) where
 
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
@@ -6,24 +6,41 @@ import API.Types
 import App
 import Common
 import Contract.Bounty
-import Contract.SkyBridge
+import Contract.Bridge
 import Control.Monad.Reader
 import Data.Text (pack)
+import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
 import PlutusLedgerApi.V1 (POSIXTime (..), ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
+import Servant.Server.Generic
 
-type BountyAPI =
-  "bounty"
-    :> ( "offer" :> ReqBody '[JSON] OfferBountyRequest :> Post '[JSON] GYTxId
-           :<|> "claim" :> ReqBody '[JSON] ClaimBountyRequest :> Post '[JSON] ()
-       )
+-- TODO: better descriptions
+data BountyApi mode = BountyApi
+  { offer ::
+      mode
+        :- Description "Offer bounty"
+          :> "offer"
+          :> ReqBody '[JSON] OfferBountyRequest
+          :> Post '[JSON] GYTxId,
+    claim ::
+      mode
+        :- Description "Claim bounty"
+          :> "claim"
+          :> ReqBody '[JSON] ClaimBountyRequest
+          :> Post '[JSON] ()
+  }
+  deriving stock (Generic)
 
-bountyServer :: ServerT BountyAPI AppM
-bountyServer = offerBountyH :<|> claimBountyH
+bountyServer :: BountyApi (AsServerT AppM)
+bountyServer =
+  BountyApi
+    { offer = offerBountyH,
+      claim = claimBountyH
+    }
   where
     offerBountyH OfferBountyRequest {..} = do
       AppEnv {..} <- ask
@@ -60,7 +77,7 @@ bountyServer = offerBountyH :<|> claimBountyH
           collateral
           $ mkSendSkeleton validatorAddr 10_000_000 GYLovelace (cuserAddressPubKey appOfferer)
 
-      tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr obrCollateral $ pure body
+      tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr collateral $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tid)
       pure tid
 
