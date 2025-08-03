@@ -1,7 +1,0 @@
-(package: skyprotocol
- depend: ("github.com/mighty-gerbils/gerbil-utils"
-          "github.com/mighty-gerbils/gerbil-crypto"
-          "github.com/mighty-gerbils/gerbil-poo"
-          "github.com/mighty-gerbils/gerbil-persist"
-          "github.com/mighty-gerbils/gerbil-ethereum")
- base-tag: "v0.0.1")

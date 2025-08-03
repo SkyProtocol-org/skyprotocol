@@ -1,9 +1,0 @@
-services:
-  node-server:
-    network_mode: host
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ../var:/usr/src/app/var
-    restart: always
