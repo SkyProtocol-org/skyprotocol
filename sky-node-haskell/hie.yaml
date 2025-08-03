@@ -1,7 +1,0 @@
-cradle:
-  cabal:
-    - path: "lib"
-      component: "sky-node:lib:sky-lib"
-
-    - path: "app/Main.hs"
-      component: "sky-node:exe:sky-node"
