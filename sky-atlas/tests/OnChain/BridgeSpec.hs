@@ -6,7 +6,11 @@ module OnChain.BridgeSpec (bridgeSpec) where
 import App.Env
 import Common
 import Contract.Bridge
+import Control.Concurrent
+import Control.Lens
+import Control.Monad.Reader
 import Data.Functor.Identity (Identity (..))
+import Data.Yaml.Config (loadYamlSettings, useEnv)
 import GeniusYield.Types
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import PlutusTx.Prelude qualified as PlutusTx
@@ -55,6 +59,7 @@ bridgeSpec =
                 (da'', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da'
                 topicId = fromJust maybeTopicId
                 (da, _maybeMessageId) = runIdentity $ insertMessage timestamp "test message" topicId da''
+                daDataHash' = refDigest . skyTopicTrie $ da'
 
             daData <- unwrap $ skyTopicTrie da'
 
@@ -65,6 +70,7 @@ bridgeSpec =
 
             -- bridgeTypedValidatorCore :: Hash -> MultiSigPubKey -> Hash -> Hash -> MultiSig -> Hash -> Bool
             -- bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
+            daDataHash' @?= daDataHash
             bridgeTypedValidatorCore schema committee daDataHash topHash bridgeSig oldTopHash @?= True
         ]
     ]

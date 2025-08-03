@@ -148,6 +148,7 @@ library offchain
     , sky-atlas:onchain
     , text
     , time
+    , yaml
 
 executable sky-atlas
   import:         common
@@ -240,6 +241,8 @@ test-suite onchain-tests
     , atlas-cardano
     , base
     , extra
+    , lens
+    , mtl
     , plutus-core         ^>=1.49.0.0
     , plutus-ledger-api   ^>=1.49.0.0
     , plutus-tx           ^>=1.49.0.0
@@ -250,3 +253,4 @@ test-suite onchain-tests
     , tasty
     , tasty-hunit
     , time
+    , yaml

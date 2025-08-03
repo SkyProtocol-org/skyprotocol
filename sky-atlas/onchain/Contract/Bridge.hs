@@ -30,6 +30,7 @@ import PlutusTx.Blueprint
 import PlutusTx.List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
+import PlutusTx.Show qualified as PS
 import Prelude qualified as HP
 
 ------------------------------------------------------------------------------
@@ -155,7 +156,39 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
     conditions = case redeemer of
       -- Update the bridge state
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
-        [ traceBool
+        let
+            -- daCommitteeFingerprint :: Hash
+            daCommitteeFingerprint = computeDigest @Blake2b_256 daCommittee
+            -- daCommitteeFingerprint = toByteString daCommittee in
+            -- daCommitteeFingerprint = toByteString (UInt16 6) in
+            -- daCommitteeFingerprint = integerToByteString BigEndian 2 6
+            -- daCommitteeFingerprint = computeDigest @Blake2b_256 emptyByteString in
+            -- daCommitteeFingerprint = emptyByteString in
+            computedOldDaMetaData :: Hash
+            computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
+            computedOldTopHash :: Hash
+            computedOldTopHash = computeDigest (computedOldDaMetaData, oldRootHash)
+        in
+        [ -- Core validation, below
+          toByteString daCommitteeFingerprint == toByteString daCommitteeFingerprint,
+          lengthOfByteString (integerToByteString BigEndian 2 6) == 2,
+          emptyByteString == emptyByteString,
+          -- integerToByteString BigEndian 1 1 == integerToByteString BigEndian 1 1,
+          -- emptyByteString == emptyByteString,
+          -- (Byte 4) == (Byte 4),
+          -- emptyByteString == emptyByteString,
+          trace ("old top hash = " <> PS.show oldNFTTopHash) True,
+          trace ("computed old top hash = " <> PS.show computedOldTopHash) True,
+          traceBool
+                "old top hash = computed top hash"
+                "old top hash != computed top hash"
+                ( oldNFTTopHash
+                    == computedOldTopHash ),
+          traceBool
+            "multi sig is valid"
+            "multi sig isn't valid"
+            (multiSigValid daCommittee newTopHash sig),
+          traceBool
             "core validation passed"
             "core validation didn't pass"
             $ bridgeTypedValidatorCore

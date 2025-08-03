@@ -8,6 +8,7 @@ import API.SkyMintingPolicy
 import Common
 import Contract.Bridge
 import Control.Monad.Extra (maybeM)
+import Control.Monad.IO.Class
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (listToMaybe)
 import GeniusYield.HTTP.Errors
@@ -19,7 +20,7 @@ import GeniusYield.Types
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import PlutusTx.Builtins.Internal (BuiltinByteString (..), BuiltinString)
 import Test.Tasty
 import Util
 
@@ -51,23 +52,19 @@ updateBridgeTest TestInfo {..} = do
   pkh <- addressToPubKeyHash' addr
 
   let uvk = userPaymentVKey $ admin testWallets
-
-  let (da, schema, committee) = createTestDa uvk
-
-  let (da', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
+      (da, schema, committee) = createTestDa uvk
+      oldTopHash = computeDigest da
+      (da', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
       topicId = fromJust maybeTopicId
       (newDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da'
-      oldTopHash = computeDigest da
       topHash = computeDigest @Hash newDa
-
-  daData <- unwrap $ skyTopicTrie da'
-
-  let daDataHash = computeDigest @Hash daData
-
-  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      daData = refDigest (skyTopicTrie da')
+      daDataHash = computeDigest @Hash daData
+      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId "SkyBridge"
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+  gyLogDebug' "" $ printf "AAAA oldTopHash: %s" (hexOf oldTopHash :: String)
 
   bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
   -- create bridge and mint some nft
@@ -80,7 +77,7 @@ updateBridgeTest TestInfo {..} = do
         oldTopHash
         bridgeVAddr
         pkh
-    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 

@@ -4,12 +4,15 @@ import App.Error
 import Common
 import Control.Concurrent.MVar
 import Control.Lens
+import Control.Monad.IO.Class
 import Data.Aeson
 import Data.Text.IO qualified as T
+import Data.Yaml.Config (loadYamlSettings, useEnv)
 import GHC.Generics
 import GeniusYield.GYConfig
 import GeniusYield.Types
 import Log
+import Log.Backend.StandardOutput
 import PlutusLedgerApi.V1 (toBuiltin)
 import Utils
 
@@ -181,3 +184,15 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
       appStateR <- newMVar appState
       pure $ Right AppEnv {..}
     _ -> pure $ Left $ StartupError "Something went wrong when initializing the environment"
+
+withAppEnv :: FilePath -> FilePath -> FilePath -> (AppEnv -> LogT IO ()) -> IO ()
+withAppEnv adminKeys offererKeys claimantKeys fun = do
+  config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
+  withCfgProviders (configAtlas config) "api-server" $ \providers -> do
+    withStdOutLogger $ \logger -> do
+      runLogT "main" logger defaultLogLevel $ do
+        logInfo_ "Initialized logger"
+        eitherAppEnv <- liftIO $ initEnv config logger providers adminKeys offererKeys claimantKeys
+        case eitherAppEnv of
+          Left err -> liftIO $ print err
+          Right appEnv -> fun appEnv
