@@ -51,7 +51,6 @@ common plutus-ghc-options
 
   -- set target plutus-core version
   ghc-options: -fplugin-opt PlutusTx.Plugin:target-version=1.0.0
-  ghc-options: -fplugin-opt PlutusTx.Plugin:dump-pir
 
 library common
   import:             common, plutus-ghc-options
@@ -168,16 +167,15 @@ executable sky-atlas
 
 executable show-pir
   hs-source-dirs: app
-  main-is: ShowPir.hs
+  main-is:        ShowPir.hs
   build-depends:
-    , plutus-ledger-api ^>=1.49.0.0
     , base
     , bytestring
-    , sky-atlas:onchain
-    , plutus-ledger-api
-    , plutus-tx
     , plutus-core
-
+    , plutus-ledger-api  ^>=1.49.0.0
+    , plutus-tx
+    , sky-atlas:onchain
+    , text
 
 test-suite common-tests
   import:         common
@@ -186,6 +184,7 @@ test-suite common-tests
   main-is:        CommonSpec.hs
   hs-source-dirs: tests
   other-modules:
+    Common.CompiledSpec
     Common.CryptoSpec
     Common.DaSpec
     Common.TrieSpec
@@ -198,6 +197,7 @@ test-suite common-tests
     , plutus-tx          ^>=1.49.0.0
     , plutus-tx-plugin   ^>=1.49.0.0
     , sky-atlas:common
+    , sky-atlas:onchain
     , tasty
     , tasty-hunit
     , tasty-quickcheck

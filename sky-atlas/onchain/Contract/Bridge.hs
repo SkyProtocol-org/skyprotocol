@@ -5,8 +5,8 @@
 module Contract.Bridge where
 
 import Common
-import GHC.Generics (Generic)
 import GHC.ByteOrder (ByteOrder (..))
+import GHC.Generics (Generic)
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value
   ( AssetClass (..),
@@ -155,35 +155,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
     conditions = case redeemer of
       -- Update the bridge state
       UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
-        [ -- Core validation, below
-         let
-            -- daCommitteeFingerprint :: Hash
-            daCommitteeFingerprint = computeDigest @Blake2b_256 daCommittee in
-            -- daCommitteeFingerprint = toByteString daCommittee in
-            -- daCommitteeFingerprint = toByteString (UInt16 6) in
-            -- daCommitteeFingerprint = integerToByteString BigEndian 2 6
-            -- daCommitteeFingerprint = computeDigest @Blake2b_256 emptyByteString in
-            -- daCommitteeFingerprint = emptyByteString in
-          toByteString daCommitteeFingerprint == toByteString daCommitteeFingerprint,
-          -- integerToByteString BigEndian 1 1 == integerToByteString BigEndian 1 1,
-          -- emptyByteString == emptyByteString,
-          -- (Byte 4) == (Byte 4),
-          -- emptyByteString == emptyByteString,
-          --     computedOldDaMetaData :: Hash
-          --     computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
-          --     computedOldTopHash :: Hash
-          --     computedOldTopHash = computeDigest (computedOldDaMetaData, oldRootHash)
-          --  in traceBool
-          --       "old top hash = computed top hash"
-          --       "old top hash != computed top hash"
-          --       ( oldNFTTopHash
-          --           == computedOldTopHash
-          --       ),
-          traceBool
-            "multi sig is valid"
-            "multi sig isn't valid"
-            (multiSigValid daCommittee newTopHash sig),
-          traceBool
+        [ traceBool
             "core validation passed"
             "core validation didn't pass"
             $ bridgeTypedValidatorCore
@@ -243,11 +215,11 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
     && traceBool
       "multi sig is valid"
       "multi sig isn't valid"
-      (multiSigValid daCommittee newTopHash sig)
+      (multiSigValid daCommittee newTopHash sig) -- this doesn't overspend the cpu budget
   where
     -- \^ The new top hash must be signed by the committee
     daCommitteeFingerprint :: Blake2b_256
-    daCommitteeFingerprint = computeDigest daCommittee
+    daCommitteeFingerprint = computeDigest daCommittee -- this does overspend the cpu budget
     computedOldDaMetaData :: Blake2b_256
     computedOldDaMetaData = computeDigest (daSchema, daCommitteeFingerprint)
     -- \| The old top hash must be the hash of the concatenation of committee fingerprint

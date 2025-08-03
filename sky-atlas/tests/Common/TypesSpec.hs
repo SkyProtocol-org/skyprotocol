@@ -84,6 +84,8 @@ typesSpec =
           fsb 0x0000 @?= -1
           fsb 0xffffffff @?= 0
           fsb 0x80000000 @?= 31,
+        testCase "ToByteString" $ do
+          toByteString @[BuiltinByteString] [] @?= "\NUL\NUL",
         testCase "serialization 1" $ PS.show (Byte 42) @?= "42",
         testCase "serialization 2" $ do
           PS.show (UInt16 0xf00d) @?= "61453"
