@@ -19,7 +19,7 @@ import Utils
 -- TODO: add updatable whitelist for users here or in the AppState
 data AppEnv = AppEnv
   { appConfig :: AppConfig,
-    appProviders :: GYProviders,
+    appProviders :: Maybe GYProviders,
     -- TODO: in the future there must be single node user
     appAdmin :: CardanoUser,
     appClaimant :: CardanoUser,
@@ -33,7 +33,7 @@ data AppConfig = AppConfig
   { configPort :: Int,
     configLogLevel :: Maybe LogLevel,
     configTokenName :: GYTokenName,
-    configAtlas :: GYCoreConfig
+    configAtlas :: Maybe GYCoreConfig
   }
   deriving (Show, Generic)
 
@@ -66,7 +66,7 @@ data CardanoUser = CardanoUser
   { cuserVerificationKey :: GYPaymentVerificationKey,
     cuserSigningKey :: GYSomePaymentSigningKey,
     cuserAddress :: GYAddress,
-    cuserAddressPubKey :: GYPubKeyHash
+    cuserAddressPubKeyHash :: GYPubKeyHash
   }
   deriving (Eq, Show, Generic)
 
@@ -81,10 +81,10 @@ getCardanoUser fp = do
       sigKey = either toLeft (Right . AGYPaymentSigningKey . sigKeyCborHex) eitherSigningKey
       maybeAddr = addressFromTextMaybe address
       addr = maybe (Left $ StartupError "can't get address") Right maybeAddr
-      addrPubKey = maybe (Left $ StartupError "Can't get pubkey from address") Right (maybeAddr >>= addressToPubKeyHash)
+      addrPubKeyHash = maybe (Left $ StartupError "Can't get pubkey from address") Right (maybeAddr >>= addressToPubKeyHash)
   -- putStrLn $ "Initializing cardano user: " <> fp
   -- putStrLn $ "\tverKey: " <> show verKey <> ",\n\tsigKey: " <> show sigKey <> ",\n\taddr: " <> show addr <> ",\n\taddrPubKey: " <> show addrPubKey
-  pure $ CardanoUser <$> verKey <*> sigKey <*> addr <*> addrPubKey
+  pure $ CardanoUser <$> verKey <*> sigKey <*> addr <*> addrPubKeyHash
 
 data AppState = AppState
   { _blockState :: BlockState, -- block being defined at the moment
@@ -163,7 +163,7 @@ initAppState blockS bridgeS =
       _longTermStorage = ()
     }
 
-initEnv :: AppConfig -> Logger -> GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
+initEnv :: AppConfig -> Logger -> Maybe GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
 initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
   eitherAdmin <- getCardanoUser adminKeys
   eitherOfferer <- getCardanoUser offererKeys
@@ -188,11 +188,20 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
 withAppEnv :: FilePath -> FilePath -> FilePath -> (AppEnv -> LogT IO ()) -> IO ()
 withAppEnv adminKeys offererKeys claimantKeys f = do
   config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
-  withCfgProviders (configAtlas config) "api-server" $ \providers -> do
-    withStdOutLogger $ \logger -> do
+  case configAtlas config of
+    Nothing -> withStdOutLogger $ \logger -> do
       runLogT "main" logger defaultLogLevel $ do
-        logInfo_ "Initialized logger"
-        eitherAppEnv <- liftIO $ initEnv config logger providers adminKeys offererKeys claimantKeys
+        logInfo_ "Running in OFFLINE MODE"
+        eitherAppEnv <- liftIO $ initEnv config logger Nothing adminKeys offererKeys claimantKeys
         case eitherAppEnv of
           Left err -> liftIO $ print err
           Right appEnv -> f appEnv
+    Just atlasConfig ->
+      withCfgProviders atlasConfig "api-server" $ \providers -> do
+        withStdOutLogger $ \logger -> do
+          runLogT "main" logger defaultLogLevel $ do
+            logInfo_ "Initialized providers"
+            eitherAppEnv <- liftIO $ initEnv config logger (Just providers) adminKeys offererKeys claimantKeys
+            case eitherAppEnv of
+              Left err -> liftIO $ print err
+              Right appEnv -> f appEnv

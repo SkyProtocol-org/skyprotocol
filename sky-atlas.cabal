@@ -207,12 +207,16 @@ test-suite offchain-tests
   type:           exitcode-stdio-1.0
   main-is:        OffChainSpec.hs
   hs-source-dirs: tests
-  other-modules:  OffChain.API
+  other-modules:
+    OffChain.API
+    Util
+
   build-depends:
     , atlas-cardano
     , base
     , http-client
     , log-base
+    , plutus-ledger-api    ^>=1.49.0.0
     , servant-client
     , servant-client-core
     , servant-server
@@ -240,15 +244,10 @@ test-suite onchain-tests
     , base
     , extra
     , lens
-    , mtl
-    , plutus-core         ^>=1.49.0.0
     , plutus-ledger-api   ^>=1.49.0.0
     , plutus-tx           ^>=1.49.0.0
-    , plutus-tx-plugin    ^>=1.49.0.0
     , sky-atlas:common
     , sky-atlas:offchain
     , sky-atlas:onchain
     , tasty
     , tasty-hunit
-    , time
-    , yaml

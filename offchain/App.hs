@@ -22,7 +22,7 @@ import App.Env
 import App.Error
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe)
 import GeniusYield.GYConfig
 import GeniusYield.TxBuilder hiding (User)
 import GeniusYield.Types
@@ -61,8 +61,12 @@ nt env m = do
 runQuery :: GYTxQueryMonadIO a -> AppM a
 runQuery q = do
   AppEnv {..} <- ask
-  let nid = cfgNetworkId $ configAtlas appConfig
-  liftIO $ runGYTxQueryMonadIO nid appProviders q
+  case configAtlas appConfig of
+    Nothing -> throwError $ ProviderError "Providers are not initialized"
+    Just atlasConfig -> do
+      let nid = cfgNetworkId atlasConfig
+      -- if atlasConfig is initialized, we can be sure, that providers are too
+      liftIO $ runGYTxQueryMonadIO nid (fromJust appProviders) q
 
 -- TODO replace these with specific wrapped functions instead of generalized `run*`
 runBuilder ::
@@ -76,22 +80,26 @@ runBuilder ::
   AppM GYTxBody
 runBuilder addrs addr collateral skeleton = do
   AppEnv {..} <- ask
-  let nid = cfgNetworkId $ configAtlas appConfig
-  liftIO $
-    runGYTxBuilderMonadIO
-      nid
-      appProviders
-      addrs
-      addr
-      ( collateral
-          >>= ( \c ->
-                  Just
-                    ( getTxOutRefHex c,
-                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
-                    )
-              )
-      )
-      (skeleton >>= buildTxBody)
+  case configAtlas appConfig of
+    Nothing -> throwError $ ProviderError "Providers are not initialized"
+    Just atlasConfig -> do
+      let nid = cfgNetworkId atlasConfig
+      -- if atlasConfig is initialized, we can be sure, that providers are too
+      liftIO $
+        runGYTxBuilderMonadIO
+          nid
+          (fromJust appProviders)
+          addrs
+          addr
+          ( collateral
+              >>= ( \c ->
+                      Just
+                        ( getTxOutRefHex c,
+                          True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                        )
+                  )
+          )
+          (skeleton >>= buildTxBody)
 
 runGY ::
   GYSomePaymentSigningKey ->
@@ -106,24 +114,28 @@ runGY ::
   AppM GYTxId
 runGY psk ssk addrs addr collateral body = do
   AppEnv {..} <- ask
-  let nid = cfgNetworkId $ configAtlas appConfig
-  liftIO $ do
-    runGYTxMonadIO
-      nid
-      appProviders
-      psk
-      ssk
-      addrs
-      addr
-      ( collateral
-          >>= ( \c ->
-                  Just
-                    ( getTxOutRefHex c,
-                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
-                    )
-              )
-      )
-      (body >>= signAndSubmitConfirmed)
+  case configAtlas appConfig of
+    Nothing -> throwError $ ProviderError "Providers are not initialized"
+    Just atlasConfig -> do
+      let nid = cfgNetworkId atlasConfig
+      -- if atlasConfig is initialized, we can be sure, that providers are too
+      liftIO $ do
+        runGYTxMonadIO
+          nid
+          (fromJust appProviders)
+          psk
+          ssk
+          addrs
+          addr
+          ( collateral
+              >>= ( \c ->
+                      Just
+                        ( getTxOutRefHex c,
+                          True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                        )
+                  )
+          )
+          (body >>= signAndSubmitConfirmed)
 
 buildAndRunGY ::
   GYSomePaymentSigningKey ->
@@ -138,24 +150,28 @@ buildAndRunGY ::
   AppM GYTxId
 buildAndRunGY psk ssk addrs addr collateral skeleton = do
   AppEnv {..} <- ask
-  let nid = cfgNetworkId $ configAtlas appConfig
-  liftIO $
-    runGYTxMonadIO
-      nid
-      appProviders
-      psk
-      ssk
-      addrs
-      addr
-      ( collateral
-          >>= ( \c ->
-                  Just
-                    ( getTxOutRefHex c,
-                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
-                    )
-              )
-      )
-      (skeleton >>= buildTxBody >>= signAndSubmitConfirmed)
+  case configAtlas appConfig of
+    Nothing -> throwError $ ProviderError "Providers are not initialized"
+    Just atlasConfig -> do
+      let nid = cfgNetworkId atlasConfig
+      -- if atlasConfig is initialized, we can be sure, that providers are too
+      liftIO $
+        runGYTxMonadIO
+          nid
+          (fromJust appProviders)
+          psk
+          ssk
+          addrs
+          addr
+          ( collateral
+              >>= ( \c ->
+                      Just
+                        ( getTxOutRefHex c,
+                          True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                        )
+                  )
+          )
+          (skeleton >>= buildTxBody >>= signAndSubmitConfirmed)
 
 runAnyGY ::
   GYSomePaymentSigningKey ->
@@ -170,21 +186,25 @@ runAnyGY ::
   AppM a
 runAnyGY psk ssk addrs addr collateral action = do
   AppEnv {..} <- ask
-  let nid = cfgNetworkId $ configAtlas appConfig
-  liftIO $
-    runGYTxMonadIO
-      nid
-      appProviders
-      psk
-      ssk
-      addrs
-      addr
-      ( collateral
-          >>= ( \c ->
-                  Just
-                    ( getTxOutRefHex c,
-                      True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
-                    )
-              )
-      )
-      action
+  case configAtlas appConfig of
+    Nothing -> throwError $ ProviderError "Providers are not initialized"
+    Just atlasConfig -> do
+      let nid = cfgNetworkId atlasConfig
+      -- if atlasConfig is initialized, we can be sure, that providers are too
+      liftIO $
+        runGYTxMonadIO
+          nid
+          (fromJust appProviders)
+          psk
+          ssk
+          addrs
+          addr
+          ( collateral
+              >>= ( \c ->
+                      Just
+                        ( getTxOutRefHex c,
+                          True -- Make this as `False` to not do 5-ada-only check for value in this given UTxO to be used as collateral.
+                        )
+                  )
+          )
+          action

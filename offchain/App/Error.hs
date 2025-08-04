@@ -12,6 +12,7 @@ import GHC.Generics (Generic)
 data AppError
   = APIError String
   | StartupError String
+  | ProviderError String
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 -- | Function to convert app error to user error that user can send to support
@@ -19,3 +20,4 @@ data AppError
 appErrorToUserError :: AppError -> BSL.ByteString
 appErrorToUserError (APIError msg) = pack msg
 appErrorToUserError (StartupError msg) = pack msg
+appErrorToUserError (ProviderError msg) = pack msg

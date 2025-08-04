@@ -54,7 +54,7 @@ bridgeServer =
   where
     createBridgeH CreateBridgeRequest {..} = do
       AppEnv {..} <- ask
-      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
           skyPolicyId = mintingPolicyId skyPolicy
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
           curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -79,7 +79,7 @@ bridgeServer =
             skyPolicy
             topHash
             bridgeAddr
-            (cuserAddressPubKey appAdmin)
+            (cuserAddressPubKeyHash appAdmin)
       logTrace_ $ "Transaction id: " <> pack (show tId)
       pure tId
 
@@ -87,7 +87,7 @@ bridgeServer =
     -- TODO: consider comparing to the bridged version?
     readBridgeH = do
       AppEnv {..} <- ask
-      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
           skyPolicyId = mintingPolicyId skyPolicy
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
           curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -113,7 +113,7 @@ bridgeServer =
 
     updateBridgeH UpdateBridgeRequest {..} = do
       AppEnv {..} <- ask
-      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKey appAdmin
+      let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
           skyPolicyId = mintingPolicyId skyPolicy
           skyToken = GYToken skyPolicyId $ configTokenName appConfig
           curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -184,7 +184,7 @@ bridgeServer =
             bridgeRedeemer
             skyToken
             bridgeAddr
-            (cuserAddressPubKey appAdmin)
+            (cuserAddressPubKeyHash appAdmin)
       logTrace_ $ "Transaction id: " <> pack (show tId)
 
       -- update the bridged state after we update the bridge

@@ -3,14 +3,10 @@
 
 module OnChain.BridgeSpec (bridgeSpec) where
 
-import App.Env
+import App.Env hiding (getCardanoUser)
 import Common
 import Contract.Bridge
-import Control.Concurrent
 import Control.Lens
-import Control.Monad.Reader
-import Data.Functor.Identity (Identity (..))
-import Data.Yaml.Config (loadYamlSettings, useEnv)
 import GeniusYield.Types
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import PlutusTx.Prelude qualified as PlutusTx
@@ -31,7 +27,7 @@ bridgeSpec =
             let builtinDatum = PlutusTx.toBuiltinData datum
             PlutusTx.fromBuiltinData builtinDatum @?= Just datum,
           testCase "multiSigValid" $ do
-            admin <- getAdmin "tests/OffChain/admin/"
+            admin <- getCardanoUser
             let (da', _schema, committee) = createTestDa $ cuserVerificationKey admin
             timestamp <- currentPOSIXTime
 
@@ -47,7 +43,7 @@ bridgeSpec =
                 bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
             multiSigValid committee topHash bridgeSig @?= True,
           testCase "bridgeTypedValidatorCore" $ do
-            admin <- getAdmin "tests/OffChain/admin/"
+            admin <- getCardanoUser
             let (da', schema, committee) = createTestDa $ cuserVerificationKey admin
             timestamp <- currentPOSIXTime
 

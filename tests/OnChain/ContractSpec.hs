@@ -8,7 +8,6 @@ import API.SkyMintingPolicy
 import Common
 import Contract.Bridge
 import Control.Monad.Extra (maybeM)
-import Control.Monad.IO.Class
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe (listToMaybe)
 import GeniusYield.HTTP.Errors
@@ -20,16 +19,14 @@ import GeniusYield.Types
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
-import PlutusTx.Builtins.Internal (BuiltinByteString (..), BuiltinString)
+import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Test.Tasty
 import Util
 
 -- | Test environment 'WalletInfo' among other things provides nine wallets that
 -- be used in tests. For convinience we assign some meaningful names to them.
-admin, oracle, holder :: Wallets -> User
+admin :: Wallets -> User
 admin = w1 -- Runs some administrative action, e.g. deplys the script
-oracle = w8 -- A user that is going to reveal the answer
-holder = w9 -- A user to store the reference script
 
 -- TODO: setup a privnet 3 node testing for this from atlas
 -- https://atlas-app.io/getting-started/testing
@@ -55,7 +52,7 @@ updateBridgeTest TestInfo {..} = do
 
       -- da0 initial version, to initialize the bridge with
       (da0, schema, committee) = createTestDa uvk
-      daMetaH0 = refDigest (skyMetaData da0)
+      _daMetaH0 = refDigest (skyMetaData da0)
       daTopicsH0 = refDigest (skyTopicTrie da0)
       topH0 = computeDigest da0
 
@@ -64,8 +61,8 @@ updateBridgeTest TestInfo {..} = do
       topicId = fromJust maybeTopicId
       (da2, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da1
       topH2 = computeDigest @Hash da2
-      daMetaH2 = refDigest (skyMetaData da2) -- should be same as daMetaH0
-      daTopicsH2 = refDigest (skyTopicTrie da2)
+      _daMetaH2 = refDigest (skyMetaData da2) -- should be same as daMetaH0
+      _daTopicsH2 = refDigest (skyTopicTrie da2)
 
       skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy

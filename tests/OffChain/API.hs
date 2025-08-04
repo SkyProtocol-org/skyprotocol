@@ -5,16 +5,13 @@ module OffChain.API (apiSpec) where
 import API
 import API.Da
 import API.Types
-import App
+import App hiding (getCardanoUser)
 import Common
 import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class (liftIO)
-import Data.Functor.Identity
 import Data.Yaml.Config (loadYamlSettings, useEnv)
-import GeniusYield.GYConfig (withCfgProviders)
-import GeniusYield.Types
 import Log
 import Log.Backend.LogList
 import Network.HTTP.Client (defaultManagerSettings, newManager)
@@ -22,44 +19,24 @@ import Network.Wai.Handler.Warp (run)
 import Servant
 import Servant.Client
 import Servant.Client.Generic
-import System.Exit (exitFailure)
 import Test.Tasty
 import Test.Tasty.HUnit
+import Util
 
-testSecKey1 :: SecKey
-testSecKey1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
-
-testSecKey2 :: SecKey
-testSecKey2 = ofHex "B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F"
-
-testPubKey1 :: PubKey
-testPubKey1 = derivePubKey testSecKey1
-
-testPubKey2 :: PubKey
-testPubKey2 = derivePubKey testSecKey2
-
-testEnv :: AppConfig -> Logger -> GYProviders -> IO AppEnv
-testEnv appConfig logger appProviders = do
-  let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
-      committee = MultiSigPubKey ([testPubKey1, testPubKey2], UInt16 2)
-      _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
-      _blockState = initBlockState _skyDa
-      appState = initAppState _blockState $ BridgeState _skyDa
+testEnv :: AppConfig -> Logger -> IO AppEnv
+testEnv appConfig logger = do
+  appAdmin <- getCardanoUser
+  appOfferer <- getCardanoUser
+  appClaimant <- getCardanoUser
+  let (da, _schema, _committee) = createTestDa $ cuserVerificationKey appAdmin
+      _blockState = initBlockState da
+      appState = initAppState _blockState $ BridgeState da
   appStateW <- newMVar appState
   appStateR <- newMVar appState
 
-  eitherAdmin <- getCardanoUser "./tests/OffChain/admin/"
-  eitherOfferer <- getCardanoUser "./tests/OffChain/offerer/"
-  eitherClaimant <- getCardanoUser "./tests/OffChain/claimant/"
+  let appProviders = Nothing
 
-  case sequence [eitherAdmin, eitherOfferer, eitherClaimant] of
-    Left (StartupError err) -> do
-      putStrLn err
-      exitFailure
-    Right [appAdmin, appOfferer, appClaimant] -> pure AppEnv {..}
-    _ -> do
-      putStrLn "something went very wrong"
-      exitFailure
+  pure AppEnv {..}
 
 data TestEnv = TestEnv
   { appEnv :: AppEnv,
@@ -75,22 +52,21 @@ startAPI = do
   appLogList <- newLogList
   config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
   logger' <- mkLogger "tests" (putLogList appLogList)
-  withCfgProviders (configAtlas config) "api-test" $ \providers -> do
-    appEnv <- testEnv config logger' providers
+  appEnv <- testEnv config logger'
 
-    -- start the app
-    appThreadId <- forkIO $ run (configPort config) $ app appEnv
-    -- Give the server some time to start
-    {- TODO: have the server print something or execute something we can recognize
-       that won't be just confused with logging, to signal that it's ready,
-       after it starts listening. Then we can wait for that message here instead of sleeping -}
-    threadDelay 1000000
+  -- start the app
+  appThreadId <- forkIO $ run (configPort config) $ app appEnv
+  -- Give the server some time to start
+  {- TODO: have the server print something or execute something we can recognize
+     that won't be just confused with logging, to signal that it's ready,
+     after it starts listening. Then we can wait for that message here instead of sleeping -}
+  threadDelay 1000000
 
-    -- initialize http client
-    manager <- liftIO $ newManager defaultManagerSettings
-    let baseUrl = BaseUrl Http "localhost" (configPort $ appConfig appEnv) ""
-        clientEnv = mkClientEnv manager baseUrl
-    pure TestEnv {..}
+  -- initialize http client
+  manager <- liftIO $ newManager defaultManagerSettings
+  let baseUrl = BaseUrl Http "localhost" (configPort $ appConfig appEnv) ""
+      clientEnv = mkClientEnv manager baseUrl
+  pure TestEnv {..}
 
 -- Shut down the API server and display logs
 closeAPI :: TestEnv -> IO ()
