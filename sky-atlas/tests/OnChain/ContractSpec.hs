@@ -72,15 +72,6 @@ updateBridgeTest TestInfo {..} = do
       skyToken = GYToken skyPolicyId "SkyBridge"
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
 
-  gyLogDebug' "" $ printf "AAAA daMetaH0: %s" (hexOf daMetaH0 :: String)
-  gyLogDebug' "" $ printf "AAAA daTopicsH0: %s" (hexOf daTopicsH0 :: String)
-  gyLogDebug' "" $ printf "AAAA topH0: %s" (hexOf topH0 :: String)
-  gyLogDebug' "" $ printf "AAAA recomputed topH0: %s" (hexOf . computeDigest @Hash $ (daMetaH0, daTopicsH0) :: String)
-
-  gyLogDebug' "" $ printf "AAAA daMetaH2: %s" (hexOf daMetaH2 :: String)
-  gyLogDebug' "" $ printf "AAAA daTopicsH2: %s" (hexOf daTopicsH2 :: String)
-  gyLogDebug' "" $ printf "AAAA topH2: %s" (hexOf topH2 :: String)
-
   bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
   -- create bridge and mint some nft
   asUser (admin testWallets) $ do
@@ -92,7 +83,7 @@ updateBridgeTest TestInfo {..} = do
         topH0
         bridgeVAddr
         pkh
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
@@ -135,7 +126,7 @@ updateBridgeTest TestInfo {..} = do
         skyToken
         bridgeVAddr
         pkh
-    gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
     txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
 
@@ -147,7 +138,7 @@ sendFundsTest TestInfo {..} = do
   let amount = 10
 
   -- TODO: make a transaction with bounty contract and then try to send some funds there
-  -- cauze rn it check only the fact, that the skeleton is successfully built and "executed"
+  -- cauze rn it checks only the fact, that the skeleton is successfully built and "executed"
   -- with no way to actually check the balances
   asUser (admin testWallets) $ do
     sendFundsSkeleton <- mkSendSkeleton addr amount GYLovelace pkh
