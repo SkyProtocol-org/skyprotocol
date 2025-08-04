@@ -15,18 +15,18 @@ jobs:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
     - run: nix develop --accept-flake-config --command bash -c 'cabal update && cabal test onchain-tests'
-      working-directory: ./sky-atlas
+      # working-directory: ./sky-atlas
   common_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
     - run: nix develop --accept-flake-config --command bash -c 'cabal update && cabal test common-tests'
-      working-directory: ./sky-atlas
+      # working-directory: ./sky-atlas
   offchain_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v27
     - run: nix develop --accept-flake-config --command bash -c 'cabal update && cabal test offchain-tests'
-      working-directory: ./sky-atlas
+      # working-directory: ./sky-atlas
