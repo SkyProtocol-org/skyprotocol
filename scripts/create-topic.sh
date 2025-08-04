@@ -9,8 +9,6 @@ PASSWORD="$API_PASS"
 response=$(curl -s -u "$USERNAME:$PASSWORD" -X POST "$BASE_URL/da/create_topic" \
   -H "Accept: application/json")
 
-echo "Response: $response"
-
 topic_id=$(echo "$response" | jq -r '.topic_id')
 
 echo "Created topic_id: $topic_id"

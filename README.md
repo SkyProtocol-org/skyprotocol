@@ -18,27 +18,27 @@ Determinate Nix has flakes enabled by default.
 
 #### Building
 (Optional, since `nix run` later in the guide will build everything as needed)
-```
-nix build
+```bash
+  nix build
 ```
 
 #### Generating keys for the tests
 Generate the verification and signing key as well as payment address
 
 Generating keys:
-```
-(cd ./config ;
-mkdir -p admin offerer claimant ;
-for i in admin offerer claimant ; do
-  nix run .#cardano-cli -- address key-gen \
-    --verification-key-file $i/payment.vkey \
-    --signing-key-file $i/payment.skey ;
-  nix run .#cardano-cli -- address build \
-    --payment-verification-key-file $i/payment.vkey \
-    --testnet-magic 2 \
-    --out-file $i/payment.addr ;
-done
-)
+```bash
+  (cd ./config ;
+  mkdir -p admin offerer claimant ;
+  for i in admin offerer claimant ; do
+    nix run .#cardano-cli -- address key-gen \
+      --verification-key-file $i/payment.vkey \
+      --signing-key-file $i/payment.skey ;
+    nix run .#cardano-cli -- address build \
+      --payment-verification-key-file $i/payment.vkey \
+      --testnet-magic 2 \
+      --out-file $i/payment.addr ;
+  done
+  )
 ```
 
 Note: we're targeting cardano preview network for now, so we use the testnet magic number, `2`.
@@ -46,10 +46,10 @@ Note: we're targeting cardano preview network for now, so we use the testnet mag
 #### Get ADA tokens on the preview network
 
 Get each of your admin addresses:
-```
-for i in tests/OffChain/*/payment.addr ; do
-  cat $i ; echo ;
-done
+```bash
+  for i in config/*/payment.addr ; do
+    cat $i ; echo ;
+  done
 ```
 
 Use each of these addresses to get funds at the faucet:
@@ -74,11 +74,25 @@ NOTES:
 * path to the directory with the keys should include trailing slash
 * the order matters
 
-```
-nix run -- ./config/admin/ ./config/offerer/ ./config/claimant/
+```bash
+  nix run -- ./config/admin/ ./config/offerer/ ./config/claimant/
 ```
 
 This should compile everything and run the node locally.
+
+To check if the node is running do the curl request to the health endpoint
+```bash
+  curl localhost:8080/health
+```
+You should see `"OK"` as a response and
+```
+  GET /health
+    Accept: */*
+    Status: 200 OK 0.00004094s
+```
+in the node logs (Time can vary).
+
+If everything is okay, go to the [running](/doc/Running.md) for further instructions.
 
 ### Copyright and License
 
