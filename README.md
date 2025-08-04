@@ -114,6 +114,10 @@ in the node logs (Time can vary).
 
 If everything is okay, go to the [running](/doc/Running.md) for further instructions.
 
+## Developing
+
+See [doc/HACKING.md](doc/HACKING.md)
+
 ## Closing Matters
 
 ### Copyright and License
