@@ -50,7 +50,7 @@ startAPI :: IO TestEnv
 startAPI = do
   -- initialize App environment
   appLogList <- newLogList
-  config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
+  config <- loadYamlSettings ["config/test-config.yaml"] [] useEnv
   logger' <- mkLogger "tests" (putLogList appLogList)
   appEnv <- testEnv config logger'
 
