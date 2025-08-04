@@ -4,7 +4,6 @@ import API
 import App
 import Control.Monad.IO.Class
 import Log
-import Log.Backend.StandardOutput
 import Network.HTTP.Types qualified as HttpTypes
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Middleware.Cors

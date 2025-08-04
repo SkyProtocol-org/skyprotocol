@@ -41,6 +41,7 @@ TAGS
 # Cache and other dev setup files
 .direnv/
 */dist-newstyle/*
+dist-newstyle/*
 
 # config and other sensitive data
 local-test.yaml

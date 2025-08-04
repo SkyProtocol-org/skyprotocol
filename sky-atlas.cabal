@@ -156,7 +156,6 @@ executable sky-atlas
   main-is:        Main.hs
   ghc-options:    -O2 -threaded -rtsopts -with-rtsopts=-T
   build-depends:
-    , atlas-cardano
     , base
     , http-types
     , log-base
@@ -164,7 +163,6 @@ executable sky-atlas
     , wai-cors
     , wai-extra
     , warp
-    , yaml
 
 executable show-pir
   hs-source-dirs: app
