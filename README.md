@@ -3,27 +3,44 @@
 Sky Protocol is infrastructure for modular blockchains, starting with
 a Data Availability Network.
 
-
-### Haskell Sky Node
+## Haskell Sky Node
 
 ### Installation
 
 You should have Nix package manager (1) on your system or NixOS (2) as your OS for this to work:
 
-1) https://github.com/DeterminateSystems/nix-installer
-2) https://nixos.org/
+1. https://github.com/DeterminateSystems/nix-installer
+2. https://nixos.org/
 
-Make sure to [enable nix flakes](https://nixos.wiki/wiki/Flakes) if you're using NixOS.
+If you're using NixOS, make sure to [enable nix flakes](https://nixos.wiki/wiki/Flakes)
+if not yet enabled by default by its version of nix.
 Determinate Nix has flakes enabled by default.
 
-#### Building
-(Optional, since `nix run` later in the guide will build everything as needed)
+### Building
+(Optional, since `nix run` later in the guide will build everything as needed.)
+
 ```bash
   nix build
 ```
 
-#### Generating keys for the tests
-Generate the verification and signing key as well as payment address
+### Automated Tests
+
+To run the automated tests:
+
+```bash
+  nix develop
+  cabal test
+```
+
+### Manual Tests
+
+The instructions below are to run manual tests against the Cardano preview network.
+
+#### Generating keys for manual tests
+
+_If_ you are going to run _manual_ tests against the cardano preview network,
+generate the verification and signing key as well as payment address.
+(Automated tests above will generate their own keys against a private node.)
 
 Generating keys:
 ```bash
@@ -52,7 +69,7 @@ Get each of your admin addresses:
   done
 ```
 
-Use each of these addresses to get funds at the faucet:
+Use each of these addresses to get funds at the Cardano preview network faucet:
 https://faucet.preview.world.dev.cardano.org/basic-faucet
 
 You may have to wait a few minutes between attempts, and/or
@@ -69,16 +86,17 @@ For node to work you should have a Maestro account and config the node according
 2) Copy the `config/example-config.yaml` to the `config/local-test.yaml` and configure appropriately
    (the config fields have docs in comments, see immediately above the two `EDIT THIS` comments)
 
-#### Running
-NOTES:
-* path to the directory with the keys should include trailing slash
-* the order matters
+#### Running Manual Tests
+
+This should compile everything and run the node _locally_:
 
 ```bash
   nix run -- ./config/admin/ ./config/offerer/ ./config/claimant/
 ```
 
-This should compile everything and run the node locally.
+NOTES:
+* path to the directory with the keys should include trailing slash
+* the order matters
 
 To check if the node is running do the curl request to the health endpoint
 ```bash
@@ -93,6 +111,8 @@ You should see `"OK"` as a response and
 in the node logs (Time can vary).
 
 If everything is okay, go to the [running](/doc/Running.md) for further instructions.
+
+## Closing Matters
 
 ### Copyright and License
 
