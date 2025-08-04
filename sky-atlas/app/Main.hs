@@ -24,11 +24,11 @@ main = do
 
   withAppEnv adminKeys offererKeys claimantKeys $ \appEnv -> do
     logInfo_ "Starting server"
-      liftIO $
-        run (configPort config) $
-          cors (const $ Just simpleCorsResourcePolicy {corsRequestHeaders = [HttpTypes.hContentType]}) $
-            logStdoutDev $
-              app appEnv
+    liftIO $
+      run (configPort $ appConfig appEnv) $
+        cors (const $ Just simpleCorsResourcePolicy {corsRequestHeaders = [HttpTypes.hContentType]}) $
+          logStdoutDev $
+            app appEnv
 
 printHelp :: IO ()
 printHelp = putStrLn "Supply 3 folders paths: admin keys, offerer keys, claimant keys"

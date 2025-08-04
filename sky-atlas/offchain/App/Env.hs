@@ -186,7 +186,7 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
     _ -> pure $ Left $ StartupError "Something went wrong when initializing the environment"
 
 withAppEnv :: FilePath -> FilePath -> FilePath -> (AppEnv -> LogT IO ()) -> IO ()
-withAppEnv adminKeys offererKeys claimantKeys fun = do
+withAppEnv adminKeys offererKeys claimantKeys f = do
   config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
   withCfgProviders (configAtlas config) "api-server" $ \providers -> do
     withStdOutLogger $ \logger -> do
@@ -195,4 +195,4 @@ withAppEnv adminKeys offererKeys claimantKeys fun = do
         eitherAppEnv <- liftIO $ initEnv config logger providers adminKeys offererKeys claimantKeys
         case eitherAppEnv of
           Left err -> liftIO $ print err
-          Right appEnv -> fun appEnv
+          Right appEnv -> f appEnv
