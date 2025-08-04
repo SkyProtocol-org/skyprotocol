@@ -8,19 +8,16 @@ a Data Availability Network.
 
 ### Installation
 
-You should have Nix package manager on your system or NixOS as your OS for this to work:
+You should have Nix package manager (1) on your system or NixOS (2) as your OS for this to work:
 
-#### Setting up the binary cache
+1) https://github.com/DeterminateSystems/nix-installer
+2) https://nixos.org/
 
-The binary cache is [sky-protocol](https://sky-protocol.cachix.org).
-To use it, you should get the `cachix` cli tool and set the authtoken with
-`cachix authtoken $YOUR_AUTH_TOKEN`.
-
-If you are a team member and want to push to the cache, you should make sure
-that you have a `write` token, which you can get from Fare,
-and that the cachix daemon is running (somehow Yaroslav had to `cachix daemon run sky-protocol`).
+Make sure to [enable nix flakes](https://nixos.wiki/wiki/Flakes) if you're using NixOS.
+Determinate Nix has flakes enabled by default.
 
 #### Building
+(Optional, since `nix run` later in the guide will build everything as needed)
 ```
 nix build
 ```
@@ -30,13 +27,13 @@ Generate the verification and signing key as well as payment address
 
 Generating keys:
 ```
-(cd tests/OffChain/ ;
+(cd ./config ;
 mkdir -p admin offerer claimant ;
 for i in admin offerer claimant ; do
-  cardano-cli address key-gen \
+  nix run .#cardano-cli -- address key-gen \
     --verification-key-file $i/payment.vkey \
     --signing-key-file $i/payment.skey ;
-  cardano-cli address build \
+  nix run .#cardano-cli -- address build \
     --payment-verification-key-file $i/payment.vkey \
     --testnet-magic 2 \
     --out-file $i/payment.addr ;
@@ -68,14 +65,17 @@ https://preview.cexplorer.io/
 
 For node to work you should have a Maestro account and config the node accordingly:
 
-1) Get the Maestro API token (refer to [Setting up the provider](docs/Providers.md))
-2) Generate keys for the tests as below
-3) Copy the `config/example-config.yaml` to the `config/local-test.yaml` and configure appropriately
+1) Get the Maestro API token (refer to [Setting up the provider](doc/Providers.md))
+2) Copy the `config/example-config.yaml` to the `config/local-test.yaml` and configure appropriately
    (the config fields have docs in comments, see immediately above the two `EDIT THIS` comments)
 
 #### Running
+NOTES:
+* path to the directory with the keys should include trailing slash
+* the order matters
+
 ```
-nix run -- tests/OffChain/admin/ tests/OffChain/offerer/ tests/OffChain/claimant/
+nix run -- ./config/admin/ ./config/offerer/ ./config/claimant/
 ```
 
 This should compile everything and run the node locally.
