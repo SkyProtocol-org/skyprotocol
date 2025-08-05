@@ -40,7 +40,7 @@ The instructions below are to run manual tests against the Cardano preview netwo
 
 _If_ you are going to run _manual_ tests against the cardano preview network,
 generate the verification and signing key as well as payment address.
-(Automated tests above will generate their own keys against a private node.)
+(Automated tests above will generate their own keys.)
 
 Generating keys:
 ```bash
@@ -79,6 +79,8 @@ You can view that the addresses were funded by using the explorer at:
 https://preview.cexplorer.io/
 
 #### Configuration
+
+Note: you don't need this configuration for automated tests with `cabal test`.
 
 For node to work you should have a Maestro account and config the node accordingly:
 
