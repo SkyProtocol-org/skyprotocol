@@ -2,7 +2,7 @@ module Main (main) where
 
 import OnChain.BountySpec (bountySpec)
 import OnChain.BridgeSpec (bridgeSpec)
-import OnChain.ContractSpec (contractSpec)
+import OnChain.MintingPolicySpec (mintingPolicySpec)
 import Test.Tasty
 
 main :: IO ()
@@ -11,6 +11,6 @@ main =
     testGroup
       "OnChain Tests"
       [ bountySpec,
-        contractSpec,
+        mintingPolicySpec,
         bridgeSpec
       ]

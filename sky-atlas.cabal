@@ -236,7 +236,7 @@ test-suite onchain-tests
   other-modules:
     OnChain.BountySpec
     OnChain.BridgeSpec
-    OnChain.ContractSpec
+    OnChain.MintingPolicySpec
     Util
 
   build-depends:

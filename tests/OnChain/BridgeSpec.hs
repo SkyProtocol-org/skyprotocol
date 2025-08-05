@@ -3,11 +3,20 @@
 
 module OnChain.BridgeSpec (bridgeSpec) where
 
+import API.Bridge.Contracts (mkMintingSkeleton, mkUpdateBridgeSkeleton)
+import API.SkyMintingPolicy
 import App.Env hiding (getCardanoUser)
 import Common
 import Contract.Bridge
-import Control.Lens
+import GeniusYield.HTTP.Errors
+import GeniusYield.Imports
+import GeniusYield.Test.Clb
+import GeniusYield.Test.Utils
+import GeniusYield.TxBuilder
 import GeniusYield.Types
+import PlutusLedgerApi.V1 (ScriptHash (..))
+import PlutusLedgerApi.V1.Time (POSIXTime (..))
+import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import PlutusTx.Prelude qualified as PlutusTx
 import Test.Tasty
@@ -27,13 +36,13 @@ bridgeSpec =
             let builtinDatum = PlutusTx.toBuiltinData datum
             PlutusTx.fromBuiltinData builtinDatum @?= Just datum,
           testCase "multiSigValid" $ do
-            admin <- getCardanoUser
-            let (da', _schema, committee) = createTestDa $ cuserVerificationKey admin
+            adminCU <- getCardanoUser
+            let (da', _schema, committee) = createTestDa $ cuserVerificationKey adminCU
             timestamp <- currentPOSIXTime
 
-            let adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey admin in signingKeyToRawBytes sk
+            let adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey adminCU in signingKeyToRawBytes sk
                 adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
-                adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey admin
+                adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey adminCU
                 adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
                 (da'', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da'
                 topicId = fromJust maybeTopicId
@@ -43,13 +52,13 @@ bridgeSpec =
                 bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
             multiSigValid committee topHash bridgeSig @?= True,
           testCase "bridgeTypedValidatorCore" $ do
-            admin <- getCardanoUser
-            let (da', schema, committee) = createTestDa $ cuserVerificationKey admin
+            adminCU <- getCardanoUser
+            let (da', schema, committee) = createTestDa $ cuserVerificationKey adminCU
             timestamp <- currentPOSIXTime
 
-            let adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey admin in signingKeyToRawBytes sk
+            let adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey adminCU in signingKeyToRawBytes sk
                 adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
-                adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey admin
+                adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey adminCU
                 adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
                 oldTopHash = computeDigest @Blake2b_256 da'
                 (da'', maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da'
@@ -68,5 +77,94 @@ bridgeSpec =
             -- bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
             daDataHash' @?= daDataHash
             bridgeTypedValidatorCore schema committee daDataHash topHash bridgeSig oldTopHash @?= True
+        ],
+      testGroup
+        "Compiling contracts"
+        [ mkTestFor "Update bridge" updateBridgeTest
         ]
     ]
+
+updateBridgeTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
+updateBridgeTest TestInfo {..} = do
+  addr <- getUserAddr $ admin testWallets
+  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
+  pkh <- addressToPubKeyHash' addr
+
+  let uvk = userPaymentVKey $ admin testWallets
+
+      -- da0 initial version, to initialize the bridge with
+      (da0, schema, committee) = createTestDa uvk
+      _daMetaH0 = refDigest (skyMetaData da0)
+      daTopicsH0 = refDigest (skyTopicTrie da0)
+      topH0 = computeDigest da0
+
+      -- da2 updated version (da1 intermediate one), to update the bridge to
+      (da1, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da0
+      topicId = fromJust maybeTopicId
+      (da2, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da1
+      topH2 = computeDigest @Hash da2
+      _daMetaH2 = refDigest (skyMetaData da2) -- should be same as daMetaH0
+      _daTopicsH2 = refDigest (skyTopicTrie da2)
+
+      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      skyPolicyId = mintingPolicyId skyPolicy
+      skyToken = GYToken skyPolicyId "SkyBridge"
+      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+
+  bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
+  -- create bridge and mint some nft
+  asUser (admin testWallets) $ do
+    mintSkeleton <-
+      mkMintingSkeleton
+        "SkyBridge"
+        skyToken
+        skyPolicy
+        topH0
+        bridgeVAddr
+        pkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
+    txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
+
+  bridgeUtxos <- utxosAtAddress bridgeVAddr $ Just skyToken
+
+  gyLogDebug' "" $ printf "bridge utxos: %s" bridgeUtxos
+
+  let utxo = flip filter (utxosToList bridgeUtxos) $ \out ->
+        let assets = valueToList $ utxoValue out
+         in flip any assets $ \case
+              (GYToken pId _name, _) -> pId == skyPolicyId
+              _ -> False
+  bridgeUtxo <- case utxo of
+    [u] -> do
+      gyLogDebug' "" $ printf "bridge utxo: %s" (show u)
+      pure u
+    _ -> throwAppError $ someBackendError "Can't find bridge utxo"
+
+  let bridgeSchema = schema
+      bridgeCommittee = committee
+      bridgeOldRootHash = daTopicsH0
+      bridgeNewTopHash = topH2
+      -- TODO: make this safe
+      adminSecKeyBytes = signingKeyToRawBytes $ userPaymentSKey' $ admin testWallets
+      adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
+      signature = signMessage adminSecKey topH2
+      adminPubKeyBytes = paymentVerificationKeyRawBytes uvk
+      adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
+      bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
+      bridgeRedeemer = UpdateBridge {..}
+
+  -- update bridge
+  asUser (admin testWallets) $ do
+    updateBridgeSkeleton <-
+      mkUpdateBridgeSkeleton
+        (bridgeValidator' $ BridgeParams curSym)
+        (utxoRef bridgeUtxo)
+        (BridgeNFTDatum topH2)
+        bridgeRedeemer
+        skyToken
+        bridgeVAddr
+        pkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
+    txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId

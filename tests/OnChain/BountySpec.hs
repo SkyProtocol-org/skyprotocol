@@ -1,16 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 
 module OnChain.BountySpec (bountySpec) where
 
+import API.Bounty.Contracts
 import Common
 import Contract.Bounty (validateClaimBounty, validateTimeout)
 import Contract.DaH
-import Data.Functor.Identity (Identity (..))
+import GeniusYield.Imports
+import GeniusYield.Test.Clb
+import GeniusYield.Test.Utils
+import GeniusYield.TxBuilder
+import GeniusYield.Types
 import PlutusLedgerApi.V2
-import PlutusTx.Prelude
+import PlutusTx.Prelude (BuiltinString)
 import Test.Tasty
 import Test.Tasty.HUnit
+import Util
 
 -- Test constants
 testDeadline :: POSIXTime
@@ -228,5 +233,25 @@ bountySpec =
               testProofTyped
               testTopHash
               @?= True
+        ],
+      testGroup
+        "Compiling contracts"
+        [ mkTestFor "Send funds" sendFundsTest
         ]
     ]
+
+sendFundsTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
+sendFundsTest TestInfo {..} = do
+  addr <- getUserAddr $ admin testWallets
+  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
+  pkh <- addressToPubKeyHash' addr
+  let amount = 10
+
+  -- TODO: make a transaction with bounty contract and then try to send some funds there
+  -- cauze rn it checks only the fact, that the skeleton is successfully built and "executed"
+  -- with no way to actually check the balances
+  asUser (admin testWallets) $ do
+    sendFundsSkeleton <- mkSendSkeleton addr amount GYLovelace pkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
+    txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
