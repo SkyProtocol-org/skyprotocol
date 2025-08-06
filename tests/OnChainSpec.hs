@@ -7,10 +7,14 @@ import Test.Tasty
 
 main :: IO ()
 main =
+  -- since bountySpec is, essentially, the whole contract flow test,
+  -- we're running tests sequentially, waiting for each to succeed
+  -- if one of them fails, everything else will fail anyway
   defaultMain $
-    testGroup
+    sequentialTestGroup
       "OnChain Tests"
-      [ bountySpec,
-        mintingPolicySpec,
-        bridgeSpec
+      AllSucceed
+      [ mintingPolicySpec,
+        bridgeSpec,
+        bountySpec
       ]

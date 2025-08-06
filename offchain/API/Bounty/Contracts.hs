@@ -48,7 +48,12 @@ mkClaimBountySkeleton validator nftRef redeemer addr amt signer =
     mustHaveInput
       ( GYTxIn
           { gyTxInTxOutRef = nftRef,
-            gyTxInWitness = GYTxInWitnessScript (GYBuildPlutusScriptInlined validator) Nothing $ redeemerFromPlutus' $ toBuiltinData redeemer
+            gyTxInWitness =
+              GYTxInWitnessScript
+                (GYBuildPlutusScriptInlined validator)
+                Nothing
+                $ redeemerFromPlutus'
+                $ toBuiltinData redeemer
           }
       )
       <> mustHaveOutput

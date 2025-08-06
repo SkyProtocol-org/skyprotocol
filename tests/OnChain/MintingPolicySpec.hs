@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module OnChain.MintingPolicySpec (mintingPolicySpec) where
+module OnChain.MintingPolicySpec (mintingPolicySpec, mintingPolicyTest) where
 
 import API.Bridge.Contracts (mkMintingSkeleton)
 import API.SkyMintingPolicy
@@ -22,14 +22,21 @@ mintingPolicySpec =
     "CLB emulator test for minting policy"
     [ testGroup
         "Running contract"
-        [ mkTestFor "Create Minting Policy" mintingPolicyTest
+        [ mkTestFor "Create Minting Policy" $ \testInfo -> do
+            let topHash = computeDigest (Byte 1) -- dummy top hash
+            mintingPolicyTest testInfo topHash
         ]
     ]
 
-mintingPolicyTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
-mintingPolicyTest TestInfo {..} = do
-  addr <- getAddr
-  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
+mintingPolicyTest ::
+  ( GYTxGameMonad m,
+    GYTxUserQueryMonad m
+  ) =>
+  TestInfo ->
+  Hash ->
+  m ()
+mintingPolicyTest TestInfo {..} topHash = do
+  addr <- getUserAddr $ admin testWallets
   pkh <- addressToPubKeyHash' addr
 
   let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
@@ -45,7 +52,7 @@ mintingPolicyTest TestInfo {..} = do
         "SkyBridge"
         skyToken
         skyPolicy
-        (computeDigest (Byte 1)) -- dummy top hash
+        topHash
         bridgeVAddr
         pkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)

@@ -3,14 +3,18 @@
 module OnChain.BountySpec (bountySpec) where
 
 import API.Bounty.Contracts
+import API.SkyMintingPolicy
 import Common
-import Contract.Bounty (validateClaimBounty, validateTimeout)
+import Contract.Bounty (ClientParams (..), validateClaimBounty, validateTimeout)
 import Contract.DaH
 import GeniusYield.Imports
 import GeniusYield.Test.Clb
 import GeniusYield.Test.Utils
 import GeniusYield.TxBuilder
 import GeniusYield.Types
+import OnChain.BridgeSpec (updateBridgeTest)
+import OnChain.MintingPolicySpec (mintingPolicyTest)
+import PlutusLedgerApi.V1.Time qualified as T
 import PlutusLedgerApi.V2
 import PlutusTx.Prelude (BuiltinString)
 import Test.Tasty
@@ -48,8 +52,8 @@ testMessageHash :: Hash
 testMessageHash = computeDigest testMessage
 
 -- Create test DA structure and proof
-createTestDaAndProof :: (SkyDa (HashRef Hash), TopicId, MessageId, SkyDataProofH, Hash)
-createTestDaAndProof =
+createTestData :: (TopicId, MessageId, SkyDataProofH, Hash)
+createTestData =
   let daSchema = computeDigest @Hash @Bytes4 $ ofHex "deadbeef"
       sk1 = ofHex "A77CD8BAC4C9ED1134D958827FD358AC4D8346BD589FAB3102117284746FB45E"
       sk2 = ofHex "B2CB983D9764E7CC7C486BEBDBF1C2AA726EF78BB8BC1C97E5139AE58165A00F"
@@ -65,19 +69,14 @@ createTestDaAndProof =
       messageId = fromJust maybeMessageId
       (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, messageId) da2 :: (Hash, SkyDataProofH)
       topHash = computeDigest da2
-   in (da2, topicId, messageId, proof, topHash)
+   in (topicId, messageId, proof, topHash)
 
 -- Extract test components
-_testDa :: SkyDa (HashRef Hash)
 testTopicIdFromDa :: TopicId
 testMessageId :: MessageId
 testProof :: SkyDataProofH
 testTopHash :: Hash
-(_testDa, testTopicIdFromDa, testMessageId, testProof, testTopHash) = createTestDaAndProof
-
--- Type annotations for clarity
-testProofTyped :: SkyDataProofH
-testProofTyped = testProof
+(testTopicIdFromDa, testMessageId, testProof, testTopHash) = createTestData
 
 -- Create invalid proofs for negative testing
 createInvalidProof :: SkyDataProofH
@@ -112,7 +111,7 @@ bountySpec =
               beforeDeadline
               testMessageHash
               testTopicIdFromDa
-              testProofTyped
+              testProof
               testTopHash
               @?= True,
           testCase "should reject bounty claim after deadline" $ do
@@ -121,7 +120,7 @@ bountySpec =
               afterDeadline
               testMessageHash
               testTopicIdFromDa
-              testProofTyped
+              testProof
               testTopHash
               @?= False,
           testCase "should reject bounty claim with wrong message hash" $ do
@@ -131,7 +130,7 @@ bountySpec =
               beforeDeadline
               wrongHash
               testTopicIdFromDa
-              testProofTyped
+              testProof
               testTopHash
               @?= False,
           testCase "should reject bounty claim with wrong topic ID" $ do
@@ -141,7 +140,7 @@ bountySpec =
               beforeDeadline
               testMessageHash
               wrongTopicId
-              testProofTyped
+              testProof
               testTopHash
               @?= False,
           testCase "should reject bounty claim with wrong DA top hash" $ do
@@ -151,7 +150,7 @@ bountySpec =
               beforeDeadline
               testMessageHash
               testTopicIdFromDa
-              testProofTyped
+              testProof
               wrongTopHash
               @?= False,
           testCase "should reject bounty claim with invalid proof" $ do
@@ -165,10 +164,10 @@ bountySpec =
               @?= False,
           testCase "should validate proof structure requirements" $ do
             -- Check that proof has correct height and key structure
-            triePathHeight (proofTopicTriePathH testProofTyped) @?= 0
-            triePathKey (proofTopicTriePathH testProofTyped) @?= testTopicIdFromDa
-            triePathHeight (proofMessageTriePathH testProofTyped) @?= 0
-            triePathKey (proofMessageTriePathH testProofTyped) @?= testMessageId
+            triePathHeight (proofTopicTriePathH testProof) @?= 0
+            triePathKey (proofTopicTriePathH testProof) @?= testTopicIdFromDa
+            triePathHeight (proofMessageTriePathH testProof) @?= 0
+            triePathKey (proofMessageTriePathH testProof) @?= testMessageId
         ],
       testGroup
         "validateTimeout"
@@ -195,15 +194,15 @@ bountySpec =
         "Proof validation integration"
         [ testCase "should validate applySkyDataProof correctly" $ do
             -- Verify that the proof actually validates the message hash
-            let proofResult = applySkyDataProofH testProofTyped testMessageHash
+            let proofResult = applySkyDataProofH testProof testMessageHash
             proofResult @?= testTopHash,
           testCase "should reject proof with wrong message hash" $ do
             let wrongHash = computeDigest @Hash ("different message" :: BuiltinString)
-                proofResult = applySkyDataProofH testProofTyped wrongHash
+                proofResult = applySkyDataProofH testProof wrongHash
             proofResult == testTopHash @?= False,
           testCase "should validate proof structure matches topic requirements" $ do
             -- The proof should have the correct topic ID in its path
-            let topicPath = proofTopicTriePathH testProofTyped
+            let topicPath = proofTopicTriePathH testProof
             triePathKey topicPath @?= testTopicIdFromDa
             -- Height should be 0 (direct path from leaf to root)
             triePathHeight topicPath @?= 0
@@ -230,28 +229,64 @@ bountySpec =
               beforeDeadline
               testMessageHash
               emptyTopicId
-              testProofTyped
+              testProof
               testTopHash
               @?= True
         ],
       testGroup
-        "Compiling contracts"
-        [ mkTestFor "Send funds" sendFundsTest
+        "Running contracts"
+        [ mkTestFor "Claim bounty" $ \TestInfo {..} -> do
+            let uvk = userPaymentVKey $ admin testWallets
+                -- da0 initial version, to initialize the bridge with
+                initialState@(initialDa, _schema, _committee) = createTestDa uvk
+                topH0 = computeDigest initialDa
+
+            let -- updatedDa updated version (da1 intermediate one), to update the bridge to
+                (da1, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) initialDa
+                topicId = fromJust maybeTopicId
+                (updatedDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) testMessage topicId da1
+                messageHash = computeDigest testMessage
+
+            mintingPolicyTest TestInfo {..} topH0
+            updateBridgeTest TestInfo {..} initialState updatedDa
+            sendFundsTest TestInfo {..} topicId messageHash undefined
         ]
     ]
 
-sendFundsTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
-sendFundsTest TestInfo {..} = do
-  addr <- getUserAddr $ admin testWallets
-  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
-  pkh <- addressToPubKeyHash' addr
-  let amount = 10
+sendFundsTest ::
+  ( GYTxGameMonad m,
+    GYTxUserQueryMonad m
+  ) =>
+  TestInfo ->
+  TopicId ->
+  Hash ->
+  T.POSIXTime ->
+  m ()
+sendFundsTest TestInfo {..} topicId messageHash deadline = do
+  adminAddr <- getUserAddr $ admin testWallets
+  offererAddr <- getUserAddr $ offerer testWallets
+  claimantAddr <- getUserAddr $ claimant testWallets
 
-  -- TODO: make a transaction with bounty contract and then try to send some funds there
-  -- cauze rn it checks only the fact, that the skeleton is successfully built and "executed"
-  -- with no way to actually check the balances
-  asUser (admin testWallets) $ do
-    sendFundsSkeleton <- mkSendSkeleton addr amount GYLovelace pkh
+  adminPkh <- addressToPubKeyHash' adminAddr
+  offererPkh <- addressToPubKeyHash' offererAddr
+  claimantPkh <- addressToPubKeyHash' claimantAddr
+
+  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus adminPkh
+      bountyNFTCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
+      bountyClaimantPubKeyHash = pubKeyHashToPlutus claimantPkh
+      bountyOffererPubKeyHash = pubKeyHashToPlutus offererPkh
+      clientParams =
+        ClientParams
+          { bountyTopicId = topicId,
+            bountyMessageHash = messageHash,
+            bountyDeadline = deadline,
+            ..
+          }
+
+  bountyVAddr <- bountyValidatorAddress clientParams
+
+  asUser (offerer testWallets) $ do
+    sendFundsSkeleton <- mkSendSkeleton bountyVAddr 10_000_000 GYLovelace offererPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
