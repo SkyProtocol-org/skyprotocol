@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module OnChain.BountySpec (bountySpec, sendFundsTest, claimBountyTest) where
+module OnChain.BountySpec (bountySpec, offerBountyTest, claimBountyTest) where
 
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
@@ -261,12 +261,12 @@ bountySpec =
 
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
-            sendFundsTest TestInfo {..} topicId messageHash deadline
+            offerBountyTest TestInfo {..} topicId messageHash deadline
             -- claimBountyTest TestInfo {..} topicId messageHash deadline proof
         ]
     ]
 
-sendFundsTest ::
+offerBountyTest ::
   ( GYTxGameMonad m,
     GYTxUserQueryMonad m
   ) =>
@@ -275,7 +275,7 @@ sendFundsTest ::
   Hash ->
   T.POSIXTime ->
   m ()
-sendFundsTest TestInfo {..} topicId messageHash deadline = do
+offerBountyTest TestInfo {..} topicId messageHash deadline = do
   adminAddr <- getUserAddr $ admin testWallets
   offererAddr <- getUserAddr $ offerer testWallets
   claimantAddr <- getUserAddr $ claimant testWallets
@@ -366,7 +366,7 @@ claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
       redeemer = ClaimBounty proof
 
   asUser (offerer testWallets) $ do
-    sendFundsSkeleton <-
+    claimBountySkeleton <-
       mkClaimBountySkeleton
         (bountyValidator' clientParams)
         nftRef
@@ -375,5 +375,5 @@ claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
         bountyAmount
         offererPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
-    txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
+    txId <- buildTxBody claimBountySkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
