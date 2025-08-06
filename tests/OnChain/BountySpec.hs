@@ -5,8 +5,10 @@ module OnChain.BountySpec (bountySpec) where
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import Common
-import Contract.Bounty (ClientParams (..), validateClaimBounty, validateTimeout)
+import Contract.Bounty (ClientParams (..), ClientRedeemer (..), validateClaimBounty, validateTimeout)
+import Contract.Bridge (BridgeParams (..))
 import Contract.DaH
+import GeniusYield.HTTP.Errors
 import GeniusYield.Imports
 import GeniusYield.Test.Clb
 import GeniusYield.Test.Utils
@@ -17,9 +19,11 @@ import OnChain.MintingPolicySpec (mintingPolicyTest)
 import PlutusLedgerApi.V1.Time qualified as T
 import PlutusLedgerApi.V2
 import PlutusTx.Prelude (BuiltinString)
+import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util
+import Utils
 
 -- Test constants
 testDeadline :: POSIXTime
@@ -244,12 +248,16 @@ bountySpec =
             let -- updatedDa updated version (da1 intermediate one), to update the bridge to
                 (da1, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) initialDa
                 topicId = fromJust maybeTopicId
-                (updatedDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) testMessage topicId da1
+                (updatedDa, maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) testMessage topicId da1
                 messageHash = computeDigest testMessage
+                (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, fromJust maybeMessageId) updatedDa :: (Hash, SkyDataProofH)
+
+            let deadline = unsafePerformIO currentPOSIXTime
 
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
-            sendFundsTest TestInfo {..} topicId messageHash undefined
+            sendFundsTest TestInfo {..} topicId messageHash deadline
+            claimBountyTest TestInfo {..} topicId messageHash deadline proof
         ]
     ]
 
@@ -287,6 +295,80 @@ sendFundsTest TestInfo {..} topicId messageHash deadline = do
 
   asUser (offerer testWallets) $ do
     sendFundsSkeleton <- mkSendSkeleton bountyVAddr 10_000_000 GYLovelace offererPkh
+    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
+    txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
+    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
+
+claimBountyTest ::
+  ( GYTxGameMonad m,
+    GYTxUserQueryMonad m
+  ) =>
+  TestInfo ->
+  TopicId ->
+  Hash ->
+  T.POSIXTime ->
+  SkyDataProofH ->
+  m ()
+claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
+  adminAddr <- getUserAddr $ admin testWallets
+  offererAddr <- getUserAddr $ offerer testWallets
+  claimantAddr <- getUserAddr $ claimant testWallets
+
+  adminPkh <- addressToPubKeyHash' adminAddr
+  offererPkh <- addressToPubKeyHash' offererAddr
+  claimantPkh <- addressToPubKeyHash' claimantAddr
+
+  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus adminPkh
+      skyPolicyId = mintingPolicyId skyPolicy
+      skyToken = GYToken skyPolicyId "SkyBridge"
+      curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
+      bountyNFTCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
+      bountyClaimantPubKeyHash = pubKeyHashToPlutus claimantPkh
+      bountyOffererPubKeyHash = pubKeyHashToPlutus offererPkh
+      clientParams =
+        ClientParams
+          { bountyTopicId = topicId,
+            bountyMessageHash = messageHash,
+            bountyDeadline = deadline,
+            ..
+          }
+
+  bridgeUtxos <- do
+    addr <- bridgeValidatorAddress $ BridgeParams curSym
+    utxosAtAddressWithDatums addr $ Just skyToken
+  bountyUtxos <- do
+    addr <- bountyValidatorAddress clientParams
+    utxosAtAddress addr Nothing
+
+  let utxoWithDatum = flip filter bridgeUtxos $ \(out, _) ->
+        let assets = valueToList $ utxoValue out
+         in flip any assets $ \case
+              (GYToken pId name, _) -> name == "SkyBridge" && pId == skyPolicyId
+              _ -> False
+  nftRef <- case utxoWithDatum of
+    [(utxo, Just _)] -> pure $ utxoRef utxo
+    _ -> throwAppError $ someBackendError "Can't find bridge utxo"
+
+  -- TODO: make this safe
+  let bountyAmount =
+        snd
+          . head -- get first asset. TODO: search for the one we need
+          . valueToList
+          . utxoValue
+          . head -- get the first utxo. TODO: search for the one we need
+          . utxosToList
+          $ bountyUtxos
+      redeemer = ClaimBounty $ toByteString proof
+
+  asUser (offerer testWallets) $ do
+    sendFundsSkeleton <-
+      mkClaimBountySkeleton
+        (bountyValidator' clientParams)
+        nftRef
+        redeemer
+        claimantAddr
+        bountyAmount
+        offererPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
