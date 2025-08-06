@@ -4,6 +4,7 @@ module OnChain.BountySpec (bountySpec, sendFundsTest, claimBountyTest) where
 
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
+import App (CardanoUser (..))
 import Common
 import Contract.Bounty (ClientParams (..), ClientRedeemer (..), validateClaimBounty, validateTimeout)
 import Contract.Bridge (BridgeParams (..))
@@ -18,6 +19,7 @@ import OnChain.BridgeSpec (updateBridgeTest)
 import OnChain.MintingPolicySpec (mintingPolicyTest)
 import PlutusLedgerApi.V1.Time qualified as T
 import PlutusLedgerApi.V2
+import PlutusTx qualified
 import PlutusTx.Prelude (BuiltinString)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty
@@ -237,6 +239,10 @@ bountySpec =
               testTopHash
               @?= True
         ],
+      testCase "to/from builtin data ClaimBounty" $ do
+        let redeemer = ClaimBounty testProof
+        let builtinRedeemer = PlutusTx.toBuiltinData redeemer
+        PlutusTx.fromBuiltinData builtinRedeemer @?= Just redeemer,
       testGroup
         "Running contracts"
         [ mkTestFor "Claim bounty" $ \TestInfo {..} -> do
@@ -257,7 +263,7 @@ bountySpec =
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
             sendFundsTest TestInfo {..} topicId messageHash deadline
-            -- claimBountyTest TestInfo {..} topicId messageHash deadline proof
+            claimBountyTest TestInfo {..} topicId messageHash deadline proof
         ]
     ]
 
@@ -358,7 +364,7 @@ claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
           . head -- get the first utxo. TODO: search for the one we need
           . utxosToList
           $ bountyUtxos
-      redeemer = ClaimBounty $ toByteString proof
+      redeemer = ClaimBounty proof
 
   asUser (offerer testWallets) $ do
     sendFundsSkeleton <-

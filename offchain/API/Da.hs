@@ -148,7 +148,9 @@ getProofH topicId messageId = do
   case maybeRmdProof of
     Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
     Just (rmd, proof) ->
-      return . ProofBytes . builtinByteStringToByteString . toByteString $ (rmd, proof)
+      undefined
+
+-- return . ProofBytes . builtinByteStringToByteString . toByteString $ (rmd, proof)
 
 -- TODO: Why do we need this?
 readMessageH :: TopicId -> MessageId -> AppM RawBytes

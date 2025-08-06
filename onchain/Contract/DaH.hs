@@ -12,10 +12,12 @@ import Common.Types
 import Contract.TrieH
 import Control.Monad (Monad)
 import Data.Functor.Identity (Identity (..))
+import GHC.Generics (Generic)
 import PlutusTx
+import PlutusTx.Blueprint
 import PlutusTx.Functor as PlutusTx
 import PlutusTx.Prelude as PlutusTx
-import PlutusTx.Show as PlutusTx
+import Prelude qualified as HP
 
 -- import Prelude qualified as HP
 
@@ -25,52 +27,46 @@ import PlutusTx.Show as PlutusTx
 
 -- * Types
 
-newtype SkyDaH = SkyDaOfTupleH {tupleOfSkyDaH :: (Hash, Hash)} -- H(DaMetaData), H(TopicTrie)
-  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
+data SkyDaH = SkyDaH
+  { skyMetaDataH :: Hash,
+    skyTopiTrieH :: Hash
+  } -- H(DaMetaData), H(TopicTrie)
+  deriving (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
--- deriving (HP.Eq, HP.Show)
-
-pattern SkyDaH :: Hash -> Hash -> SkyDaH
-pattern SkyDaH {skyMetaDataH, skyTopicTrieH} = SkyDaOfTupleH (skyMetaDataH, skyTopicTrieH)
-
-{-# COMPLETE SkyDaH #-}
-
-newtype DaMetaDataH = DaMetaDataOfTupleH {tupleOfDaMetaDataH :: (Hash, Hash)}
-  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-
--- deriving (HP.Eq, HP.Show)
-
-pattern DaMetaDataH :: Hash -> Hash -> DaMetaDataH -- schema, committee
-pattern DaMetaDataH {daSchemaH, daCommitteeH} = DaMetaDataOfTupleH (daSchemaH, daCommitteeH)
-
-{-# COMPLETE DaMetaDataH #-}
+data DaMetaDataH = DaMetaDataH
+  { daSchemaH :: Hash,
+    daCommitteeH :: Hash
+  }
+  deriving (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
 type TopicEntryH = (Hash, Hash) -- H(TopicMetaDataH), H(MessageTrieH)
 
-newtype TopicMetaDataH
-  = TopicMetaDataOfTupleH {tupleOfTopicMetaDataH :: (Hash, Hash)}
-  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-
-pattern TopicMetaDataH :: Hash -> Hash -> TopicMetaDataH
-pattern TopicMetaDataH {topicSchemaH, topicCommitteeH} =
-  TopicMetaDataOfTupleH (topicSchemaH, topicCommitteeH)
-
-{-# COMPLETE TopicMetaDataH #-}
+data TopicMetaDataH = TopicMetaDataH
+  { topicSchemaH :: Hash,
+    topicCommittee :: Hash
+  }
+  deriving (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
 type TrieTopicPathH t = TriePath Byte TopicId t
 
 type TrieMessagePathH t = TriePath Byte MessageId t
 
-newtype SkyDataProofH = SkyDataProofOfTupleH
-  {tupleOfSkyDataProofH :: (Hash, TrieTopicPathH Hash, Hash, TrieMessagePathH Hash, Hash)}
-  deriving newtype (PlutusTx.Eq, PlutusTx.Show, ToByteString, FromByteString, ToData, FromData, UnsafeFromData)
-
--- deriving (HP.Eq, HP.Show)
-
-pattern SkyDataProofH :: Hash -> TrieTopicPathH Hash -> Hash -> TrieMessagePathH Hash -> Hash -> SkyDataProofH
-pattern SkyDataProofH {proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH, proofMessageTriePathH, proofMessageMetaDataH} = SkyDataProofOfTupleH (proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH, proofMessageTriePathH, proofMessageMetaDataH)
-
-{-# COMPLETE SkyDataProofH #-}
+data SkyDataProofH = SkyDataProofH
+  { proofDaMetaDataH :: Hash,
+    proofTopicTriePathH :: TrieTopicPathH Hash,
+    proofTopicMetaDataH :: Hash,
+    proofMessageTriePathH :: TrieMessagePathH Hash,
+    proofMessageMetaDataH :: Hash
+  }
+  deriving (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
 -- * Instances
 
@@ -117,5 +113,15 @@ getSkyDataProofH ids da = getSkyDataProof ids da >>= return . fmap skyDataProofT
 
 -- * Meta Declarations
 
--- PlutusTx.makeLift ''SkyDataProofH
--- PlutusTx.makeIsDataSchemaIndexed ''SkyDataProofH [('SkyDataProofH, 0)]
+--
+PlutusTx.makeLift ''SkyDaH
+PlutusTx.makeIsDataSchemaIndexed ''SkyDaH [('SkyDaH, 0)]
+
+PlutusTx.makeLift ''DaMetaDataH
+PlutusTx.makeIsDataSchemaIndexed ''DaMetaDataH [('DaMetaDataH, 0)]
+
+PlutusTx.makeLift ''TopicMetaDataH
+PlutusTx.makeIsDataSchemaIndexed ''TopicMetaDataH [('TopicMetaDataH, 0)]
+
+PlutusTx.makeLift ''SkyDataProofH
+PlutusTx.makeIsDataSchemaIndexed ''SkyDataProofH [('SkyDataProofH, 0)]

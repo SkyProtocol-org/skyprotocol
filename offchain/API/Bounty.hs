@@ -123,8 +123,8 @@ bountyServer =
               . utxosToList
               $ bountyUtxos
 
-      let proofBytes = toByteString (Byte 1) -- XXX TODO get the real thing
-      let redeemer = ClaimBounty proofBytes
+      -- TODO: Fix this
+      let redeemer = ClaimBounty undefined
       body <-
         runBuilder
           cBountyrUsedAddrs
