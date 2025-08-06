@@ -9,11 +9,14 @@ import Common.Crypto
 import Common.Types
 import Control.Monad (Monad, (>=>))
 import Data.Function ((&))
+import GHC.Generics (Generic)
 import PlutusTx
+import PlutusTx.Blueprint
 import PlutusTx.Builtins
 import PlutusTx.Functor
 import PlutusTx.Prelude
 import PlutusTx.Show
+import Prelude qualified as HP
 
 -- * Types
 
@@ -92,6 +95,9 @@ data TriePath h k d = TriePath
     --       to the first (low-order) bits of k1.
     triePathOthers :: [d]
   }
+  deriving (HP.Eq, HP.Show)
+  deriving stock (Generic)
+  deriving anyclass (HasBlueprintDefinition)
 
 type TrieProof h k d = TriePath h k d
 
@@ -132,6 +138,7 @@ class
 -- * Instances
 
 PlutusTx.makeLift ''TriePath
+
 -- PlutusTx.makeIsDataSchemaIndexed ''TriePath [('TriePath, 0)]
 
 -- ** TrieTop
@@ -546,33 +553,33 @@ instance
            but also no less than necessary for there being a branch to our desired key
            and no less than necessary for there being a branch to the current key
            and yet no more than necessary. -}
-        let hcommon = h' `max` bitLength ((k0 `shiftLeft` h0) `logicalXor` (k' `shiftLeft` h')) in
-           {- Note that for very long keys, this bitwise-xor is already a log N operation,
-              in which case maintaining an O(1) amortized cost would require us to
-              take as parameter an incremental change on a zipper for the height
-              and return an accordingly modified zipper for the Trie.
-             In practice we use 256-bit keys for Cardano, which is borderline. -}
-        if h >= hcommon
-          then descend t p
-          else
-            pathStep p
-              >>= \case
-                -- Can go up the original tree? Do.
-                Just (s, p') -> stepUp s t >>= \t' -> ascend t' p'
-                -- Can't go up the original tree? Extend it!
-                {- At this point we're still below the desired level,
-                   but there are no more steps to zip up in the original trie
-                   so k is 0, h is the original trie height, and
-                   hcommon is h' + bitLength k',
-                   which means we have to create additional trie nodes
-                   to accommodate space for the new key (k' `shiftLeft` h')
-                   and take a RightStep from it. -}
-                Nothing ->
-                  let l1 = hcommon - h - 1
-                   in do
-                        t1 <- trieNodeSkipUp l1 (lowBitsMask 0) t
-                        e0 <- rf Empty
-                        descend e0 (TriePath (hcommon - 1) (lowBitsMask 1) (lowBitsMask 0) [t1])
+        let hcommon = h' `max` bitLength ((k0 `shiftLeft` h0) `logicalXor` (k' `shiftLeft` h'))
+         in {- Note that for very long keys, this bitwise-xor is already a log N operation,
+               in which case maintaining an O(1) amortized cost would require us to
+               take as parameter an incremental change on a zipper for the height
+               and return an accordingly modified zipper for the Trie.
+              In practice we use 256-bit keys for Cardano, which is borderline. -}
+            if h >= hcommon
+              then descend t p
+              else
+                pathStep p
+                  >>= \case
+                    -- Can go up the original tree? Do.
+                    Just (s, p') -> stepUp s t >>= \t' -> ascend t' p'
+                    -- Can't go up the original tree? Extend it!
+                    {- At this point we're still below the desired level,
+                       but there are no more steps to zip up in the original trie
+                       so k is 0, h is the original trie height, and
+                       hcommon is h' + bitLength k',
+                       which means we have to create additional trie nodes
+                       to accommodate space for the new key (k' `shiftLeft` h')
+                       and take a RightStep from it. -}
+                    Nothing ->
+                      let l1 = hcommon - h - 1
+                       in do
+                            t1 <- trieNodeSkipUp l1 (lowBitsMask 0) t
+                            e0 <- rf Empty
+                            descend e0 (TriePath (hcommon - 1) (lowBitsMask 1) (lowBitsMask 0) [t1])
       -- descend: descend toward the sought focus from a pointed node above
       descend t p@(TriePath h _ _ _) =
         if h == h'
@@ -682,10 +689,12 @@ triePathSkipDown sl sk p@(TriePath h k m d) =
           k' = shiftLeftWithBits k sl sk
           m' = shiftLeftWithBits m sl $ lowBitsMask sl
        in TriePath h' k' m' d
-    else if sl == 0 then
-      p
-    else -- sl < 0 -- Should not happen. Should we even test for it instead of assuming sl == 0 ?
-      traceError "bad sl"
+    else
+      if sl == 0
+        then
+          p
+        else -- sl < 0 -- Should not happen. Should we even test for it instead of assuming sl == 0 ?
+          traceError "bad sl"
 
 trieNodeSkipUp :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Integer -> k -> TrieNodeRef r h k c -> e (TrieNodeRef r h k c)
 trieNodeSkipUp l k x =

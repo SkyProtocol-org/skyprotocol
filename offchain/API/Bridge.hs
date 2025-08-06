@@ -16,8 +16,9 @@ import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
+import PlutusLedgerApi.Common (fromBuiltin, toBuiltin)
 import PlutusLedgerApi.Data.V2 (FromData (..))
-import PlutusLedgerApi.V1 (ScriptHash (..), toBuiltin)
+import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
 import Servant.Server.Generic
@@ -108,7 +109,7 @@ bridgeServer =
       case maybeBridgeDatum of
         -- will decodeASCII work here? topHash is in hex, if I'm not mistaken
         -- TODO: ask Fare
-        Just (BridgeNFTDatum topHash) -> pure . decodeASCII . builtinByteStringToByteString . toByteString $ topHash
+        Just (BridgeNFTDatum topHash) -> pure . decodeASCII . fromBuiltin . toByteString $ topHash
         Nothing -> throwError $ APIError "Can't get the datum from bridge"
 
     updateBridgeH UpdateBridgeRequest {..} = do

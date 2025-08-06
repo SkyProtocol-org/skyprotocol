@@ -36,9 +36,11 @@ getCardanoUser = do
     Nothing -> assertFailure "Can't generate adress pub key hash"
 
 -- | Test environment 'WalletInfo' among other things provides nine wallets that
--- be used in tests. For convinience we assign some meaningful names to them.
-admin :: Wallets -> User
-admin = w1 -- Runs some administrative action, e.g. deplys the script
+-- can be used in tests. For convinience we assign some meaningful names to them.
+admin, offerer, claimant :: Wallets -> User
+admin = w1 -- Runs some administrative action, e.g. deploys the script, updates the bridge
+offerer = w2 -- Offers bounty
+claimant = w3 -- Claims bounty
 
 getAddr :: (GYTxUserQueryMonad m) => m GYAddress
 getAddr =

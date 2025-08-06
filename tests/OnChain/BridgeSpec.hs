@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module OnChain.BridgeSpec (bridgeSpec) where
+module OnChain.BridgeSpec (bridgeSpec, updateBridgeTest) where
 
-import API.Bridge.Contracts (mkMintingSkeleton, mkUpdateBridgeSkeleton)
+import API.Bridge.Contracts (mkUpdateBridgeSkeleton)
 import API.SkyMintingPolicy
 import App.Env hiding (getCardanoUser)
 import Common
@@ -14,6 +14,7 @@ import GeniusYield.Test.Clb
 import GeniusYield.Test.Utils
 import GeniusYield.TxBuilder
 import GeniusYield.Types
+import OnChain.MintingPolicySpec (mintingPolicyTest)
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
@@ -73,38 +74,40 @@ bridgeSpec =
                 bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
                 daDataHash = computeDigest @Blake2b_256 daData
 
-            -- bridgeTypedValidatorCore :: Hash -> MultiSigPubKey -> Hash -> Hash -> MultiSig -> Hash -> Bool
-            -- bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
             daDataHash' @?= daDataHash
             bridgeTypedValidatorCore schema committee daDataHash topHash bridgeSig oldTopHash @?= True
         ],
       testGroup
-        "Compiling contracts"
-        [ mkTestFor "Update bridge" updateBridgeTest
+        "Running contracts"
+        [ mkTestFor "Update bridge" $ \TestInfo {..} -> do
+            let uvk = userPaymentVKey $ admin testWallets
+                -- da0 initial version, to initialize the bridge with
+                initialState@(initialDa, _schema, _committee) = createTestDa uvk
+                topH0 = computeDigest initialDa
+
+            let -- updatedDa updated version (da1 intermediate one), to update the bridge to
+                (da1, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) initialDa
+                topicId = fromJust maybeTopicId
+                (updatedDa, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da1
+
+            mintingPolicyTest TestInfo {..} topH0
+            updateBridgeTest TestInfo {..} initialState updatedDa
         ]
     ]
 
-updateBridgeTest :: (GYTxGameMonad m, GYTxUserQueryMonad m) => TestInfo -> m ()
-updateBridgeTest TestInfo {..} = do
+updateBridgeTest ::
+  ( GYTxGameMonad m,
+    GYTxUserQueryMonad m
+  ) =>
+  TestInfo ->
+  (SkyDa (HashRef Hash), Hash, MultiSigPubKey) ->
+  SkyDa (HashRef Hash) ->
+  m ()
+updateBridgeTest TestInfo {..} (initialDa, schema, committee) updatedDa = do
   addr <- getUserAddr $ admin testWallets
-  gyLogDebug' "" $ printf "ownAddr: %s" (show addr)
   pkh <- addressToPubKeyHash' addr
 
-  let uvk = userPaymentVKey $ admin testWallets
-
-      -- da0 initial version, to initialize the bridge with
-      (da0, schema, committee) = createTestDa uvk
-      _daMetaH0 = refDigest (skyMetaData da0)
-      daTopicsH0 = refDigest (skyTopicTrie da0)
-      topH0 = computeDigest da0
-
-      -- da2 updated version (da1 intermediate one), to update the bridge to
-      (da1, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da0
-      topicId = fromJust maybeTopicId
-      (da2, _maybeMessageId) = runIdentity $ insertMessage (POSIXTime 32132) "test message" topicId da1
-      topH2 = computeDigest @Hash da2
-      _daMetaH2 = refDigest (skyMetaData da2) -- should be same as daMetaH0
-      _daTopicsH2 = refDigest (skyTopicTrie da2)
+  let topH2 = computeDigest @Hash updatedDa
 
       skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy
@@ -112,20 +115,6 @@ updateBridgeTest TestInfo {..} = do
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
 
   bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
-  -- create bridge and mint some nft
-  asUser (admin testWallets) $ do
-    mintSkeleton <-
-      mkMintingSkeleton
-        "SkyBridge"
-        skyToken
-        skyPolicy
-        topH0
-        bridgeVAddr
-        pkh
-    -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
-    txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
-    gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
-
   bridgeUtxos <- utxosAtAddress bridgeVAddr $ Just skyToken
 
   gyLogDebug' "" $ printf "bridge utxos: %s" bridgeUtxos
@@ -143,12 +132,13 @@ updateBridgeTest TestInfo {..} = do
 
   let bridgeSchema = schema
       bridgeCommittee = committee
-      bridgeOldRootHash = daTopicsH0
+      bridgeOldRootHash = refDigest (skyTopicTrie initialDa)
       bridgeNewTopHash = topH2
       -- TODO: make this safe
       adminSecKeyBytes = signingKeyToRawBytes $ userPaymentSKey' $ admin testWallets
       adminSecKey = fromByteString $ BuiltinByteString adminSecKeyBytes
       signature = signMessage adminSecKey topH2
+      uvk = userPaymentVKey $ admin testWallets
       adminPubKeyBytes = paymentVerificationKeyRawBytes uvk
       adminPubKey = fromByteString $ BuiltinByteString adminPubKeyBytes
       bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]

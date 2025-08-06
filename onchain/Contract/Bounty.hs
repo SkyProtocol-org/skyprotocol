@@ -27,6 +27,7 @@ import PlutusTx.Blueprint
 import PlutusTx.List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
+import Prelude qualified as HP
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for client contract
@@ -55,7 +56,8 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
 -- Redeemers for client contract
 ------------------------------------------------------------------------------
 
-data ClientRedeemer = ClaimBounty BuiltinByteString | Timeout
+data ClientRedeemer = ClaimBounty SkyDataProofH | Timeout
+  deriving (HP.Eq, HP.Show)
 
 PlutusTx.makeLift ''ClientRedeemer
 PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
@@ -124,16 +126,15 @@ clientTypedValidator ::
   Bool
 clientTypedValidator ClientParams {..} () redeemer ctx =
   case redeemer of
-    ClaimBounty proofBytes ->
-      let proof = fromByteString proofBytes
-       in validateClaimBounty
-            bountyDeadline
-            txValidRange
-            bountyMessageHash
-            bountyTopicId
-            proof
-            daTopHash
-            && allPaidToCredential bountyClaimantPubKeyHash
+    ClaimBounty proof ->
+      validateClaimBounty
+        bountyDeadline
+        txValidRange
+        bountyMessageHash
+        bountyTopicId
+        proof
+        daTopHash
+        && allPaidToCredential bountyClaimantPubKeyHash
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
