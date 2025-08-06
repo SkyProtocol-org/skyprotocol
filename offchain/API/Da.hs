@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
 import GHC.Generics (Generic)
 import Log
-import PlutusLedgerApi.V1 (toBuiltin)
+import PlutusLedgerApi.Common (fromBuiltin, toBuiltin)
 import Servant
 import Servant.Server.Generic
 import Utils
@@ -104,7 +104,7 @@ readTopicH tId mId = do
       maybeMessage <- C.lookup mId =<< unwrap messageTrie
       case maybeMessage of
         Nothing -> throwError . APIError $ "Can't find message with id " <> show (toInt mId)
-        Just (_mMeta, mData) -> RawBytes . builtinByteStringToByteString <$> unwrap mData
+        Just (_mMeta, mData) -> RawBytes . fromBuiltin <$> unwrap mData
 
 createTopicH :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
 createTopicH _user = do
@@ -164,4 +164,4 @@ readMessageH topicId msgId = do
     Just (rmd, rd) -> do
       MessageMetaData time <- unwrap rmd
       message <- unwrap rd
-      return . RawBytes . builtinByteStringToByteString . toByteString $ (time, message)
+      return . RawBytes . fromBuiltin . toByteString $ (time, message)

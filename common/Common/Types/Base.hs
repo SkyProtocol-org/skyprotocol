@@ -8,7 +8,6 @@ module Common.Types.Base where
 
 import Control.Monad (Monad, (>=>))
 import Data.Bifunctor (first)
-import Data.ByteString qualified as BS
 import Data.Function ((&))
 import Data.String (IsString, String, fromString)
 import Data.Text (pack, unpack)
@@ -18,7 +17,6 @@ import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx as P
 import PlutusTx.Blueprint as P
 import PlutusTx.Builtins as P
-import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
 import Text.Hex (decodeHex, encodeHex)
@@ -466,8 +464,9 @@ instance ToByteString UInt16 where
   -- using integerToByteString seems to cause a resource exhaustion when executing the contract(!!!)
   -- toByteString (UInt16 n) = integerToByteString BigEndian 2 n
   toByteString (UInt16 n) = consByteString (divideInteger n 256) $ consByteString (modInteger n 256) emptyByteString
-  -- This is the default method, we shouldn't have to repeat it:
-  -- byteStringOut a _ = appendByteString $ toByteString a
+
+-- This is the default method, we shouldn't have to repeat it:
+-- byteStringOut a _ = appendByteString $ toByteString a
 
 instance FromByteString UInt16 where
   -- {-# INLINEABLE fromByteString #-}
@@ -817,11 +816,6 @@ multiplyByExponential a e n =
 -- | How is this not in Plutus already?
 exponential :: Integer -> Integer -> Integer
 exponential = multiplyByExponential 1
-
--- *** Strings
-
-builtinByteStringToByteString :: BuiltinByteString -> BS.ByteString
-builtinByteStringToByteString (BuiltinByteString b) = b
 
 -- *** Bit-banging utilities
 

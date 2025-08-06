@@ -4,7 +4,6 @@ import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import API.Types
 import App
-import Common
 import Contract.Bounty
 import Contract.Bridge
 import Control.Monad.Reader

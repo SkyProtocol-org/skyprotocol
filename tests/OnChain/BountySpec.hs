@@ -4,7 +4,6 @@ module OnChain.BountySpec (bountySpec, sendFundsTest, claimBountyTest) where
 
 import API.Bounty.Contracts
 import API.SkyMintingPolicy
-import App (CardanoUser (..))
 import Common
 import Contract.Bounty (ClientParams (..), ClientRedeemer (..), validateClaimBounty, validateTimeout)
 import Contract.Bridge (BridgeParams (..))
