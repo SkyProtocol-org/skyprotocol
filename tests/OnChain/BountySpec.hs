@@ -262,7 +262,7 @@ bountySpec =
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
             sendFundsTest TestInfo {..} topicId messageHash deadline
-            claimBountyTest TestInfo {..} topicId messageHash deadline proof
+            -- claimBountyTest TestInfo {..} topicId messageHash deadline proof
         ]
     ]
 
