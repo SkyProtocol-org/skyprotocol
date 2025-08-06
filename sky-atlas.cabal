@@ -214,6 +214,7 @@ test-suite offchain-tests
   build-depends:
     , atlas-cardano
     , base
+    , extra
     , http-client
     , log-base
     , plutus-ledger-api    ^>=1.49.0.0
