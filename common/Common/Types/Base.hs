@@ -208,7 +208,7 @@ class BitLogic a where
     a ->
     -- | NB: returns nBits for allBits, but -1 for -1 for Integers.
     Integer
-  isBitSet :: Integer -> a -> Bool
+  isBitSet :: Integer -> a -> Bool -- bitindex, bitarray
   lowBitsMask :: Integer -> a
   logicalOr :: a -> a -> a
   logicalAnd :: a -> a -> a
@@ -251,7 +251,7 @@ instance FromByteString Bytes4 where
 instance BitLogic Bytes4 where
   bitLength = bitLength . getBytes4
   lowestBitClear = lowestBitClear . getBytes4
-  isBitSet n (Bytes4 b) = readBit b n
+  isBitSet n b = isBitSet n $ toInt b -- toByteString b
   lowBitsMask = Bytes4 . lowBitsMaskFLBBS 4
   logicalOr (Bytes4 a) (Bytes4 b) = Bytes4 $ orByteString False a b
   logicalAnd (Bytes4 a) (Bytes4 b) = Bytes4 $ andByteString False a b
@@ -280,7 +280,7 @@ instance FromByteString Bytes8 where
 instance BitLogic Bytes8 where
   bitLength = bitLength . getBytes8
   lowestBitClear = lowestBitClear . getBytes8
-  isBitSet n (Bytes8 b) = readBit b n
+  isBitSet n b = isBitSet n $ toInt b -- toByteString b
   lowBitsMask = Bytes8 . lowBitsMaskFLBBS 8
   logicalOr (Bytes8 a) (Bytes8 b) = Bytes8 $ orByteString False a b
   logicalAnd (Bytes8 a) (Bytes8 b) = Bytes8 $ andByteString False a b
@@ -309,7 +309,7 @@ instance FromByteString Bytes32 where
 instance BitLogic Bytes32 where
   bitLength = bitLength . getBytes32
   lowestBitClear = lowestBitClear . getBytes32
-  isBitSet n (Bytes32 b) = readBit b n
+  isBitSet n b = isBitSet n $ toInt b -- toByteString b
   lowBitsMask = Bytes32 . lowBitsMaskFLBBS 32
   logicalOr (Bytes32 a) (Bytes32 b) = Bytes32 $ orByteString False a b
   logicalAnd (Bytes32 a) (Bytes32 b) = Bytes32 $ andByteString False a b
@@ -338,7 +338,7 @@ instance FromByteString Bytes64 where
 instance BitLogic Bytes64 where
   bitLength = bitLength . getBytes64
   lowestBitClear = lowestBitClear . getBytes64
-  isBitSet n (Bytes64 b) = readBit b n
+  isBitSet n b = isBitSet n $ toInt b -- toByteString b
   lowBitsMask = Bytes64 . lowBitsMaskFLBBS 64
   logicalOr (Bytes64 a) (Bytes64 b) = Bytes64 $ orByteString False a b
   logicalAnd (Bytes64 a) (Bytes64 b) = Bytes64 $ andByteString False a b
@@ -387,7 +387,7 @@ instance BitLogic P.BuiltinByteString where
   lowestBitClear b =
     let n = findFirstSetBit $ complementByteString b
      in if n == -1 then 8 * lengthOfByteString b else n
-  isBitSet = flip readBit
+  isBitSet = flip readBitX
   lowBitsMask l = shiftByteString (replicateByte (bitLengthToByteLength l) 0xFF) $ (-l) `quotient` 8
   logicalOr a b = let (a', b') = equalizeByteStringLength a b in orByteString False a' b'
   logicalAnd a b = let (a', b') = equalizeByteStringLength a b in andByteString False a' b'
@@ -442,7 +442,7 @@ instance BitLogic Byte where
   lowestBitClear (Byte b) =
     let n = findFirstSetBit $ toByteString $ 255 - b
      in if n == -1 then 8 else n
-  isBitSet n b = readBit (toByteString b) n
+  isBitSet n b = isBitSet n $ toInt b -- toByteString b
   lowBitsMask l = Byte $ indexByteString (shiftByteString byteString1 $ l - 8) 0
   logicalOr a b = Byte $ indexByteString (orByteString False (toByteString a) (toByteString b)) 0
   logicalAnd a b = Byte $ indexByteString (andByteString False (toByteString a) (toByteString b)) 0
@@ -482,7 +482,7 @@ instance BitLogic UInt16 where
   lowestBitClear (UInt16 b) =
     let n = findFirstSetBit $ toByteString $ 65535 - b
      in if n == -1 then 16 else n
-  isBitSet n b = readBit (toByteString b) n
+  isBitSet n b = isBitSet n $ toInt b -- toByteString b
   lowBitsMask l = UInt16 $ indexByteString (shiftByteString byteString2 $ l - 16) 0
   logicalOr a b = UInt16 $ indexByteString (orByteString False (toByteString a) (toByteString b)) 0
   logicalAnd a b = UInt16 $ indexByteString (andByteString False (toByteString a) (toByteString b)) 0
@@ -514,7 +514,7 @@ instance FromByteString UInt32 where
 instance BitLogic UInt32 where
   bitLength = bitLength . integerToByteString BigEndian 4 . getUInt32
   lowestBitClear n = lowestBitClear $ toByteString n
-  isBitSet n i = isBitSet n (toByteString i)
+  isBitSet n i = isBitSet n $ toInt i -- toByteString i
   lowBitsMask l = UInt32 . toInt $ lowBitsMaskFLBBS 4 l
   logicalOr (UInt32 a) (UInt32 b) = UInt32 . toInt $ logicalOr (fromInt a :: Bytes4) (fromInt b)
   logicalAnd (UInt32 a) (UInt32 b) = UInt32 . toInt $ logicalAnd (fromInt a :: Bytes4) (fromInt b)
@@ -546,7 +546,7 @@ instance FromByteString UInt64 where
 instance BitLogic UInt64 where
   bitLength = bitLength . integerToByteString BigEndian 8 . getUInt64
   lowestBitClear n = lowestBitClear $ toByteString n
-  isBitSet n i = isBitSet n (toByteString i)
+  isBitSet n i = isBitSet n $ toInt i -- toByteString i
   lowBitsMask l = UInt64 . toInt $ lowBitsMaskFLBBS 8 l
   logicalOr (UInt64 a) (UInt64 b) = UInt64 . toInt $ logicalOr (fromInt a :: Bytes4) (fromInt b)
   logicalAnd (UInt64 a) (UInt64 b) = UInt64 . toInt $ logicalAnd (fromInt a :: Bytes4) (fromInt b)
@@ -578,7 +578,7 @@ instance FromByteString UInt256 where
 instance BitLogic UInt256 where
   bitLength = bitLength . integerToByteString BigEndian 32 . getUInt256
   lowestBitClear n = lowestBitClear $ toByteString n
-  isBitSet n i = isBitSet n (toByteString i)
+  isBitSet n i = isBitSet n $ toInt i -- toByteString i
   lowBitsMask l = UInt256 . toInt $ lowBitsMaskFLBBS 32 l
   logicalOr (UInt256 a) (UInt256 b) = UInt256 . toInt $ logicalOr (fromInt a :: Bytes4) (fromInt b)
   logicalAnd (UInt256 a) (UInt256 b) = UInt256 . toInt $ logicalAnd (fromInt a :: Bytes4) (fromInt b)
@@ -617,7 +617,7 @@ instance FromByteString VariableLengthInteger where
 instance BitLogic VariableLengthInteger where
   bitLength (VariableLengthInteger l _) = l
   lowestBitClear n = lowestBitClear $ toByteString n
-  isBitSet n i = isBitSet n (toByteString i)
+  isBitSet n i = isBitSet n $ toInt i -- toByteString i
   lowBitsMask l = VariableLengthInteger l $ lowBitsMask l
   logicalOr a b =
     let v = logicalOr (toByteString a) (toByteString b)
@@ -684,7 +684,7 @@ instance BitLogic P.Integer where
          in if r == 0
               then down ms j q (h + j)
               else down ms j r h
-  isBitSet i n = let e = exponential 2 i in n `remainder` (e + e) >= e
+  isBitSet i n = let e = exponential 2 i in n `modInteger` (e + e) >= e
   lowBitsMask l = exponential 2 l - 1
   logicalOr a b = toInt $ logicalOr (toByteString a) (toByteString b)
   logicalAnd a b = toInt $ logicalAnd (toByteString a) (toByteString b)
@@ -904,6 +904,13 @@ bitLength2 n = min n 2
 byteString1, byteString2 :: P.BuiltinByteString
 byteString1 = integerToByteString BigEndian 1 0xFF
 byteString2 = integerToByteString BigEndian 2 0xFFFF
+
+readBitX :: P.BuiltinByteString -> Integer -> Bool
+readBitX b n =
+  let q = n `divideInteger` 8
+      r = n `modInteger` 8
+      x = indexByteString b q in
+    isBitSet r x
 
 -- *** ByteString output
 
