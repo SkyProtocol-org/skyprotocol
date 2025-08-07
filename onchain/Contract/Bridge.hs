@@ -1,4 +1,3 @@
-{-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -6,24 +5,12 @@ module Contract.Bridge where
 
 import Common
 import GHC.Generics (Generic)
-import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value
   ( AssetClass (..),
     assetClassValueOf,
   )
-import PlutusLedgerApi.V2
-  ( CurrencySymbol,
-    Datum (..),
-    OutputDatum (..),
-    ScriptContext (..),
-    TokenName (..),
-    TxInInfo,
-    TxInfo (..),
-    TxOut (..),
-    txInInfoResolved,
-    txOutDatum,
-  )
-import PlutusLedgerApi.V2.Contexts (findDatum, getContinuingOutputs)
+import PlutusLedgerApi.V3
+import PlutusLedgerApi.V3.Contexts (findDatum, getContinuingOutputs)
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.List
@@ -147,7 +134,7 @@ bridgeTypedValidator ::
   BridgeRedeemer ->
   ScriptContext ->
   Bool
-bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _) =
+bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _ _) =
   and conditions
   where
     conditions :: [Bool]
@@ -232,19 +219,22 @@ bridgeTypedValidatorCore daSchema daCommittee daData newTopHash sig oldTopHash =
 ------------------------------------------------------------------------------
 
 {-# INLINEABLE bridgeUntypedValidator #-}
-bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
-bridgeUntypedValidator params _datum redeemer ctx =
+bridgeUntypedValidator :: BridgeParams -> BuiltinData -> BuiltinUnit
+bridgeUntypedValidator params ctx =
   PlutusTx.check
     ( bridgeTypedValidator
         params
         () -- ignore the untyped datum, it's unused
-        (PlutusTx.unsafeFromBuiltinData redeemer)
-        (PlutusTx.unsafeFromBuiltinData ctx)
+        redeemer
+        scriptContext
     )
+  where
+    scriptContext = PlutusTx.unsafeFromBuiltinData ctx
+    redeemer = PlutusTx.unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer scriptContext
 
 bridgeValidatorScript ::
   BridgeParams ->
-  CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
+  CompiledCode (BuiltinData -> BuiltinUnit)
 bridgeValidatorScript params =
   $$(PlutusTx.compile [||bridgeUntypedValidator||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef params

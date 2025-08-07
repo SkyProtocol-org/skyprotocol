@@ -1,4 +1,3 @@
-{-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -8,20 +7,8 @@ import Common
 import Contract.Bridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import Contract.DaH
 import GHC.Generics (Generic)
-import PlutusCore.Version (plcVersion100)
-import PlutusLedgerApi.V1
-  ( Credential (PubKeyCredential),
-    POSIXTime,
-    PubKeyHash (..),
-    addressCredential,
-  )
-import PlutusLedgerApi.V1.Interval (Interval, before, contains, to)
-import PlutusLedgerApi.V2
-  ( CurrencySymbol,
-    ScriptContext (..),
-    TxInfo (..),
-    TxOut (..),
-  )
+import PlutusLedgerApi.V1.Interval (before, contains)
+import PlutusLedgerApi.V3
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.List
@@ -158,18 +145,21 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
 ------------------------------------------------------------------------------
 
 {-# INLINEABLE clientUntypedValidator #-}
-clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
-clientUntypedValidator params _datum redeemer ctx =
+clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinUnit
+clientUntypedValidator params ctx =
   PlutusTx.check
     $ clientTypedValidator
       params
       () -- ignore the untyped datum, it's unused
-      (PlutusTx.unsafeFromBuiltinData redeemer)
-      (PlutusTx.unsafeFromBuiltinData ctx)
+      redeemer
+      scriptContext
+  where
+    scriptContext = PlutusTx.unsafeFromBuiltinData ctx
+    redeemer = PlutusTx.unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer scriptContext
 
 clientValidatorScript ::
   ClientParams ->
-  CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
+  CompiledCode (BuiltinData -> BuiltinUnit)
 clientValidatorScript params =
   $$(PlutusTx.compile [||clientUntypedValidator||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef params
