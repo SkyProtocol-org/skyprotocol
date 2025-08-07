@@ -355,25 +355,26 @@ claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
     _ -> throwAppError $ someBackendError "Can't find bridge utxo"
 
   -- TODO: make this safe
+  -- get the first utxo. TODO: search for the one we need
+  let bountyUtxo = head $ utxosToList bountyUtxos
   let bountyAmount =
         snd
           . head -- get first asset. TODO: search for the one we need
           . valueToList
-          . utxoValue
-          . head -- get the first utxo. TODO: search for the one we need
-          . utxosToList
-          $ bountyUtxos
+          $ utxoValue
+            bountyUtxo
       redeemer = ClaimBounty proof
 
   asUser (offerer testWallets) $ do
     claimBountySkeleton <-
       mkClaimBountySkeleton
+        (utxoRef bountyUtxo)
         (bountyValidator' clientParams)
         nftRef
         redeemer
         claimantAddr
         bountyAmount
-        offererPkh
+        claimantPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody claimBountySkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId

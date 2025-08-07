@@ -20,7 +20,6 @@ import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx qualified
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
-import PlutusTx.Prelude qualified as PlutusTx
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util

@@ -130,6 +130,7 @@ bountyServer =
           cBountyrChangeAddr
           cBountyrCollateral
           $ mkClaimBountySkeleton
+            undefined -- TODO: this should be bounty utxo ref
             (bountyValidator' clientParams)
             nftRef
             redeemer

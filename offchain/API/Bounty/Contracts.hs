@@ -4,7 +4,6 @@ import Contract.Bounty (ClientRedeemer)
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
-import PlutusLedgerApi.Common hiding (PlutusV3)
 
 mkSendSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
@@ -30,6 +29,8 @@ mkSendSkeleton addr amount assetClass signer =
 
 mkClaimBountySkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
+  -- | Where to get funds
+  GYTxOutRef ->
   -- | Validator
   GYScript 'PlutusV3 ->
   -- | NFT ref
@@ -43,22 +44,22 @@ mkClaimBountySkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV3)
-mkClaimBountySkeleton validator nftRef redeemer addr amt signer =
+mkClaimBountySkeleton bountyRef validator nftRef redeemer recipientAddr amt signer =
   pure $
-    mustHaveInput
-      ( GYTxIn
-          { gyTxInTxOutRef = nftRef,
-            gyTxInWitness =
-              GYTxInWitnessScript
-                (GYBuildPlutusScriptInlined validator)
-                Nothing
-                $ redeemerFromPlutus'
-                $ toBuiltinData redeemer
-          }
-      )
+    mustHaveRefInput nftRef
+      <> mustHaveInput
+        ( GYTxIn
+            { gyTxInTxOutRef = bountyRef,
+              gyTxInWitness =
+                GYTxInWitnessScript
+                  (GYBuildPlutusScriptInlined validator)
+                  Nothing -- datum can be omitted if it was inlined
+                  $ redeemerFromPlutusData redeemer
+            }
+        )
       <> mustHaveOutput
         ( GYTxOut
-            { gyTxOutAddress = addr,
+            { gyTxOutAddress = recipientAddr,
               gyTxOutValue = valueSingleton GYLovelace amt,
               gyTxOutDatum = Nothing,
               gyTxOutRefS = Nothing

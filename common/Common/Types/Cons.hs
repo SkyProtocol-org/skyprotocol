@@ -10,7 +10,6 @@ import Common.Types.Base
 import Data.Functor.Identity (Identity (..))
 import PlutusTx as P
 import PlutusTx.Builtins as P
-import PlutusTx.List as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
 import Prelude qualified as HP
@@ -145,6 +144,7 @@ instance
                     E3_2 . unsafeFromBuiltinData $ v
                   else
                     traceError "Bad ByteString for Either3"
+
 -- *** Either4
 
 instance
