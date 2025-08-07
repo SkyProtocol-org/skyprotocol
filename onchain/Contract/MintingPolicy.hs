@@ -4,8 +4,8 @@ module Contract.MintingPolicy where
 
 import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.V1.Value (flattenValue)
-import PlutusLedgerApi.V2 (PubKeyHash, ScriptContext (..), TxInfo (..))
-import PlutusLedgerApi.V2.Contexts (ownCurrencySymbol, txSignedBy)
+import PlutusLedgerApi.V3 (PubKeyHash, ScriptContext (..), TxInfo (..))
+import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol, txSignedBy)
 import PlutusTx
 import PlutusTx.Prelude (Bool (..))
 import PlutusTx.Prelude qualified as PlutusTx

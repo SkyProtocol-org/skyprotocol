@@ -31,7 +31,7 @@ The next step will be to populate the DA with data:
 
 For this to happen, you should initialize 2 variables
 in your bash session, since the API that we will be
-interacting with is protected with basic auth(for now).
+interacting with is protected with basic auth (for now).
 
 ```bash
   export API_USER="skyAdmin" API_PASS="1234"

@@ -5,7 +5,7 @@ module Main where
 import Contract.Bridge (BridgeParams (..), bridgeValidatorScript)
 -- import qualified Data.Text.IO as TIO
 import PlutusCore.Pretty (prettyReadableSimple)
-import PlutusLedgerApi.V2 (CurrencySymbol (..))
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusTx.Code (CompiledCode, getPir)
 
 -- import PlutusTx.Eval (EvalResult, displayEvalResult, evaluateCompiledCode)

@@ -4,7 +4,7 @@ import Contract.Bounty (ClientRedeemer)
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
-import PlutusLedgerApi.Common hiding (PlutusV2)
+import PlutusLedgerApi.Common -- hiding (PlutusV3)
 
 mkSendSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
@@ -16,7 +16,7 @@ mkSendSkeleton ::
   GYAssetClass ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV2)
+  m (GYTxSkeleton 'PlutusV3)
 mkSendSkeleton addr amount assetClass signer =
   pure $
     mustHaveOutput
@@ -31,7 +31,7 @@ mkSendSkeleton addr amount assetClass signer =
 mkClaimBountySkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
   -- | Validator
-  GYScript 'PlutusV2 ->
+  GYScript 'PlutusV3 ->
   -- | NFT ref
   GYTxOutRef ->
   -- | Redeemer
@@ -42,7 +42,7 @@ mkClaimBountySkeleton ::
   Integer ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV2)
+  m (GYTxSkeleton 'PlutusV3)
 mkClaimBountySkeleton validator nftRef redeemer addr amt signer =
   pure $
     mustHaveInput

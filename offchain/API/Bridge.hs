@@ -17,8 +17,8 @@ import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
 import PlutusLedgerApi.Common (fromBuiltin, toBuiltin)
-import PlutusLedgerApi.Data.V2 (FromData (..))
-import PlutusLedgerApi.V1 (ScriptHash (..))
+import PlutusLedgerApi.Data.V3 (FromData (..))
+import PlutusLedgerApi.V3 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
 import Servant.Server.Generic

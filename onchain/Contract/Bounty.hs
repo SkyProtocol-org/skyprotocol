@@ -15,8 +15,8 @@ import PlutusLedgerApi.V1
     PubKeyHash (..),
     addressCredential,
   )
-import PlutusLedgerApi.V1.Interval (Interval, before, contains, to)
-import PlutusLedgerApi.V2
+import PlutusLedgerApi.V3.Interval (Interval, before, contains, to)
+import PlutusLedgerApi.V3
   ( CurrencySymbol,
     ScriptContext (..),
     TxInfo (..),

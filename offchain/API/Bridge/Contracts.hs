@@ -13,20 +13,20 @@ mkMintingSkeleton ::
   -- | Token to send
   GYAssetClass ->
   -- | Minting policy
-  GYScript 'PlutusV2 ->
+  GYScript 'PlutusV3 ->
   -- | Top hash
   Hash ->
   -- | Addr of the bridge validator
   GYAddress ->
   -- | Minting policy signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV2)
+  m (GYTxSkeleton 'PlutusV3)
 mkMintingSkeleton tokenName skyToken skyPolicy topHash bvAddr mintSigner = do
   let bridgeNFTDatum = BridgeNFTDatum topHash
 
   -- skeleton for minting transaction
   pure $
-    mustMint @'PlutusV2 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName 1
+    mustMint @'PlutusV3 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName 1
       <> mustHaveOutput
         GYTxOut
           { gyTxOutAddress = bvAddr,
@@ -39,7 +39,7 @@ mkMintingSkeleton tokenName skyToken skyPolicy topHash bvAddr mintSigner = do
 mkUpdateBridgeSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
   -- | Validator
-  GYScript 'PlutusV2 ->
+  GYScript 'PlutusV3 ->
   -- | Bridge ref
   GYTxOutRef ->
   -- | New bridge Datum
@@ -52,7 +52,7 @@ mkUpdateBridgeSkeleton ::
   GYAddress ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV2)
+  m (GYTxSkeleton 'PlutusV3)
 mkUpdateBridgeSkeleton validator bridgeRef newDatum redeemer skyToken bvAddr signer =
   pure $
     -- bridge input

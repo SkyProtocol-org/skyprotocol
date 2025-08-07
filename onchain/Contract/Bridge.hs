@@ -11,7 +11,7 @@ import PlutusLedgerApi.V1.Value
   ( AssetClass (..),
     assetClassValueOf,
   )
-import PlutusLedgerApi.V2
+import PlutusLedgerApi.V3
   ( CurrencySymbol,
     Datum (..),
     OutputDatum (..),
@@ -23,7 +23,7 @@ import PlutusLedgerApi.V2
     txInInfoResolved,
     txOutDatum,
   )
-import PlutusLedgerApi.V2.Contexts (findDatum, getContinuingOutputs)
+import PlutusLedgerApi.V3.Contexts (findDatum, getContinuingOutputs)
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.List

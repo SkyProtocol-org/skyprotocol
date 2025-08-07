@@ -16,8 +16,8 @@ import GeniusYield.TxBuilder
 import GeniusYield.Types
 import OnChain.BridgeSpec (updateBridgeTest)
 import OnChain.MintingPolicySpec (mintingPolicyTest)
-import PlutusLedgerApi.V1.Time qualified as T
-import PlutusLedgerApi.V2
+import PlutusLedgerApi.V3.Time qualified as T
+import PlutusLedgerApi.V3
 import PlutusTx qualified
 import PlutusTx.Prelude (BuiltinString)
 import System.IO.Unsafe (unsafePerformIO)
@@ -262,7 +262,7 @@ bountySpec =
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
             offerBountyTest TestInfo {..} topicId messageHash deadline
-            -- claimBountyTest TestInfo {..} topicId messageHash deadline proof
+            claimBountyTest TestInfo {..} topicId messageHash deadline proof
         ]
     ]
 

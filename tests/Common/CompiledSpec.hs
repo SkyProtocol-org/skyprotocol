@@ -7,7 +7,7 @@ module Common.CompiledSpec where
 
 import Common.Types
 import Contract.Bridge (BridgeParams (..), bridgeValidatorScript)
-import PlutusLedgerApi.V2 (CurrencySymbol (..))
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusTx (CompiledCode, applyCode, compile, liftCodeDef, unsafeApplyCode)
 import PlutusTx.Builtins
 import PlutusTx.Code (CompiledCode)
