@@ -257,11 +257,18 @@ bountySpec =
                 messageHash = computeDigest testMessage
                 (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, fromJust maybeMessageId) updatedDa :: (Hash, SkyDataProofH)
 
-            let deadline = unsafePerformIO currentPOSIXTime
-
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
+
+            currentSlot <- slotOfCurrentBlock
+            time <- slotToBeginTime currentSlot
+            gyLogDebug' "" $ printf "current slot: %s, current time: %s, deadline: %s" currentSlot time $ addSeconds time 10
+            let deadline = timeToPlutus $ addSeconds time 10
+
             offerBountyTest TestInfo {..} topicId messageHash deadline
+            currentSlot' <- slotOfCurrentBlock
+            time' <- slotToBeginTime currentSlot'
+            gyLogDebug' "" $ printf "current slot: %s, current time: %s" currentSlot' time'
             claimBountyTest TestInfo {..} topicId messageHash deadline proof
         ]
     ]

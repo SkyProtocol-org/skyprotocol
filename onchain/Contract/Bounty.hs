@@ -121,7 +121,10 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
         bountyTopicId
         proof
         daTopHash
-        && allPaidToCredential bountyClaimantPubKeyHash
+        && traceBool
+          "All paid to credential"
+          "Not all paid to credential"
+          (allPaidToCredential bountyClaimantPubKeyHash)
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
