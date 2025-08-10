@@ -6,6 +6,7 @@ import Common.Crypto
 import Common.Trie
 import Common.Types
 import Common.TypesSpec
+import PlutusTx (fromBuiltinData, toBuiltinData)
 import PlutusTx.Prelude
 import PlutusTx.Show qualified as PS
 import Test.Tasty

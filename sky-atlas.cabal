@@ -183,7 +183,6 @@ test-suite common-tests
   main-is:        CommonSpec.hs
   hs-source-dirs: tests
   other-modules:
-    Common.CompiledSpec
     Common.CryptoSpec
     Common.DaSpec
     Common.TrieSpec
