@@ -133,7 +133,7 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
     -- Bounty prize funds are sent to pre-configured address
     allPaidToCredential :: PubKeyHash -> Bool
     allPaidToCredential recipient =
-      all (\o -> addressCredential (txOutAddress o) == PubKeyCredential recipient)
+      any (\o -> addressCredential (txOutAddress o) == PubKeyCredential recipient)
         $ txInfoOutputs (scriptContextTxInfo ctx)
 
 ------------------------------------------------------------------------------

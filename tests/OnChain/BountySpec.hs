@@ -369,7 +369,7 @@ claimBountyTest TestInfo {..} topicId messageHash deadline slotDeadline proof = 
             bountyUtxo
       redeemer = ClaimBounty proof
 
-  asUser (offerer testWallets) $ do
+  asUser (claimant testWallets) $ do
     claimBountySkeleton <-
       mkClaimBountySkeleton
         slotDeadline
