@@ -260,14 +260,13 @@ bountySpec =
 
             currentSlot <- slotOfCurrentBlock
             time <- slotToBeginTime currentSlot
-            gyLogDebug' "" $ printf "current slot: %s, current time: %s, deadline: %s" currentSlot time $ addSeconds time 100000
-            let deadline = timeToPlutus $ addSeconds time 100000
+            let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 2
+            gyDeadline <- slotToEndTime deadlineSlot
+            let deadline = timeToPlutus gyDeadline
+            gyLogDebug' "" $ printf "current slot: %s, deadline slot: %s, deadline: %s" currentSlot deadlineSlot gyDeadline
 
             offerBountyTest TestInfo {..} topicId messageHash deadline
-            currentSlot' <- slotOfCurrentBlock
-            time' <- slotToBeginTime currentSlot'
-            gyLogDebug' "" $ printf "current slot: %s, current time: %s" currentSlot' time'
-            claimBountyTest TestInfo {..} topicId messageHash deadline proof
+            claimBountyTest TestInfo {..} topicId messageHash deadline deadlineSlot proof
         ]
     ]
 
@@ -317,9 +316,10 @@ claimBountyTest ::
   TopicId ->
   Hash ->
   T.POSIXTime ->
+  GYSlot ->
   SkyDataProofH ->
   m ()
-claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
+claimBountyTest TestInfo {..} topicId messageHash deadline slotDeadline proof = do
   adminAddr <- getUserAddr $ admin testWallets
   offererAddr <- getUserAddr $ offerer testWallets
   claimantAddr <- getUserAddr $ claimant testWallets
@@ -373,6 +373,7 @@ claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
   asUser (offerer testWallets) $ do
     claimBountySkeleton <-
       mkClaimBountySkeleton
+        slotDeadline
         (utxoRef bountyUtxo)
         (bountyValidator' clientParams)
         nftRef

@@ -53,16 +53,6 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 -- Client contract validator
 ------------------------------------------------------------------------------
 
-showLowerBound :: LowerBound a -> BuiltinString
-showLowerBound (LowerBound NegInf _) = "-inf"
-showLowerBound (LowerBound PosInf _) = "+inf"
-showLowerBound (LowerBound _ _) = "fin"
-
-showUpperBound :: UpperBound a -> BuiltinString
-showUpperBound (UpperBound NegInf _) = "-inf"
-showUpperBound (UpperBound PosInf _) = "+inf"
-showUpperBound (UpperBound _ _) = "fin"
-
 -- Separating validation logic to make for easy testing
 validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
 validateClaimBounty bountyDeadline txValidRange messageHash topicId proof@SkyDataProofH {..} daTopHash =
@@ -70,10 +60,8 @@ validateClaimBounty bountyDeadline txValidRange messageHash topicId proof@SkyDat
   traceBool
     "Bounty deadline in the valid range"
     "Bounty deadline is not in the valid range"
-    ( validRangeIsInf txValidRange
-        || ( to bountyDeadline
-               `contains` txValidRange
-           )
+    ( to bountyDeadline
+        `contains` txValidRange
     )
     &&
     -- The bounty's message hash is in the DA
@@ -105,11 +93,6 @@ validateClaimBounty bountyDeadline txValidRange messageHash topicId proof@SkyDat
       ( triePathHeight proofMessageTriePathH
           == 0
       )
-  where
-    validRangeIsInf :: Interval POSIXTime -> Bool
-    validRangeIsInf validRange = case (ivFrom validRange, ivTo validRange) of
-      (LowerBound NegInf _, UpperBound PosInf _) -> True
-      _ -> False
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =
