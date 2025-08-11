@@ -7,7 +7,7 @@ import Common
 import Contract.Bridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import Contract.DaH
 import GHC.Generics (Generic)
-import PlutusLedgerApi.V1.Interval (before, contains)
+import PlutusLedgerApi.V1 (before, contains)
 import PlutusLedgerApi.V3
 import PlutusTx
 import PlutusTx.Blueprint
@@ -53,52 +53,63 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 -- Client contract validator
 ------------------------------------------------------------------------------
 
+showLowerBound :: LowerBound a -> BuiltinString
+showLowerBound (LowerBound NegInf _) = "-inf"
+showLowerBound (LowerBound PosInf _) = "+inf"
+showLowerBound (LowerBound _ _) = "fin"
+
+showUpperBound :: UpperBound a -> BuiltinString
+showUpperBound (UpperBound NegInf _) = "-inf"
+showUpperBound (UpperBound PosInf _) = "+inf"
+showUpperBound (UpperBound _ _) = "fin"
+
 -- Separating validation logic to make for easy testing
 validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
-validateClaimBounty
-  bountyDeadline
-  txValidRange
-  messageHash
-  topicId
-  proof@SkyDataProofH {..}
-  daTopHash =
-    -- Check if the current slot is within the deadline
+validateClaimBounty bountyDeadline txValidRange messageHash topicId proof@SkyDataProofH {..} daTopHash =
+  -- Check if the current slot is within the deadline
+  traceBool
+    "Bounty deadline in the valid range"
+    "Bounty deadline is not in the valid range"
+    ( validRangeIsInf txValidRange
+        || ( to bountyDeadline
+               `contains` txValidRange
+           )
+    )
+    &&
+    -- The bounty's message hash is in the DA
     traceBool
-      "Bounty deadline in the valid range"
-      "Bounty deadline is not in the valid range"
-      ( to bountyDeadline
-          `contains` txValidRange
+      "message hash is in the DA"
+      "message hash is not in the DA"
+      ( daTopHash
+          == applySkyDataProofH proof messageHash
       )
-      &&
-      -- The bounty's message hash is in the DA
-      traceBool
-        "message hash is in the DA"
-        "message hash is not in the DA"
-        ( daTopHash
-            == applySkyDataProofH proof messageHash
-        )
-      &&
-      -- topic ID matches
-      traceBool
-        "TopicId matches"
-        "TopicId doesn't match"
-        ( topicId
-            == triePathKey proofTopicTriePathH
-        )
-      &&
-      -- heights are 0 (lead top top from leafs)
-      traceBool
-        "Topic trie path is 0"
-        "Topic trie path is not 0"
-        ( triePathHeight proofTopicTriePathH
-            == 0
-        )
-      && traceBool
-        "Message trie path is 0"
-        "Message trie path is not 0"
-        ( triePathHeight proofMessageTriePathH
-            == 0
-        )
+    &&
+    -- topic ID matches
+    traceBool
+      "TopicId matches"
+      "TopicId doesn't match"
+      ( topicId
+          == triePathKey proofTopicTriePathH
+      )
+    &&
+    -- heights are 0 (lead top top from leafs)
+    traceBool
+      "Topic trie path is 0"
+      "Topic trie path is not 0"
+      ( triePathHeight proofTopicTriePathH
+          == 0
+      )
+    && traceBool
+      "Message trie path is 0"
+      "Message trie path is not 0"
+      ( triePathHeight proofMessageTriePathH
+          == 0
+      )
+  where
+    validRangeIsInf :: Interval POSIXTime -> Bool
+    validRangeIsInf validRange = case (ivFrom validRange, ivTo validRange) of
+      (LowerBound NegInf _, UpperBound PosInf _) -> True
+      _ -> False
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =

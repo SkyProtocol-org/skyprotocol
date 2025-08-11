@@ -20,11 +20,9 @@ import PlutusLedgerApi.V1.Time qualified as T
 import PlutusLedgerApi.V2
 import PlutusTx qualified
 import PlutusTx.Prelude (BuiltinString)
-import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util
-import Utils
 
 -- Test constants
 testDeadline :: POSIXTime
@@ -262,8 +260,8 @@ bountySpec =
 
             currentSlot <- slotOfCurrentBlock
             time <- slotToBeginTime currentSlot
-            gyLogDebug' "" $ printf "current slot: %s, current time: %s, deadline: %s" currentSlot time $ addSeconds time 10
-            let deadline = timeToPlutus $ addSeconds time 10
+            gyLogDebug' "" $ printf "current slot: %s, current time: %s, deadline: %s" currentSlot time $ addSeconds time 100000
+            let deadline = timeToPlutus $ addSeconds time 100000
 
             offerBountyTest TestInfo {..} topicId messageHash deadline
             currentSlot' <- slotOfCurrentBlock
