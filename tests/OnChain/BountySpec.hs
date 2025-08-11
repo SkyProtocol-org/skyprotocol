@@ -259,7 +259,6 @@ bountySpec =
             updateBridgeTest TestInfo {..} initialState updatedDa
 
             currentSlot <- slotOfCurrentBlock
-            time <- slotToBeginTime currentSlot
             let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 2
             gyDeadline <- slotToEndTime deadlineSlot
             let deadline = timeToPlutus gyDeadline

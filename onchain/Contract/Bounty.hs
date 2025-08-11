@@ -56,43 +56,42 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 -- Separating validation logic to make for easy testing
 validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
 validateClaimBounty bountyDeadline txValidRange messageHash topicId proof@SkyDataProofH {..} daTopHash =
-  -- Check if the current slot is within the deadline
-  traceBool
-    "Bounty deadline in the valid range"
-    "Bounty deadline is not in the valid range"
-    ( to bountyDeadline
-        `contains` txValidRange
-    )
-    &&
-    -- The bounty's message hash is in the DA
-    traceBool
-      "message hash is in the DA"
-      "message hash is not in the DA"
-      ( daTopHash
-          == applySkyDataProofH proof messageHash
-      )
-    &&
-    -- topic ID matches
-    traceBool
-      "TopicId matches"
-      "TopicId doesn't match"
-      ( topicId
-          == triePathKey proofTopicTriePathH
-      )
-    &&
-    -- heights are 0 (lead top top from leafs)
-    traceBool
-      "Topic trie path is 0"
-      "Topic trie path is not 0"
-      ( triePathHeight proofTopicTriePathH
-          == 0
-      )
-    && traceBool
-      "Message trie path is 0"
-      "Message trie path is not 0"
-      ( triePathHeight proofMessageTriePathH
-          == 0
-      )
+  and
+    [ -- Check if the current slot is within the deadline
+      traceBool
+        "Bounty deadline in the valid range"
+        "Bounty deadline is not in the valid range"
+        ( to bountyDeadline
+            `contains` txValidRange
+        ),
+      -- The bounty's message hash is in the DA
+      traceBool
+        "message hash is in the DA"
+        "message hash is not in the DA"
+        ( daTopHash
+            == applySkyDataProofH proof messageHash
+        ),
+      -- topic ID matches
+      traceBool
+        "TopicId matches"
+        "TopicId doesn't match"
+        ( topicId
+            == triePathKey proofTopicTriePathH
+        ),
+      -- heights are 0 (lead top top from leafs)
+      traceBool
+        "Topic trie path is 0"
+        "Topic trie path is not 0"
+        ( triePathHeight proofTopicTriePathH
+            == 0
+        ),
+      traceBool
+        "Message trie path is 0"
+        "Message trie path is not 0"
+        ( triePathHeight proofMessageTriePathH
+            == 0
+        )
+    ]
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =
