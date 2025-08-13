@@ -9,6 +9,7 @@ import Contract.DaH
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1 (before, contains)
 import PlutusLedgerApi.V3
+import PlutusLedgerApi.V3.Contexts (txSignedBy)
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.List
@@ -118,6 +119,7 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
           "All paid to credential"
           "Not all paid to credential"
           (allPaidToCredential bountyClaimantPubKeyHash)
+        && txSignedBy (scriptContextTxInfo ctx) bountyClaimantPubKeyHash
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
