@@ -20,11 +20,9 @@ import PlutusLedgerApi.V1.Time qualified as T
 import PlutusLedgerApi.V2
 import PlutusTx qualified
 import PlutusTx.Prelude (BuiltinString)
-import System.IO.Unsafe (unsafePerformIO)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util
-import Utils
 
 -- Test constants
 testDeadline :: POSIXTime
@@ -257,12 +255,17 @@ bountySpec =
                 messageHash = computeDigest testMessage
                 (_messageRef, proof) = fromJust . runIdentity $ getSkyDataProofH (topicId, fromJust maybeMessageId) updatedDa :: (Hash, SkyDataProofH)
 
-            let deadline = unsafePerformIO currentPOSIXTime
-
             mintingPolicyTest TestInfo {..} topH0
             updateBridgeTest TestInfo {..} initialState updatedDa
+
+            currentSlot <- slotOfCurrentBlock
+            let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 2
+            gyDeadline <- slotToEndTime deadlineSlot
+            let deadline = timeToPlutus gyDeadline
+            gyLogDebug' "" $ printf "current slot: %s, deadline slot: %s, deadline: %s" currentSlot deadlineSlot gyDeadline
+
             offerBountyTest TestInfo {..} topicId messageHash deadline
-            -- claimBountyTest TestInfo {..} topicId messageHash deadline proof
+            claimBountyTest TestInfo {..} topicId messageHash deadline deadlineSlot proof
         ]
     ]
 
@@ -312,9 +315,10 @@ claimBountyTest ::
   TopicId ->
   Hash ->
   T.POSIXTime ->
+  GYSlot ->
   SkyDataProofH ->
   m ()
-claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
+claimBountyTest TestInfo {..} topicId messageHash deadline slotDeadline proof = do
   adminAddr <- getUserAddr $ admin testWallets
   offererAddr <- getUserAddr $ offerer testWallets
   claimantAddr <- getUserAddr $ claimant testWallets
@@ -355,25 +359,27 @@ claimBountyTest TestInfo {..} topicId messageHash deadline proof = do
     _ -> throwAppError $ someBackendError "Can't find bridge utxo"
 
   -- TODO: make this safe
+  -- get the first utxo. TODO: search for the one we need
+  let bountyUtxo = head $ utxosToList bountyUtxos
   let bountyAmount =
         snd
           . head -- get first asset. TODO: search for the one we need
           . valueToList
-          . utxoValue
-          . head -- get the first utxo. TODO: search for the one we need
-          . utxosToList
-          $ bountyUtxos
+          $ utxoValue
+            bountyUtxo
       redeemer = ClaimBounty proof
 
-  asUser (offerer testWallets) $ do
+  asUser (claimant testWallets) $ do
     claimBountySkeleton <-
       mkClaimBountySkeleton
+        slotDeadline
+        (utxoRef bountyUtxo)
         (bountyValidator' clientParams)
         nftRef
         redeemer
         claimantAddr
         bountyAmount
-        offererPkh
+        claimantPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody claimBountySkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId

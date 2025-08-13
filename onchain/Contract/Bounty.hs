@@ -1,4 +1,3 @@
-{-# LANGUAGE Strict #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -8,20 +7,8 @@ import Common
 import Contract.Bridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
 import Contract.DaH
 import GHC.Generics (Generic)
-import PlutusCore.Version (plcVersion100)
-import PlutusLedgerApi.V1
-  ( Credential (PubKeyCredential),
-    POSIXTime,
-    PubKeyHash (..),
-    addressCredential,
-  )
-import PlutusLedgerApi.V1.Interval (Interval, before, contains, to)
-import PlutusLedgerApi.V2
-  ( CurrencySymbol,
-    ScriptContext (..),
-    TxInfo (..),
-    TxOut (..),
-  )
+import PlutusLedgerApi.V1 (before, contains)
+import PlutusLedgerApi.V3
 import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.List
@@ -68,50 +55,43 @@ PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout,
 
 -- Separating validation logic to make for easy testing
 validateClaimBounty :: POSIXTime -> Interval POSIXTime -> Hash -> TopicId -> SkyDataProofH -> Hash -> Bool
-validateClaimBounty
-  bountyDeadline
-  txValidRange
-  messageHash
-  topicId
-  proof@SkyDataProofH {..}
-  daTopHash =
-    -- Check if the current slot is within the deadline
-    traceBool
-      "Bounty deadline in the valid range"
-      "Bounty deadline is not in the valid range"
-      ( to bountyDeadline
-          `contains` txValidRange
-      )
-      &&
+validateClaimBounty bountyDeadline txValidRange messageHash topicId proof@SkyDataProofH {..} daTopHash =
+  and
+    [ -- Check if the current slot is within the deadline
+      traceBool
+        "Bounty deadline in the valid range"
+        "Bounty deadline is not in the valid range"
+        ( to bountyDeadline
+            `contains` txValidRange
+        ),
       -- The bounty's message hash is in the DA
       traceBool
         "message hash is in the DA"
         "message hash is not in the DA"
         ( daTopHash
             == applySkyDataProofH proof messageHash
-        )
-      &&
+        ),
       -- topic ID matches
       traceBool
         "TopicId matches"
         "TopicId doesn't match"
         ( topicId
             == triePathKey proofTopicTriePathH
-        )
-      &&
+        ),
       -- heights are 0 (lead top top from leafs)
       traceBool
         "Topic trie path is 0"
         "Topic trie path is not 0"
         ( triePathHeight proofTopicTriePathH
             == 0
-        )
-      && traceBool
+        ),
+      traceBool
         "Message trie path is 0"
         "Message trie path is not 0"
         ( triePathHeight proofMessageTriePathH
             == 0
         )
+    ]
 
 validateTimeout :: POSIXTime -> Interval POSIXTime -> Bool
 validateTimeout bountyDeadline txValidRange =
@@ -134,7 +114,10 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
         bountyTopicId
         proof
         daTopHash
-        && allPaidToCredential bountyClaimantPubKeyHash
+        && traceBool
+          "All paid to credential"
+          "Not all paid to credential"
+          (allPaidToCredential bountyClaimantPubKeyHash)
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
@@ -150,7 +133,7 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
     -- Bounty prize funds are sent to pre-configured address
     allPaidToCredential :: PubKeyHash -> Bool
     allPaidToCredential recipient =
-      all (\o -> addressCredential (txOutAddress o) == PubKeyCredential recipient)
+      any (\o -> addressCredential (txOutAddress o) == PubKeyCredential recipient)
         $ txInfoOutputs (scriptContextTxInfo ctx)
 
 ------------------------------------------------------------------------------
@@ -158,18 +141,21 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
 ------------------------------------------------------------------------------
 
 {-# INLINEABLE clientUntypedValidator #-}
-clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit
-clientUntypedValidator params _datum redeemer ctx =
+clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinUnit
+clientUntypedValidator params ctx =
   PlutusTx.check
     $ clientTypedValidator
       params
       () -- ignore the untyped datum, it's unused
-      (PlutusTx.unsafeFromBuiltinData redeemer)
-      (PlutusTx.unsafeFromBuiltinData ctx)
+      redeemer
+      scriptContext
+  where
+    scriptContext = PlutusTx.unsafeFromBuiltinData ctx
+    redeemer = PlutusTx.unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer scriptContext
 
 clientValidatorScript ::
   ClientParams ->
-  CompiledCode (BuiltinData -> BuiltinData -> BuiltinData -> PlutusTx.BuiltinUnit)
+  CompiledCode (BuiltinData -> BuiltinUnit)
 clientValidatorScript params =
   $$(PlutusTx.compile [||clientUntypedValidator||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion100 params
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef params

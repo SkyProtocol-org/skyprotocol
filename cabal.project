@@ -54,10 +54,6 @@ package postgresql-libpq
 allow-newer:
     katip:Win32
   , ekg-wai:time
-  , plutus-core        
-  , plutus-ledger-api  
-  , plutus-tx          
-  , plutus-tx-plugin   
 
 -- Using RDRAND instead of /dev/urandom as an entropy source for key
 -- generation is dubious. Set the flag so we use /dev/urandom by default.

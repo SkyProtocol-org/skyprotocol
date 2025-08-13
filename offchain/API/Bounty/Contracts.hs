@@ -4,7 +4,6 @@ import Contract.Bounty (ClientRedeemer)
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
-import PlutusLedgerApi.Common hiding (PlutusV2)
 
 mkSendSkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
@@ -16,7 +15,7 @@ mkSendSkeleton ::
   GYAssetClass ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV2)
+  m (GYTxSkeleton 'PlutusV3)
 mkSendSkeleton addr amount assetClass signer =
   pure $
     mustHaveOutput
@@ -30,8 +29,12 @@ mkSendSkeleton addr amount assetClass signer =
 
 mkClaimBountySkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
+  -- | Deadline
+  GYSlot ->
+  -- | Where to get funds
+  GYTxOutRef ->
   -- | Validator
-  GYScript 'PlutusV2 ->
+  GYScript 'PlutusV3 ->
   -- | NFT ref
   GYTxOutRef ->
   -- | Redeemer
@@ -42,26 +45,35 @@ mkClaimBountySkeleton ::
   Integer ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV2)
-mkClaimBountySkeleton validator nftRef redeemer addr amt signer =
-  pure $
-    mustHaveInput
-      ( GYTxIn
-          { gyTxInTxOutRef = nftRef,
-            gyTxInWitness =
-              GYTxInWitnessScript
-                (GYBuildPlutusScriptInlined validator)
-                Nothing
-                $ redeemerFromPlutus'
-                $ toBuiltinData redeemer
-          }
-      )
-      <> mustHaveOutput
-        ( GYTxOut
-            { gyTxOutAddress = addr,
-              gyTxOutValue = valueSingleton GYLovelace amt,
-              gyTxOutDatum = Nothing,
-              gyTxOutRefS = Nothing
-            }
-        )
-      <> mustBeSignedBy signer
+  m (GYTxSkeleton 'PlutusV3)
+mkClaimBountySkeleton
+  deadlineSlot
+  bountyRef
+  validator
+  nftRef
+  redeemer
+  recipientAddr
+  amt
+  signer =
+    pure $
+      mustHaveRefInput nftRef
+        <> mustHaveInput
+          ( GYTxIn
+              { gyTxInTxOutRef = bountyRef,
+                gyTxInWitness =
+                  GYTxInWitnessScript
+                    (GYBuildPlutusScriptInlined validator)
+                    Nothing -- datum can be omitted if it was inlined
+                    $ redeemerFromPlutusData redeemer
+              }
+          )
+        <> mustHaveOutput
+          ( GYTxOut
+              { gyTxOutAddress = recipientAddr,
+                gyTxOutValue = valueSingleton GYLovelace amt,
+                gyTxOutDatum = Nothing,
+                gyTxOutRefS = Nothing
+              }
+          )
+        <> isInvalidAfter deadlineSlot
+        <> mustBeSignedBy signer
