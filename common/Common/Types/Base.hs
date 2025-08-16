@@ -13,6 +13,7 @@ import Data.String (IsString, String, fromString)
 import Data.Text (pack, unpack)
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Time (POSIXTime (..))
+import PlutusLedgerApi.V1.Interval (Interval (..), LowerBound (..), UpperBound (..), Extended (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx as P
 import PlutusTx.Blueprint as P
@@ -188,15 +189,15 @@ class ToByteString a where
 class FromByteString a where
   {-# INLINEABLE fromByteString #-}
   fromByteString :: P.BuiltinByteString -> a
-  fromByteString = fromByteStringIn
+  fromByteString = fromJust . maybeFromByteString
+  -- fromByteString = fromByteStringIn —– which should the default be? Think, and document.
 
-  --  fromByteString = fromJust . maybeFromByteString
   byteStringIn :: IsTerminal -> ByteStringReader a
 
   --  ??? THIS CAUSES HAVOC IN THE PLUTUS COMPILER, WHY???
-  --  {-# INLINEABLE maybeFromByteString__ #-}
-  --  maybeFromByteString__ :: BuiltinByteString -> Maybe a
-  --  maybeFromByteString__ = maybeFromByteStringIn
+  {-# INLINEABLE maybeFromByteString #-}
+  maybeFromByteString :: BuiltinByteString -> Maybe a
+  maybeFromByteString = maybeFromByteStringIn
 
   {-# MINIMAL byteStringIn #-}
 
@@ -243,9 +244,7 @@ instance ToByteString Bytes4 where
   byteStringOut (Bytes4 b) _ = appendByteString b
 
 instance FromByteString Bytes4 where
-  -- {-# INLINEABLE fromByteString #-}
-  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeValidate . Bytes4
+  maybeFromByteString = maybeValidate . Bytes4
   byteStringIn _ = byteStringInFixedLength 4 <&> Bytes4
 
 instance BitLogic Bytes4 where
@@ -272,9 +271,7 @@ instance ToByteString Bytes8 where
   byteStringOut (Bytes8 b) _ = appendByteString b
 
 instance FromByteString Bytes8 where
-  -- {-# INLINEABLE fromByteString #-}
-  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeValidate . FixedLengthByteString
+  maybeFromByteString = maybeValidate . Bytes8
   byteStringIn _ = byteStringInFixedLength 8 <&> Bytes8
 
 instance BitLogic Bytes8 where
@@ -301,9 +298,7 @@ instance ToByteString Bytes32 where
   byteStringOut (Bytes32 b) _ = appendByteString b
 
 instance FromByteString Bytes32 where
-  -- {-# INLINEABLE fromByteString #-}
-  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeValidate . FixedLengthByteString
+  maybeFromByteString = maybeValidate . Bytes32
   byteStringIn _ = byteStringInFixedLength 32 <&> Bytes32
 
 instance BitLogic Bytes32 where
@@ -332,7 +327,7 @@ instance ToByteString Bytes64 where
 instance FromByteString Bytes64 where
   -- {-# INLINEABLE fromByteString #-}
   -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeValidate . FixedLengthByteString
+  maybeFromByteString = maybeValidate . Bytes64
   byteStringIn _ = byteStringInFixedLength 64 <&> Bytes64
 
 instance BitLogic Bytes64 where
@@ -429,15 +424,15 @@ instance ToByteString Byte where
   byteStringOut (Byte n) _ = consByteString n
 
 instance FromByteString Byte where
-  -- {-# INLINEABLE fromByteString #-} -- XXX
+  {-# INLINEABLE fromByteString #-}
   fromByteString = Byte . byteStringToInteger BigEndian . validateFLBBS 1
-
-  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeFromByteString >=>
-  --  return . Byte . byteStringToInteger BigEndian . toByteString @(FixedLengthByteString L1)
+  maybeFromByteString b = if isBBSLength 1 b
+    then return . Byte . byteStringToInteger BigEndian $ b
+    else Nothing
   byteStringIn _ = ByteStringReader nextByteStringCursor
 
 instance BitLogic Byte where
+  {-# INLINEABLE bitLength #-}
   bitLength (Byte n) = bitLength8 n
   lowestBitClear (Byte b) =
     let n = findFirstSetBit $ toByteString $ 255 - b
@@ -461,20 +456,18 @@ instance FromInt UInt16 where
   maybeFromInt = maybeValidate . UInt16
 
 instance ToByteString UInt16 where
-  -- using integerToByteString seems to cause a resource exhaustion when executing the contract(!!!)
-  -- toByteString (UInt16 n) = integerToByteString BigEndian 2 n
-  toByteString (UInt16 n) = consByteString (divideInteger n 256) $ consByteString (modInteger n 256) emptyByteString
+  -- toByteString (UInt16 n) = consByteString (divideInteger n 256) $ consByteString (modInteger n 256) emptyByteString
+  toByteString (UInt16 n) = integerToByteString BigEndian 2 n
 
 -- This is the default method, we shouldn't have to repeat it:
 -- byteStringOut a _ = appendByteString $ toByteString a
 
 instance FromByteString UInt16 where
-  -- {-# INLINEABLE fromByteString #-}
+  {-# INLINEABLE fromByteString #-}
   fromByteString = UInt16 . byteStringToInteger BigEndian . validateFLBBS 2
-
-  -- fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  -- maybeFromByteString = maybeFromByteString >=>
-  --  return . UInt16 . byteStringToInteger BigEndian . toByteString @(FixedLengthByteString L2)
+  maybeFromByteString b = if isBBSLength 2 b
+    then return . UInt16 . byteStringToInteger BigEndian $ b
+    else Nothing
   byteStringIn _ = byteStringInFixedLength 2 <&> fromByteString
 
 instance BitLogic UInt16 where
@@ -503,9 +496,11 @@ instance ToByteString UInt32 where
   toByteString (UInt32 n) = integerToByteString BigEndian 4 n
 
 instance FromByteString UInt32 where
-  --  {-# INLINEABLE fromByteString #-}
-  --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
+  {-# INLINEABLE fromByteString #-}
+  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
+  maybeFromByteString b = if isBBSLength 4 b
+    then return . UInt32 . byteStringToInteger BigEndian $ b
+    else Nothing
   byteStringIn _ =
     byteStringInFixedLength 4
       <&> UInt32
@@ -535,9 +530,9 @@ instance ToByteString UInt64 where
   toByteString (UInt64 n) = integerToByteString BigEndian 8 n
 
 instance FromByteString UInt64 where
-  --  {-# INLINEABLE fromByteString #-}
-  --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
+  maybeFromByteString b = if isBBSLength 8 b
+    then return . UInt64 . byteStringToInteger BigEndian $ b
+    else Nothing
   byteStringIn _ =
     byteStringInFixedLength 8
       <&> UInt64
@@ -567,9 +562,9 @@ instance ToByteString UInt256 where
   toByteString (UInt256 n) = integerToByteString BigEndian 32 n
 
 instance FromByteString UInt256 where
-  --  {-# INLINEABLE fromByteString #-}
-  --  fromByteString = fromJust . maybeFromByteString -- repeat default to make Plutus happy
-  --  maybeFromByteString = maybeValidate . FixedLengthInteger . byteStringToInteger BigEndian
+  maybeFromByteString b = if isBBSLength 32 b
+    then return . UInt256 . byteStringToInteger BigEndian $ b
+    else Nothing
   byteStringIn _ =
     byteStringInFixedLength 32
       <&> UInt256
@@ -705,6 +700,30 @@ instance ToByteString POSIXTime where
 instance FromByteString POSIXTime where
   --  fromByteString = POSIXTime . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> POSIXTime
+
+-- ** Extended
+instance (P.Show a) => P.Show (Extended a) where
+  showsPrec _prec NegInf = showString "-inf"
+  showsPrec prec (Finite a) = showsPrec prec a
+  showsPrec _prec PosInf = showString "+inf"
+
+-- ** UpperBound
+instance (P.Show a) => P.Show (UpperBound a) where
+  showsPrec _prec (UpperBound PosInf _) = showString "+inf)"
+  showsPrec _prec (UpperBound NegInf _) = showString "-inf)"
+  showsPrec _prec (UpperBound a True)   = showString (show a <> "]")
+  showsPrec _prec (UpperBound a False)  = showString (show a <> ")")
+
+-- ** LowerBound
+instance (P.Show a) => P.Show (LowerBound a) where
+  showsPrec _prec (LowerBound PosInf _) = showString "(+inf"
+  showsPrec _prec (LowerBound NegInf _) = showString "(-inf"
+  showsPrec _prec (LowerBound a True)   = showString ("[" <> show a)
+  showsPrec _prec (LowerBound a False)  = showString ("(" <> show a)
+
+-- ** Interval (including POSIXTimeRange)
+instance (P.Show a) => P.Show (Interval a) where
+  showsPrec _prec (Interval l h) = showString ((show l) <> "," <> (show h))
 
 -- ** CurrencySymbol
 
@@ -892,12 +911,15 @@ extractBitField len height bits = (bits `shiftRight` height) `logicalAnd` lowBit
 bitLength16 :: Integer -> Integer -- assumes input in [0,65535]
 bitLength16 n = if n < 256 then bitLength8 n else 8 + bitLength8 (n `quotient` 256)
 
+{-# INLINEABLE bitLength8 #-}
 bitLength8 :: Integer -> Integer -- assumes input in [0,255]
 bitLength8 n = if n < 16 then bitLength4 n else 4 + bitLength4 (n `quotient` 16)
 
+{-# INLINEABLE bitLength4 #-}
 bitLength4 :: Integer -> Integer -- assumes input in [0,15]
 bitLength4 n = if n < 4 then bitLength2 n else 2 + bitLength2 (n `quotient` 4)
 
+{-# INLINEABLE bitLength2 #-}
 bitLength2 :: Integer -> Integer -- assumes input in [0,3]
 bitLength2 n = min n 2
 
@@ -973,8 +995,8 @@ nextByteStringCursor bsc =
           ByteStringCursor (cursorByteString bsc) (cursorStart bsc + 1) (cursorEnd bsc)
         )
 
-maybeFromByteString :: (FromByteString a) => P.BuiltinByteString -> Maybe a -- XXX DEBUG
-maybeFromByteString = maybeFromByteStringIn -- XXX DEBUG
+-- maybeFromByteString :: (FromByteString a) => P.BuiltinByteString -> Maybe a -- XXX DEBUG
+-- maybeFromByteString = maybeFromByteStringIn -- XXX DEBUG
 -- fromByteString :: (FromByteString a) => BuiltinByteString -> a -- XXX DEBUG
 -- fromByteString = fromJust . maybeFromByteString -- XXX DEBUG
 
@@ -987,6 +1009,7 @@ showApp prec funName showArgList =
 showArg :: (P.Show a) => a -> P.ShowS
 showArg = showsPrec 11
 
+{-# INLINEABLE showSpaced #-}
 showSpaced :: [P.ShowS] -> P.ShowS
 showSpaced [] = id
 showSpaced (sa : sas) = showString " " . sa . showSpaced sas

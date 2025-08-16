@@ -147,10 +147,8 @@ getProofH topicId messageId = do
   let maybeRmdProof = runIdentity $ getSkyDataProofH (topicId, messageId) da :: Maybe (Hash, SkyDataProofH)
   case maybeRmdProof of
     Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
-    Just (rmd, proof) ->
-      undefined
-
--- return . ProofBytes . builtinByteStringToByteString . toByteString $ (rmd, proof)
+    Just (_rmd, proof) ->
+      return . ProofBytes . fromBuiltin . toByteString $ proof
 
 -- TODO: Why do we need this?
 readMessageH :: TopicId -> MessageId -> AppM RawBytes

@@ -15,6 +15,7 @@ import PlutusTx.Blueprint
 import PlutusTx.List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
+import PlutusTx.Show
 import Prelude qualified as HP
 
 ------------------------------------------------------------------------------

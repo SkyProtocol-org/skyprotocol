@@ -17,6 +17,7 @@ import PlutusTx
 import PlutusTx.Blueprint
 import PlutusTx.Functor as PlutusTx
 import PlutusTx.Prelude as PlutusTx
+import PlutusTx.Show
 import Prelude qualified as HP
 
 -- import Prelude qualified as HP
@@ -69,6 +70,17 @@ data SkyDataProofH = SkyDataProofH
   deriving anyclass (HasBlueprintDefinition)
 
 -- * Instances
+
+instance Show SkyDataProofH where
+  showsPrec prec SkyDataProofH {..} =
+    showApp prec "SkyDataProofHHHH"
+      [showArg proofDaMetaDataH, showArg proofTopicTriePathH, showArg proofTopicMetaDataH,
+       showArg proofMessageTriePathH, showArg proofMessageMetaDataH]
+
+instance ToByteString SkyDataProofH where
+  byteStringOut SkyDataProofH {..} = byteStringOut
+    (proofDaMetaDataH, proofTopicTriePathH, proofTopicMetaDataH,
+     proofMessageTriePathH, proofMessageMetaDataH)
 
 -- * Helpers
 
