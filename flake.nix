@@ -14,7 +14,7 @@
 
   outputs = { self, nixpkgs, flake-utils, haskellNix, CHaP }:
     let
-      supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
     in
     flake-utils.lib.eachSystem supportedSystems (system:
       let
@@ -134,8 +134,8 @@
     allow-import-from-derivation = "true";
     extra-substituters =
       [
-        "https://cache.iog.io" # haskell binary cache
         "https://sky-protocol.cachix.org"
+        "https://cache.iog.io" # haskell binary cache
       ];
     extra-trusted-public-keys =
       [
