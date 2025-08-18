@@ -7,7 +7,6 @@ import Common.OffChain ()
 import Data.Aeson
 import Data.ByteString qualified as BS
 import Data.OpenApi
-import Data.Time.Clock.POSIX (POSIXTime)
 import GHC.Generics
 import GeniusYield.Types
 import Servant
@@ -78,7 +77,8 @@ instance ToJSON UpdateBridgeRequest where
 data OfferBountyRequest = OfferBountyRequest
   { obrTopicId :: TopicId,
     obrMessageHash :: Hash,
-    obrDeadline :: POSIXTime,
+    -- | Number of slots from the current
+    obrDeadline :: Integer,
     obrChangeAddr :: GYAddress,
     obrUsedAddrs :: [GYAddress],
     obrCollateral :: Maybe GYTxOutRefCbor
@@ -114,8 +114,10 @@ instance ToJSON OfferBountyRequest where
 -- (why claimant must know about the deadline?)
 data ClaimBountyRequest = ClaimBountyRequest
   { cbrTopicId :: TopicId,
+    cbrMessageId :: MessageId,
     cbrMessageHash :: Hash,
-    cbrDeadline :: POSIXTime,
+    -- | Number of slots from the current. Should be the same as in OfferBountyRequest
+    cbrDeadline :: Integer,
     cBountyrChangeAddr :: GYAddress,
     cBountyrUsedAddrs :: [GYAddress],
     cBountyrCollateral :: Maybe GYTxOutRefCbor
@@ -129,6 +131,7 @@ instance FromJSON ClaimBountyRequest where
     usedAddrs <- v .: "usedAddrs"
     cBountyrCollateral <- v .:? "collateral"
     cbrTopicId <- v .: "topicId"
+    cbrMessageId <- v .: "messageId"
     cbrDeadline <- v .: "deadline"
     cbrMessageHash <- v .: "messageHash"
     let cBountyrChangeAddr = unsafeAddressFromText changeAddr
@@ -139,6 +142,7 @@ instance ToJSON ClaimBountyRequest where
   toJSON ClaimBountyRequest {..} =
     object
       [ "topicId" .= cbrTopicId,
+        "messageId" .= cbrMessageId,
         "messageHash" .= cbrMessageHash,
         "deadline" .= cbrDeadline,
         "changeAddr" .= addressToText cBountyrChangeAddr,

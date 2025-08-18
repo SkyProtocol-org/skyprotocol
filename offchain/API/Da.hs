@@ -144,7 +144,7 @@ getProofH topicId messageId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
   let da = view (bridgeState . bridgedSkyDa) state
-  let maybeRmdProof = runIdentity $ getSkyDataProofH (topicId, messageId) da :: Maybe (Hash, SkyDataProofH)
+      maybeRmdProof = runIdentity $ getSkyDataProofH (topicId, messageId) da :: Maybe (Hash, SkyDataProofH)
   case maybeRmdProof of
     Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
     Just (_rmd, proof) ->
@@ -156,7 +156,7 @@ readMessageH topicId msgId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
   let da = view (blockState . skyDa) state
-  let maybeMessageEntry = runIdentity $ getMessage topicId msgId da
+      maybeMessageEntry = runIdentity $ getMessage topicId msgId da
   case maybeMessageEntry of
     Nothing -> throwError $ APIError "readMessage failed"
     Just (rmd, rd) -> do

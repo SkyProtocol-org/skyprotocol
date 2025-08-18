@@ -4,8 +4,12 @@ import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import API.Types
 import App
+import Common as C
 import Contract.Bounty
 import Contract.Bridge
+import Contract.DaH
+import Control.Concurrent.MVar
+import Control.Lens
 import Control.Monad.Reader
 import Data.Text (pack)
 import GHC.Generics (Generic)
@@ -43,11 +47,17 @@ bountyServer =
   where
     offerBountyH OfferBountyRequest {..} = do
       AppEnv {..} <- ask
+
       let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
           bountyNFTCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
           bountyClaimantPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appClaimant
           bountyOffererPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appOfferer
-          bountyDeadline = POSIXTime $ floor $ obrDeadline * 1000
+
+      currentSlot <- runQuery slotOfCurrentBlock
+      let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + obrDeadline
+      gyDeadline <- runQuery $ slotToEndTime deadlineSlot
+
+      let bountyDeadline = timeToPlutus gyDeadline
           clientParams =
             ClientParams
               { bountyTopicId = obrTopicId,
@@ -88,7 +98,12 @@ bountyServer =
           curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
           bountyClaimantPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appClaimant
           bountyOffererPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appOfferer
-          bountyDeadline = POSIXTime $ floor $ cbrDeadline * 1000
+
+      currentSlot <- runQuery slotOfCurrentBlock
+      let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + cbrDeadline
+      gyDeadline <- runQuery $ slotToEndTime deadlineSlot
+
+      let bountyDeadline = timeToPlutus gyDeadline
           clientParams =
             ClientParams
               { bountyTopicId = cbrTopicId,
@@ -113,25 +128,29 @@ bountyServer =
         _ -> throwError $ APIError "Can't find bridge nft utxos"
 
       -- TODO: make this safe
-      let bountyAmount =
+      -- get the first utxo. TODO: search for the one we need
+      let bountyUtxo = head $ utxosToList bountyUtxos
+          bountyAmount =
             snd
               . head -- get first asset. TODO: search for the one we need
               . valueToList
-              . utxoValue
-              . head -- get the first utxo. TODO: search for the one we need
-              . utxosToList
-              $ bountyUtxos
+              $ utxoValue bountyUtxo
 
       -- TODO: Fix this
-      let redeemer = ClaimBounty undefined
+      state <- liftIO $ readMVar appStateR
+      let da = view (bridgeState . bridgedSkyDa) state
+          maybeRmdProof = runIdentity $ getSkyDataProofH (cbrTopicId, cbrMessageId) da :: Maybe (Hash, SkyDataProofH)
+      redeemer <- case maybeRmdProof of
+        Just (_, proof) -> pure $ ClaimBounty proof
+        Nothing -> throwError $ APIError "Can't construct a proof"
       body <-
         runBuilder
           cBountyrUsedAddrs
           cBountyrChangeAddr
           cBountyrCollateral
           $ mkClaimBountySkeleton
-            undefined -- TODO: this should be deadline slot
-            undefined -- TODO: this should be bounty utxo ref
+            deadlineSlot -- TODO: this should be deadline slot
+            (utxoRef bountyUtxo) -- TODO: this should be bounty utxo ref
             (bountyValidator' clientParams)
             nftRef
             redeemer
