@@ -119,7 +119,10 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
           "All paid to credential"
           "Not all paid to credential"
           (allPaidToCredential bountyClaimantPubKeyHash)
-        && txSignedBy (scriptContextTxInfo ctx) bountyClaimantPubKeyHash
+        && traceBool
+          "Signed"
+          "Not signed"
+          (txSignedBy (scriptContextTxInfo ctx) bountyClaimantPubKeyHash)
     Timeout ->
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
