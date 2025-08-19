@@ -206,3 +206,13 @@ The next step will be to update the bridge:
 
 The response will again include the transaction id,
 which you can copy-paste into the [explorer](https://preview.cexplorer.io/).
+
+
+Now you can offer a bounty:
+```bash
+  bash scripts/offer-bounty.sh topicId messageHash deadline "offerer-addr"
+```
+
+The `topicId` is the one you got from creating topic response.
+`messageHash` can be found in the `scripts/message_hash`.
+`deadline` is a number of slots that the offer is active for. (You can safely input 4 here).

@@ -16,7 +16,7 @@ import GHC.Generics (Generic)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log
-import PlutusLedgerApi.V1 (POSIXTime (..), ScriptHash (..))
+import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
 import Servant.Server.Generic
