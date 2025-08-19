@@ -77,6 +77,7 @@ instance ToJSON UpdateBridgeRequest where
 data OfferBountyRequest = OfferBountyRequest
   { obrTopicId :: TopicId,
     obrMessageHash :: Hash,
+    obrAmount :: Integer,
     -- | Number of slots from the current
     obrDeadline :: Integer,
     obrChangeAddr :: GYAddress,
@@ -94,6 +95,7 @@ instance FromJSON OfferBountyRequest where
     obrTopicId <- v .: "topicId"
     obrDeadline <- v .: "deadline"
     obrMessageHash <- v .: "messageHash"
+    obrAmount <- v .: "amount"
     let obrChangeAddr = unsafeAddressFromText changeAddr
         obrUsedAddrs = fmap unsafeAddressFromText usedAddrs
     pure OfferBountyRequest {..}
@@ -106,7 +108,8 @@ instance ToJSON OfferBountyRequest where
         "deadline" .= obrDeadline,
         "changeAddr" .= addressToText obrChangeAddr,
         "usedAddrs" .= fmap addressToText obrUsedAddrs,
-        "collateral" .= obrCollateral
+        "collateral" .= obrCollateral,
+        "amount" .= obrAmount
       ]
 
 -- TODO: save contract addresses and hashes in some cache, to get rid of
