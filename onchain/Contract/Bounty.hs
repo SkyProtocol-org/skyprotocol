@@ -34,7 +34,7 @@ data ClientParams = ClientParams
     bountyMessageHash :: Hash,
     bountyDeadline :: POSIXTime
   }
-  deriving stock (Generic)
+  deriving stock (Generic, HP.Show)
   deriving anyclass (HasBlueprintDefinition)
 
 PlutusTx.makeLift ''ClientParams

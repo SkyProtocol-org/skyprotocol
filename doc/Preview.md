@@ -217,9 +217,22 @@ which you can copy-paste into the [explorer](https://preview.cexplorer.io/).
 
 Now you can offer a bounty:
 ```bash
-  bash scripts/offer-bounty.sh topicId messageHash deadline "offerer-addr"
+  bash scripts/offer-bounty.sh topicId ($cat scripts/message_hash) deadline amount "offerer-addr"
 ```
 
 The `topicId` is the one you got from creating topic response.
 `messageHash` can be found in the `scripts/message_hash`.
-`deadline` is a number of slots that the offer is active for. (You can safely input 4 here).
+`deadline` is a number of slots that the offer is active for. (You can safely input some big number here here).
+`amount` is an amount that you want to offer.
+
+
+To claim a bounty:
+```bash
+  bash scripts/claim-bounty.sh topicId messageId ($cat scripts/message_hash) deadlineStart deadline "claimant-addr"
+```
+The `topicId` is the one you got from creating topic response.
+`messageId` is the one you got from publishing a message.
+`messageHash` can be found in the `scripts/message_hash`.
+`deadlineStart` is a slot where the offering of bounty happends. You should get this as an output from `scripts/offer-bounty.sh`.
+`deadline` is a number of slots that the offer is active for.
+NOTE: `topicId`, `messageHash` and `deadline` should be the same, as inthe call to offer a bounty!.

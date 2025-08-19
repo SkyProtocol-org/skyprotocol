@@ -121,6 +121,8 @@ data ClaimBountyRequest = ClaimBountyRequest
     cbrMessageHash :: Hash,
     -- | Number of slots from the current. Should be the same as in OfferBountyRequest
     cbrDeadline :: Integer,
+    -- | The slot where the deadline was started
+    cbrDeadlineStart :: Integer,
     cBountyrChangeAddr :: GYAddress,
     cBountyrUsedAddrs :: [GYAddress],
     cBountyrCollateral :: Maybe GYTxOutRefCbor
@@ -136,6 +138,7 @@ instance FromJSON ClaimBountyRequest where
     cbrTopicId <- v .: "topicId"
     cbrMessageId <- v .: "messageId"
     cbrDeadline <- v .: "deadline"
+    cbrDeadlineStart <- v .: "deadlineStart"
     cbrMessageHash <- v .: "messageHash"
     let cBountyrChangeAddr = unsafeAddressFromText changeAddr
         cBountyrUsedAddrs = fmap unsafeAddressFromText usedAddrs
@@ -148,6 +151,7 @@ instance ToJSON ClaimBountyRequest where
         "messageId" .= cbrMessageId,
         "messageHash" .= cbrMessageHash,
         "deadline" .= cbrDeadline,
+        "deadlineStart" .= cbrDeadlineStart,
         "changeAddr" .= addressToText cBountyrChangeAddr,
         "usedAddrs" .= fmap addressToText cBountyrUsedAddrs,
         "collateral" .= cBountyrCollateral

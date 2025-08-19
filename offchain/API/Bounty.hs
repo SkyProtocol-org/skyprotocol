@@ -28,7 +28,7 @@ data BountyApi mode = BountyApi
         :- Description "Offer bounty"
           :> "offer"
           :> ReqBody '[JSON] OfferBountyRequest
-          :> Post '[JSON] GYTxId,
+          :> Post '[JSON] (GYTxId, Integer),
     claim ::
       mode
         :- Description "Claim bounty"
@@ -64,6 +64,7 @@ bountyServer =
                 bountyMessageHash = obrMessageHash,
                 ..
               }
+      logTrace_ $ "deadline: " <> pack (show bountyDeadline)
       validatorAddr <- runQuery $ do
         bountyValidatorAddress clientParams
 
@@ -84,11 +85,22 @@ bountyServer =
           obrUsedAddrs
           obrChangeAddr
           collateral
-          $ mkSendSkeleton validatorAddr 10_000_000 GYLovelace (cuserAddressPubKeyHash appOfferer)
+          $ mkSendSkeleton
+            validatorAddr
+            obrAmount
+            GYLovelace
+            (cuserAddressPubKeyHash appOfferer)
 
-      tid <- runGY (cuserSigningKey appOfferer) Nothing obrUsedAddrs obrChangeAddr collateral $ pure body
+      tid <-
+        runGY
+          (cuserSigningKey appOfferer)
+          Nothing
+          obrUsedAddrs
+          obrChangeAddr
+          collateral
+          $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tid)
-      pure tid
+      pure (tid, slotToInteger currentSlot)
 
     claimBountyH ClaimBountyRequest {..} = do
       AppEnv {..} <- ask
@@ -99,7 +111,8 @@ bountyServer =
           bountyClaimantPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appClaimant
           bountyOffererPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appOfferer
 
-      currentSlot <- runQuery slotOfCurrentBlock
+      -- currentSlot <- runQuery slotOfCurrentBlock
+      let currentSlot = unsafeSlotFromInteger cbrDeadlineStart
       let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + cbrDeadline
       gyDeadline <- runQuery $ slotToEndTime deadlineSlot
 
@@ -111,6 +124,7 @@ bountyServer =
                 bountyNFTCurrencySymbol = curSym,
                 ..
               }
+      logTrace_ $ "deadline: " <> pack (show bountyDeadline)
       bridgeUtxos <- runQuery $ do
         addr <- bridgeValidatorAddress $ BridgeParams curSym
         utxosAtAddressWithDatums addr $ Just skyToken
@@ -138,25 +152,43 @@ bountyServer =
 
       -- TODO: Fix this
       state <- liftIO $ readMVar appStateR
-      let da = view (bridgeState . bridgedSkyDa) state
+      let da = view (blockState . skyDa) state
           maybeRmdProof = runIdentity $ getSkyDataProofH (cbrTopicId, cbrMessageId) da :: Maybe (Hash, SkyDataProofH)
       redeemer <- case maybeRmdProof of
         Just (_, proof) -> pure $ ClaimBounty proof
         Nothing -> throwError $ APIError "Can't construct a proof"
+
+      collateral <- case cBountyrCollateral of
+        Nothing -> do
+          logTrace_ "Creating utxos for collateral"
+          utxos' <- runQuery $ utxosAtAddress (cuserAddress appClaimant) Nothing
+          let utxos = utxosToList utxos'
+          case utxos of
+            (utxo : _) -> pure $ Just $ GYTxOutRefCbor (utxoRef utxo)
+            _ -> throwError $ APIError "Can't find utxo for collateral"
+        Just c -> pure $ Just c
+
       body <-
         runBuilder
           cBountyrUsedAddrs
           cBountyrChangeAddr
-          cBountyrCollateral
+          collateral
           $ mkClaimBountySkeleton
-            deadlineSlot -- TODO: this should be deadline slot
-            (utxoRef bountyUtxo) -- TODO: this should be bounty utxo ref
+            deadlineSlot
+            (utxoRef bountyUtxo)
             (bountyValidator' clientParams)
             nftRef
             redeemer
             (cuserAddress appClaimant)
             bountyAmount
             (pubKeyHash $ cuserVerificationKey appOfferer)
-      tid <- runGY (cuserSigningKey appOfferer) Nothing cBountyrUsedAddrs cBountyrChangeAddr cBountyrCollateral $ pure body
+      tid <-
+        runGY
+          (cuserSigningKey appOfferer)
+          Nothing
+          cBountyrUsedAddrs
+          cBountyrChangeAddr
+          collateral
+          $ pure body
       logTrace_ $ "Transaction id: " <> pack (show tid)
       pure ()
