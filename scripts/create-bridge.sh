@@ -28,3 +28,4 @@ curl -X POST "$BASE_URL/bridge/create" \
   -H "Content-Type: application/json" \
   -d "$payload"
 
+echo

@@ -20,7 +20,7 @@ Determinate Nix has flakes enabled by default.
 (Optional, since `nix run` later in the guide will build everything as needed.)
 
 ```bash
-  nix build
+nix build
 ```
 
 ### Automated Tests
@@ -28,8 +28,8 @@ Determinate Nix has flakes enabled by default.
 To run the automated tests:
 
 ```bash
-  nix develop
-  cabal test
+nix develop
+cabal test
 ```
 
 ## Manual Tests

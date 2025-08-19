@@ -91,8 +91,10 @@ you can send funds from one address to the others.
 
 TODO: explain how to send funds from one address to the other.
 <!--
+THE BELOW INSTRUCTIONS ARE INCOMPLETE,
+and some suppose a local running cardano-node on the preview network.
 
-with commands such as:
+You may use such commands such as:
 ```bash
 get_addr () {
   role="$1"
@@ -121,9 +123,13 @@ https://preview.cexplorer.io/
 ### Running a local SkyDA test node
 
 This should compile everything and run the SkyDA node _locally_:
-
 ```bash
-nix run -- ./config/admin/ ./config/offerer/ ./config/claimant/
+nix run . -- ./config/admin/ ./config/offerer/ ./config/claimant/
+```
+
+Or if you're developing, you may prefer to run it from within a `nix develop` shell with:
+```bash
+cabal run sky-atlas -- ./config/admin/ ./config/offerer/ ./config/claimant/
 ```
 
 NOTES:
@@ -132,41 +138,42 @@ NOTES:
 
 ### Checking that your local SkyDA test node is running
 
-To check if the node is running do the curl request to the health endpoint
+To check if the node is running do the curl request to the health endpoint,
+by starting another terminal and issuing the command:
 ```bash
-curl localhost:8080/health
+curl localhost:8080/health ; echo
 ```
-You should see `"OK"` as a response and
+
+You should see `"OK"` as a response on the terminal,
+and in the node logs you should see (query duration can vary):
 ```
 GET /health
   Accept: */*
   Status: 200 OK 0.00004094s
 ```
-in the node logs (Time can vary).
 
-At this point you should have a running sky node in the terminal.
-Start new terminal and run the next commands there.
+At this point you should have a running sky node.
 
 ### Create the Bridge
 
 NOTE: make sure you funded the admin address,
 refer to [Getting ADA tokens on the Preview network](#get-ada-tokens-on-the-preview-network)
 
-Start by creating the bridge using admin address:
+Start by creating the bridge with the admin address (using the functions defined earlier):
 ```bash
-bash scripts/create-bridge.sh "admin_addr"
+bash scripts/create-bridge.sh "$(get_addr admin)"
 ```
 
 The script output would look something like this:
 ```
-  Payload to submit:
-  {
-    "changeAddr": "[your address here]",
-    "usedAddrs": [
-      "[your address here]"
-    ]
-  }
-  "85ad195c468431f58148497374061eadb619df0b0220164bbaf3491d2490c1fa"%
+Payload to submit:
+{
+  "changeAddr": "[your address here]",
+  "usedAddrs": [
+    "[your address here]"
+  ]
+}
+"85ad195c468431f58148497374061eadb619df0b0220164bbaf3491d2490c1fa"
 ```
 The last line is the transaction id which you can copy (without quotes) and
 insert in the search bar in the [explorer](https://preview.cexplorer.io/) to see the results.
@@ -180,28 +187,28 @@ in your bash session, since the API that we will be
 interacting with is protected with basic auth (for now).
 
 ```bash
-  export API_USER="skyAdmin" API_PASS="1234"
+export API_USER="skyAdmin" API_PASS="1234"
 ```
 
 Now you can interact with the DA API.
 
 Start with creating a new topic:
 ```bash
-  bash scripts/create-topic.sh
+bash scripts/create-topic.sh
 ```
 
 The response will include the created Topic ID.
 
 Then populate that topic with some data:
 ```bash
-  # the first argument is the topic id that you get from previous step.
-  # we also include some random data in the scripts folder for you to use.
-  bash scripts/publish-message.sh 0 scripts/message_to_publish
+# The first argument is the topic id that you get from previous step.
+# we also include some random data in the scripts folder for you to use.
+bash scripts/publish-message.sh 0 scripts/message_to_publish
 ```
 
 The next step will be to update the bridge:
 ```bash
-  bash scripts/update-bridge.sh "admin-addr"
+bash scripts/update-bridge.sh "$(get_addr admin)"
 ```
 
 The response will again include the transaction id,
