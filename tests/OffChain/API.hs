@@ -116,7 +116,9 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
               testCase "should return MessageId 0 when creating new message in an empty da with 1 topic" $ do
                 TestEnv {..} <- getTestEnv
                 res <- liftIO $ flip runClientM clientEnv $ publishMessageC (topicIdFromInteger 0) $ RawBytes "keklolarbidol"
-                res @?= Right (messageIdFromInteger 0),
+                case res of
+                  Right (mId, _) -> mId @?= messageIdFromInteger 0
+                  Left _ -> assertFailure "Wrong message id",
               testCase "should return the same message we published in the previous test" $ do
                 TestEnv {..} <- getTestEnv
                 res <- liftIO $ flip runClientM clientEnv $ readMessageC (topicIdFromInteger 0) (messageIdFromInteger 0)
