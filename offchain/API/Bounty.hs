@@ -181,10 +181,10 @@ bountyServer =
             redeemer
             (cuserAddress appClaimant)
             bountyAmount
-            (pubKeyHash $ cuserVerificationKey appOfferer)
+            (pubKeyHash $ cuserVerificationKey appClaimant)
       tid <-
         runGY
-          (cuserSigningKey appOfferer)
+          (cuserSigningKey appClaimant)
           Nothing
           cBountyrUsedAddrs
           cBountyrChangeAddr
