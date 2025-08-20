@@ -69,7 +69,7 @@ data ProtectedDaApi mode = ProtectedDaApi
           :> Description "Publish message at topic_id"
           :> Capture "topic_id" TopicId
           :> ReqBody '[OctetStream] RawBytes
-          :> Post '[JSON] MessageId
+          :> Post '[JSON] (MessageId, Hash)
   }
   deriving stock (Generic)
 
@@ -122,7 +122,7 @@ createTopicH _user = do
   logTrace "Created topic " topicId
   return topicId
 
-publishMessageH :: User -> TopicId -> RawBytes -> AppM MessageId
+publishMessageH :: User -> TopicId -> RawBytes -> AppM (MessageId, Hash)
 publishMessageH _user topicId (RawBytes msgBody) = do
   stateW <- asks appStateW
   stateR <- asks appStateR
@@ -137,7 +137,7 @@ publishMessageH _user topicId (RawBytes msgBody) = do
     Nothing -> throwError $ APIError "publishMessage failed"
     Just messageId -> do
       logTrace "Published message" messageId
-      return messageId
+      return (messageId, computeDigest @Hash $ toBuiltin msgBody)
 
 getProofH :: TopicId -> MessageId -> AppM ProofBytes
 getProofH topicId messageId = do

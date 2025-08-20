@@ -155,7 +155,9 @@ bountyServer =
       let da = view (blockState . skyDa) state
           maybeRmdProof = runIdentity $ getSkyDataProofH (cbrTopicId, cbrMessageId) da :: Maybe (Hash, SkyDataProofH)
       redeemer <- case maybeRmdProof of
-        Just (_, proof) -> pure $ ClaimBounty proof
+        Just (messageHash, proof) -> do
+          logTrace_ $ "Message hash: " <> hexOf messageHash
+          pure $ ClaimBounty proof
         Nothing -> throwError $ APIError "Can't construct a proof"
 
       collateral <- case cBountyrCollateral of

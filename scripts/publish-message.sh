@@ -19,8 +19,10 @@ response=$(curl -s -u "$USERNAME:$PASSWORD" -X POST "$BASE_URL/da/publish_messag
   -H "Accept: application/json" \
   --data-binary @"$FILE")
 
-echo "Response: $response"
+# echo "Response: $response"
 
-message_id=$(echo "$response" | jq -r '.message_id')
+message_id=$(echo "$response" | jq -r '.[0].message_id')
+message_hash=$(echo "$response" | jq -r '.[1].hash')
 
 echo "Published message_id: $message_id"
+echo "Published message hash: $message_hash"

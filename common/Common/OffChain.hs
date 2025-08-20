@@ -67,7 +67,7 @@ instance ToJSON Bytes32 where
   toJSON (Bytes32 s) = toJSON $ hexOf @BuiltinByteString @Text s
 
 instance FromJSON Bytes32 where
-  parseJSON a = Bytes32 . ofHex . unpack <$> parseJSON a
+  parseJSON a = Bytes32 . ofHex <$> parseJSON a
 
 instance ToSchema Bytes32
 
