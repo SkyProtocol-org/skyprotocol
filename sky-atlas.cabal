@@ -25,6 +25,7 @@ common common
     MultiParamTypeClasses
     MultiWayIf
     NumericUnderscores
+    OverloadedRecordDot
     OverloadedStrings
     PatternSynonyms
     RecordWildCards
@@ -126,6 +127,10 @@ library offchain
     App
     App.Env
     App.Error
+    Handler
+    Handler.Bounty
+    Handler.Bridge
+    Handler.Da
     Utils
 
   build-depends:
