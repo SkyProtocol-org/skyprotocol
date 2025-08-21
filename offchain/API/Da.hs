@@ -2,20 +2,11 @@ module API.Da (DaApi (..), PublicDaApi (..), ProtectedDaApi (..), daServer) wher
 
 import API.Types
 import App
-import Common as C
-import Common.OffChain ()
-import Contract.DaH
-import Control.Concurrent.MVar
-import Control.Lens
-import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Reader (MonadReader, asks)
+import Common
 import GHC.Generics (Generic)
 import Handler.Da
-import Log
-import PlutusLedgerApi.Common (fromBuiltin, toBuiltin)
 import Servant
 import Servant.Server.Generic
-import Utils
 
 -- TODO: better descriptions
 data DaApi mode = DaApi
@@ -46,14 +37,7 @@ data PublicDaApi mode = PublicDaApi
           :> Description "Returns proof of inclusion for given message"
           :> Capture "topic_id" TopicId
           :> Capture "message_id" MessageId
-          :> Get '[OctetStream] ProofBytes, -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
-    readMessageWithTimeStamp ::
-      mode
-        :- "read_message_timestamp"
-          :> Description "Returns timestamp + content of the message"
-          :> Capture "topic_id" TopicId
-          :> Capture "message_id" MessageId
-          :> Get '[OctetStream] RawBytes
+          :> Get '[OctetStream] ProofBytes -- TODO: have error 404 or whatever with JSON (or binary?) if problem appears, see https://docs.servant.dev/en/latest/cookbook/multiverb/MultiVerb.html also take an optional argument for the height of the (to be) bridged DA.
   }
   deriving stock (Generic)
 
@@ -84,8 +68,7 @@ daServer =
     publicServer =
       PublicDaApi
         { readMessage = readTopicH,
-          getProof = getProofH,
-          readMessageWithTimeStamp = readMessageH
+          getProof = getProofH
         }
     protectedServer u =
       ProtectedDaApi
@@ -97,7 +80,7 @@ readTopicH :: TopicId -> MessageId -> AppM RawBytes
 readTopicH tId mId = do
   RawBytes <$> readTopicHandler tId mId
 
-createTopicH :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
+createTopicH :: User -> AppM TopicId
 createTopicH _user = do
   createTopicHandler
 
@@ -108,17 +91,3 @@ publishMessageH _user topicId (RawBytes msgBody) = do
 getProofH :: TopicId -> MessageId -> AppM ProofBytes
 getProofH topicId messageId = do
   ProofBytes <$> getProofHandler topicId messageId
-
--- TODO: Why do we need this?
-readMessageH :: TopicId -> MessageId -> AppM RawBytes
-readMessageH topicId msgId = do
-  stateR <- asks appStateR
-  state <- liftIO . readMVar $ stateR
-  let da = view (blockState . skyDa) state
-      maybeMessageEntry = runIdentity $ getMessage topicId msgId da
-  case maybeMessageEntry of
-    Nothing -> throwError $ APIError "readMessage failed"
-    Just (rmd, rd) -> do
-      MessageMetaData time <- unwrap rmd
-      message <- unwrap rd
-      return . RawBytes . fromBuiltin . toByteString $ (time, message)
