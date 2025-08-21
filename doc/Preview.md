@@ -72,6 +72,15 @@ done
 NB: we use the testnet magic number `2` for the Cardano preview network.
 If you want to adapt to a different network, be sure to use the correct number.
 
+After generating a key, you can refer to the corresponding address using:
+```bash
+get_addr () {
+  role="$1"
+  cat < config/$role/payment.addr
+  # TODO: how do we use maestro with such an address??? sed -e 's/^addr_test/addr_vkh/' ???
+}
+```
+
 ### Get ADA tokens on the Preview Network
 
 You must get ADA tokens on the Preview Network for your participant addresses.
@@ -96,12 +105,6 @@ and some suppose a local running cardano-node on the preview network.
 
 You may use such commands such as:
 ```bash
-get_addr () {
-  role="$1"
-  cat < config/$role/payment.addr
-  # TODO: how do we use maestro with such an address??? sed -e 's/^addr_test/addr_vkh/' ???
-}
-
 send_preview_ada () {
   from="$1" to="$2" amount="$3"
   cardano-cli -- transaction build \
@@ -203,12 +206,12 @@ Then populate that topic with some data:
 ```bash
 # The first argument is the topic id that you get from previous step.
 # we also include some random data in the scripts folder for you to use.
-bash scripts/publish-message.sh 0 scripts/message_to_publish
+bash scripts/publish-message.sh $topicId scripts/message_to_publish
 ```
 
 The next step will be to update the bridge:
 ```bash
-bash scripts/update-bridge.sh "$(get_addr admin)"
+bash scripts/update-bridge.sh $(get_addr admin)
 ```
 
 The response will again include the transaction id,
@@ -217,22 +220,22 @@ which you can copy-paste into the [explorer](https://preview.cexplorer.io/).
 
 Now you can offer a bounty:
 ```bash
-  bash scripts/offer-bounty.sh topicId ($cat scripts/message_hash) deadline amount "offerer-addr"
+bash scripts/offer-bounty.sh $topicId $(cat scripts/message_hash) $deadline $amount $(get_addr offerer)
 ```
 
 The `topicId` is the one you got from creating topic response.
 `messageHash` can be found in the `scripts/message_hash`.
-`deadline` is a number of slots that the offer is active for. (You can safely input some big number here here).
+`deadline` is a number of slots that the offer is active for. (You can safely input some big number here).
 `amount` is an amount that you want to offer.
 
 
 To claim a bounty:
 ```bash
-  bash scripts/claim-bounty.sh topicId messageId ($cat scripts/message_hash) deadlineStart deadline "claimant-addr"
+bash scripts/claim-bounty.sh $topicId $messageId $(cat scripts/message_hash) $deadlineStart $deadline $(get_addr claimant)
 ```
 The `topicId` is the one you got from creating topic response.
 `messageId` is the one you got from publishing a message.
 `messageHash` can be found in the `scripts/message_hash`.
-`deadlineStart` is a slot where the offering of bounty happends. You should get this as an output from `scripts/offer-bounty.sh`.
+#`deadlineStart` is a slot where the offering of bounty happends. You should get this as an output from `scripts/offer-bounty.sh`.
 `deadline` is a number of slots that the offer is active for.
 NOTE: `topicId`, `messageHash` and `deadline` should be the same, as inthe call to offer a bounty!.
