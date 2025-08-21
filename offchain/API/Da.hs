@@ -10,6 +10,7 @@ import Control.Lens
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (MonadReader, asks)
 import GHC.Generics (Generic)
+import Handler.Da
 import Log
 import PlutusLedgerApi.Common (fromBuiltin, toBuiltin)
 import Servant
@@ -94,61 +95,19 @@ daServer =
 
 readTopicH :: TopicId -> MessageId -> AppM RawBytes
 readTopicH tId mId = do
-  stateR <- asks appStateR
-  state <- liftIO $ readMVar stateR
-  let SkyDa {..} = view (blockState . skyDa) state
-  maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
-  case maybeTopic of
-    Nothing -> throwError . APIError $ "Can't find topic with id " <> show (toInt tId)
-    Just (_tMeta, messageTrie) -> do
-      maybeMessage <- C.lookup mId =<< unwrap messageTrie
-      case maybeMessage of
-        Nothing -> throwError . APIError $ "Can't find message with id " <> show (toInt mId)
-        Just (_mMeta, mData) -> RawBytes . fromBuiltin <$> unwrap mData
+  RawBytes <$> readTopicHandler tId mId
 
 createTopicH :: (MonadLog m, MonadReader AppEnv m, MonadIO m) => User -> m TopicId
 createTopicH _user = do
-  stateW <- asks appStateW
-  stateR <- asks appStateR
-  topicId <- liftIO . modifyMVar stateW $ \state -> do
-    let da = view (blockState . skyDa) state
-    let (newDa, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
-    case maybeTopicId of
-      Nothing -> throwError $ userError "Can't add topic"
-      Just topicId -> do
-        let newState = set (blockState . skyDa) newDa state
-        modifyMVar_ stateR . const . return $ newState
-        pure (newState, topicId)
-  logTrace "Created topic " topicId
-  return topicId
+  createTopicHandler
 
 publishMessageH :: User -> TopicId -> RawBytes -> AppM (MessageId, Hash)
 publishMessageH _user topicId (RawBytes msgBody) = do
-  stateW <- asks appStateW
-  stateR <- asks appStateR
-  maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
-    let da = view (blockState . skyDa) state
-    timestamp <- currentPOSIXTime
-    let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (toBuiltin msgBody) topicId da
-    let newState = (set (blockState . skyDa) newDa state, maybeMessageId)
-    modifyMVar_ stateR . const . return $ fst newState
-    return newState
-  case maybeMessageId of
-    Nothing -> throwError $ APIError "publishMessage failed"
-    Just messageId -> do
-      logTrace "Published message" messageId
-      return (messageId, computeDigest @Hash $ toBuiltin msgBody)
+  publishMessageHandler topicId msgBody
 
 getProofH :: TopicId -> MessageId -> AppM ProofBytes
 getProofH topicId messageId = do
-  stateR <- asks appStateR
-  state <- liftIO . readMVar $ stateR
-  let da = view (bridgeState . bridgedSkyDa) state
-      maybeRmdProof = runIdentity $ getSkyDataProofH (topicId, messageId) da :: Maybe (Hash, SkyDataProofH)
-  case maybeRmdProof of
-    Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
-    Just (_rmd, proof) ->
-      return . ProofBytes . fromBuiltin . toByteString $ proof
+  ProofBytes <$> getProofHandler topicId messageId
 
 -- TODO: Why do we need this?
 readMessageH :: TopicId -> MessageId -> AppM RawBytes

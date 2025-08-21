@@ -56,8 +56,6 @@ nt env m = do
     Right res -> pure res
     Left err -> throwError err500 {errBody = "Something went wrong. Please contact support with this information: " <> appErrorToUserError err}
 
--- instance MonadRandom AppM => GYTxBuilderMonad AppM where
-
 runQuery :: GYTxQueryMonadIO a -> AppM a
 runQuery q = do
   AppEnv {..} <- ask
