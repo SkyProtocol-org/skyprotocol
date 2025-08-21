@@ -9,6 +9,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Data.ByteString qualified as BS
+import Data.Text (pack)
 import Log.Class
 import PlutusLedgerApi.Common (fromBuiltin, toBuiltin)
 import Utils (currentPOSIXTime)
@@ -17,7 +18,8 @@ readTopicHandler ::
   ( Monad m,
     MonadReader AppEnv m,
     MonadIO m,
-    MonadError AppError m
+    MonadError AppError m,
+    MonadLog m
   ) =>
   TopicId ->
   MessageId ->
@@ -28,11 +30,15 @@ readTopicHandler tId mId = do
   let SkyDa {..} = state._blockState._skyDa
   maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
   case maybeTopic of
-    Nothing -> throwError . APIError $ "Can't find topic with id: " <> show (toInt tId)
+    Nothing -> do
+      logAttention_ $ "Can't find topic with id: " <> pack (show $ toInt tId)
+      throwError . DaError $ "Can't find topic with id: " <> show (toInt tId)
     Just (_tMeta, messageTrie) -> do
       maybeMessage <- C.lookup mId =<< unwrap messageTrie
       case maybeMessage of
-        Nothing -> throwError . APIError $ "Can't find message with id: " <> show (toInt mId)
+        Nothing -> do
+          logAttention_ $ "Can't find message with id: " <> pack (show $ toInt mId)
+          throwError . DaError $ "Can't find message with id: " <> show (toInt mId)
         Just (_mMeta, mData) -> fromBuiltin <$> unwrap mData
 
 createTopicHandler ::
@@ -45,18 +51,18 @@ createTopicHandler ::
 createTopicHandler = do
   stateW <- asks appStateW
   stateR <- asks appStateR
-  topicId <- liftIO . modifyMVar stateW $ \state -> do
+  tId <- liftIO . modifyMVar stateW $ \state -> do
     let da = state._blockState._skyDa
     let (newDa, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
     case maybeTopicId of
       Nothing -> throwError $ userError "Can't add topic"
-      Just topicId -> do
+      Just tId -> do
         let newBlockState = state._blockState {_skyDa = newDa}
             newState = state {_blockState = newBlockState}
         modifyMVar_ stateR . const . pure $ newState
-        pure (newState, topicId)
-  logTrace "Created topic " topicId
-  pure topicId
+        pure (newState, tId)
+  logTrace_ $ "Created topic with id: " <> pack (show $ toInt tId)
+  pure tId
 
 publishMessageHandler ::
   ( Monad m,
@@ -77,20 +83,22 @@ publishMessageHandler tId msgBody = do
     let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (toBuiltin msgBody) tId da
     let newBlockState = state._blockState {_skyDa = newDa}
         newState = (state {_blockState = newBlockState}, maybeMessageId)
-    -- (set (blockState . skyDa) newDa state, maybeMessageId)
     modifyMVar_ stateR . const . pure $ fst newState
     pure newState
   case maybeMessageId of
-    Nothing -> throwError $ APIError "publishMessage failed"
-    Just messageId -> do
-      logTrace "Published message" messageId
-      return (messageId, computeDigest @Hash $ toBuiltin msgBody)
+    Nothing -> do
+      logAttention_ "Failed to publish message"
+      throwError $ DaError "Failed to publish message"
+    Just mId -> do
+      logTrace_ $ "Published message" <> pack (show $ toInt mId)
+      pure (mId, computeDigest @Hash $ toBuiltin msgBody)
 
 getProofHandler ::
   ( Monad m,
     MonadReader AppEnv m,
     MonadIO m,
-    MonadError AppError m
+    MonadError AppError m,
+    MonadLog m
   ) =>
   TopicId ->
   MessageId ->
@@ -101,6 +109,8 @@ getProofHandler tId mId = do
   let da = state._bridgeState._bridgedSkyDa
       maybeRmdProof = runIdentity $ getSkyDataProofH (tId, mId) da :: Maybe (Hash, SkyDataProofH)
   case maybeRmdProof of
-    Nothing -> throwError $ APIError "Message not found. Maybe wait for bridge update?"
+    Nothing -> do
+      logAttention_ $ "Message with id: " <> pack (show $ toInt tId) <> " in topic with id: " <> pack (show $ toInt tId) <> " not found"
+      throwError $ DaError $ "Message with id: " <> show (toInt tId) <> " in topic with id: " <> show (toInt tId) <> " not found"
     Just (_rmd, proof) ->
       pure . fromBuiltin . toByteString $ proof
