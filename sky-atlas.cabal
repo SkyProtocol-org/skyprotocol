@@ -123,6 +123,7 @@ library offchain
     API.Da
     API.SkyMintingPolicy
     API.Types
+    API.Util
     App
     App.Env
     App.Error

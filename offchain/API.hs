@@ -10,6 +10,7 @@ import API.Bounty
 import API.Bridge
 import API.Da
 import API.Types
+import API.Util
 import App
 import Data.OpenApi
 import Data.Text (Text)
@@ -35,7 +36,12 @@ data SkyApi mode = SkyApi
       mode
         :- Summary "Part of the API designed to interact with DA"
           :> "da"
-          :> NamedRoutes DaApi
+          :> NamedRoutes DaApi,
+    util ::
+      mode
+        :- Summary "Part of the API with utility functions"
+          :> "util"
+          :> NamedRoutes UtilApi
   }
   deriving stock (Generic)
 
@@ -54,7 +60,8 @@ skyServer =
     { health = pure "OK",
       bridge = bridgeServer,
       bounty = bountyServer,
-      da = daServer
+      da = daServer,
+      util = utilServer
     }
 
 apiServer :: Api (AsServerT AppM)
