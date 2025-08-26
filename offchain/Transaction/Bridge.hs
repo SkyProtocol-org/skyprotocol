@@ -1,4 +1,4 @@
-module API.Bridge.Contracts where
+module Transaction.Bridge where
 
 import Common.Crypto (Hash)
 import Contract.Bridge

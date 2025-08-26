@@ -1,6 +1,5 @@
 module API.Bounty (BountyApi (..), bountyServer) where
 
-import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import API.Types
 import App
@@ -20,6 +19,7 @@ import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Servant
 import Servant.Server.Generic
+import Transaction.Bounty
 
 -- TODO: better descriptions
 data BountyApi mode = BountyApi

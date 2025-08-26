@@ -2,7 +2,6 @@
 
 module OnChain.MintingPolicySpec (mintingPolicySpec, mintingPolicyTest) where
 
-import API.Bridge.Contracts (mkMintingSkeleton)
 import API.SkyMintingPolicy
 import Common
 import Contract.Bridge
@@ -14,6 +13,7 @@ import GeniusYield.Types
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import Test.Tasty
+import Transaction.Bridge (mkMintingSkeleton)
 import Util
 
 mintingPolicySpec :: TestTree

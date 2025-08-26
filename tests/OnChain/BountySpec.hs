@@ -2,7 +2,6 @@
 
 module OnChain.BountySpec (bountySpec, offerBountyTest, claimBountyTest) where
 
-import API.Bounty.Contracts
 import API.SkyMintingPolicy
 import Common
 import Contract.Bounty (ClientParams (..), ClientRedeemer (..), validateClaimBounty, validateTimeout)
@@ -22,6 +21,7 @@ import PlutusTx qualified
 import PlutusTx.Prelude (BuiltinString)
 import Test.Tasty
 import Test.Tasty.HUnit
+import Transaction.Bounty
 import Util
 
 -- Test constants

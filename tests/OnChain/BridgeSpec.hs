@@ -3,7 +3,6 @@
 
 module OnChain.BridgeSpec (bridgeSpec, updateBridgeTest) where
 
-import API.Bridge.Contracts (mkUpdateBridgeSkeleton)
 import API.SkyMintingPolicy
 import App.Env hiding (getCardanoUser)
 import Common
@@ -22,6 +21,7 @@ import PlutusTx qualified
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
 import Test.Tasty
 import Test.Tasty.HUnit
+import Transaction.Bridge (mkUpdateBridgeSkeleton)
 import Util
 import Utils
 import Prelude

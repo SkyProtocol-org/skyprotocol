@@ -118,9 +118,7 @@ library offchain
   exposed-modules:
     API
     API.Bounty
-    API.Bounty.Contracts
     API.Bridge
-    API.Bridge.Contracts
     API.Da
     API.SkyMintingPolicy
     API.Types
@@ -132,6 +130,9 @@ library offchain
     Handler.Bounty
     Handler.Bridge
     Handler.Da
+    Transaction
+    Transaction.Bounty
+    Transaction.Bridge
     Utils
 
   build-depends:

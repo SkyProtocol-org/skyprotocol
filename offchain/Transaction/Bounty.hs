@@ -1,4 +1,4 @@
-module API.Bounty.Contracts where
+module Transaction.Bounty where
 
 import Contract.Bounty (ClientRedeemer)
 import GHC.Stack (HasCallStack)
