@@ -39,3 +39,5 @@ echo "$payload"
 curl -s -X POST "$BASE_URL/bounty/offer" \
   -H "Content-Type: application/json" \
   -d "$payload"
+
+echo
