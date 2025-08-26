@@ -2,11 +2,11 @@
 
 module OnChain.BountySpec (bountySpec, offerBountyTest, claimBountyTest) where
 
-import API.SkyMintingPolicy
 import Common
-import Contract.Bounty (ClientParams (..), ClientRedeemer (..), validateClaimBounty, validateTimeout)
+import Contract.Bounty (BountyDatum (..), BountyParams (..), BountyRedeemer (..), validateClaimBounty, validateTimeout)
 import Contract.Bridge (BridgeParams (..))
 import Contract.DaH
+import Contract.MintingPolicy
 import GeniusYield.HTTP.Errors
 import GeniusYield.Imports
 import GeniusYield.Test.Clb
@@ -19,6 +19,7 @@ import PlutusLedgerApi.V1.Time qualified as T
 import PlutusLedgerApi.V2
 import PlutusTx qualified
 import PlutusTx.Prelude (BuiltinString)
+import Script
 import Test.Tasty
 import Test.Tasty.HUnit
 import Transaction.Bounty
@@ -265,7 +266,7 @@ bountySpec =
             gyLogDebug' "" $ printf "current slot: %s, deadline slot: %s, deadline: %s" currentSlot deadlineSlot gyDeadline
 
             offerBountyTest TestInfo {..} topicId messageHash deadline
-            claimBountyTest TestInfo {..} topicId messageHash deadline deadlineSlot proof
+            claimBountyTest TestInfo {..} topicId messageHash deadlineSlot proof
         ]
     ]
 
@@ -287,22 +288,22 @@ offerBountyTest TestInfo {..} topicId messageHash deadline = do
   offererPkh <- addressToPubKeyHash' offererAddr
   claimantPkh <- addressToPubKeyHash' claimantAddr
 
-  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus adminPkh
-      bountyNFTCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus adminPkh
+      bountyCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
       bountyClaimantPubKeyHash = pubKeyHashToPlutus claimantPkh
       bountyOffererPubKeyHash = pubKeyHashToPlutus offererPkh
-      clientParams =
-        ClientParams
+      bountyParams =
+        BountyParams
           { bountyTopicId = topicId,
             bountyMessageHash = messageHash,
-            bountyDeadline = deadline,
             ..
           }
+      bountyDatum = BountyDatum {bountyDeadline = deadline}
 
-  bountyVAddr <- bountyValidatorAddress clientParams
+  bountyVAddr <- bountyValidatorAddress bountyParams
 
   asUser (offerer testWallets) $ do
-    sendFundsSkeleton <- mkSendSkeleton bountyVAddr 42_666_007 GYLovelace offererPkh
+    sendFundsSkeleton <- mkOfferBountySkeleton bountyVAddr bountyDatum 10_000_000 GYLovelace offererPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
@@ -314,11 +315,10 @@ claimBountyTest ::
   TestInfo ->
   TopicId ->
   Hash ->
-  T.POSIXTime ->
   GYSlot ->
   SkyDataProofH ->
   m ()
-claimBountyTest TestInfo {..} topicId messageHash deadline slotDeadline proof = do
+claimBountyTest TestInfo {..} topicId messageHash slotDeadline proof = do
   adminAddr <- getUserAddr $ admin testWallets
   offererAddr <- getUserAddr $ offerer testWallets
   claimantAddr <- getUserAddr $ claimant testWallets
@@ -327,18 +327,17 @@ claimBountyTest TestInfo {..} topicId messageHash deadline slotDeadline proof = 
   offererPkh <- addressToPubKeyHash' offererAddr
   claimantPkh <- addressToPubKeyHash' claimantAddr
 
-  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus adminPkh
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus adminPkh
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId "SkyBridge"
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-      bountyNFTCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
+      bountyCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
       bountyClaimantPubKeyHash = pubKeyHashToPlutus claimantPkh
       bountyOffererPubKeyHash = pubKeyHashToPlutus offererPkh
       clientParams =
-        ClientParams
+        BountyParams
           { bountyTopicId = topicId,
             bountyMessageHash = messageHash,
-            bountyDeadline = deadline,
             ..
           }
 
