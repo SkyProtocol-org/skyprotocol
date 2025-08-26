@@ -302,7 +302,7 @@ offerBountyTest TestInfo {..} topicId messageHash deadline = do
   bountyVAddr <- bountyValidatorAddress clientParams
 
   asUser (offerer testWallets) $ do
-    sendFundsSkeleton <- mkSendSkeleton bountyVAddr 10_000_000 GYLovelace offererPkh
+    sendFundsSkeleton <- mkSendSkeleton bountyVAddr 42_666_007 GYLovelace offererPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
@@ -370,6 +370,8 @@ claimBountyTest TestInfo {..} topicId messageHash deadline slotDeadline proof = 
       redeemer = ClaimBounty proof
 
   asUser (claimant testWallets) $ do
+    gyLogDebug' "" $
+      printf "CLAIMING BOUNTY bountyUtxo: %s\nbountyAmount: %d" (show bountyUtxo) bountyAmount
     claimBountySkeleton <-
       mkClaimBountySkeleton
         slotDeadline

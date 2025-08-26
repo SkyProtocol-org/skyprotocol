@@ -287,14 +287,17 @@ The data attached is the new root hash of the DA from which all can be verified.
 
 Now you can offer a bounty:
 ```bash
-topicId=0 deadline=1000000 amount=42
+topicId=0 deadline=1000000 amount=42666007
 bash scripts/offer-bounty.sh $topicId $(cat scripts/message_hash) $deadline $amount $(get_addr offerer)
 ```
 
 The `topicId` is the one you got from creating topic response.
-`messageHash` can be found in the `scripts/message_hash`.
-`deadline` is a number of slots that the offer is active for. (You can safely input some big number here).
-`amount` is an amount that you want to offer in ADA.
+`messageHash` can be found in the `scripts/message_hash`
+(or computing the Blake2b_256 digest of the message for which you offer the bounty).
+`deadline` is a number of slots (each about 13s) that the offer is active for
+(You can safely input some big number here if you're testing the positive case,
+a small number if you're testing the negative case).
+`amount` is an amount that you want to offer in Lovelace (1e-6 ADA).
 [Nit: some data about the offerer and claimant is currently being taken
 from the server command line invocation instead of arguments plus a wallet;
 that's OK, that's an easy issue we'll fix shortly;
@@ -310,14 +313,14 @@ Payload to submit:
   "messageHash": {
     "hash": "58b5cf2999c3a08d032c4d57368a5b659aae66200cef25f0054b472cc67aa5e9"
   },
-  "deadline": 1000000,
+  "deadline": 10000,
   "changeAddr": "addr_test1vq7n4lzvn6dcq4v9g2trt8gavywkg2m49wgw00n4jdlpewctkep2n",
   "usedAddrs": [
     "addr_test1vq7n4lzvn6dcq4v9g2trt8gavywkg2m49wgw00n4jdlpewctkep2n"
   ],
   "amount": 42
 }
-["3ea29aaa145ee45ece13c52a705f58f52734a7de0271ffcd3c4cc5259547be39",89563139]
+["164122e5b1f3ddc16ae888793d93f42c3aee368ab11d51c046a15b7f99b21285",89584206]
 ```
 As you see this transaction creates a contract with the reward amount in the contract:
 https://preview.cexplorer.io/tx/3ea29aaa145ee45ece13c52a705f58f52734a7de0271ffcd3c4cc5259547be39
