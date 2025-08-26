@@ -22,16 +22,16 @@ import Prelude qualified as HP
 -- Datum Stored in Bridge NFT
 ------------------------------------------------------------------------------
 
-newtype BridgeNFTDatum = BridgeNFTDatum
-  { bridgeNFTTopHash :: Blake2b_256
+newtype BridgeDatum = BridgeDatum
+  { bridgeTopHash :: Blake2b_256
   }
   deriving (Eq, FromByteString, ToByteString) via BuiltinByteString
   deriving (HP.Eq, HP.Show)
   deriving stock (Generic)
   deriving anyclass (HasBlueprintDefinition)
 
-PlutusTx.makeLift ''BridgeNFTDatum
-PlutusTx.makeIsDataSchemaIndexed ''BridgeNFTDatum [('BridgeNFTDatum, 0)]
+PlutusTx.makeLift ''BridgeDatum
+PlutusTx.makeIsDataSchemaIndexed ''BridgeDatum [('BridgeDatum, 0)]
 
 ------------------------------------------------------------------------------
 -- Initialization parameters for the bridge contract
@@ -87,12 +87,12 @@ getDatumFromTxOut txOut ctx = case txOutDatum txOut of
   NoOutputDatum -> Nothing -- No datum attached
 
 -- Deserialize a serialized bridge NFT datum
-getBridgeNFTDatum :: Datum -> Maybe BridgeNFTDatum
-getBridgeNFTDatum (Datum d) = PlutusTx.fromBuiltinData d
+getBridgeDatum :: Datum -> Maybe BridgeDatum
+getBridgeDatum (Datum d) = PlutusTx.fromBuiltinData d
 
 -- Given a script context, find the bridge NFT UTXO
-getBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
-getBridgeNFTDatumFromContext currencySymbol scriptContext = do
+getBridgeDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeDatum
+getBridgeDatumFromContext currencySymbol scriptContext = do
   -- Find the input by currency symbol
   inputInfo <- findInputByCurrencySymbol currencySymbol (txInfoInputs (scriptContextTxInfo scriptContext))
   -- Get the transaction output from the input info
@@ -100,20 +100,20 @@ getBridgeNFTDatumFromContext currencySymbol scriptContext = do
   -- Get the datum from the transaction output
   datum <- getDatumFromTxOut txOut scriptContext
   -- Get the BridgeNFTDatum from the datum
-  getBridgeNFTDatum $ trace "I'm getting to getBridgeNFTDatum for old datum" datum
+  getBridgeDatum $ trace "I'm getting to getBridgeNFTDatum for old datum" datum
 
 -- Given a transaction output extract its serialized bridge NFT datum
-getBridgeNFTDatumFromTxOut :: TxOut -> ScriptContext -> Maybe BridgeNFTDatum
-getBridgeNFTDatumFromTxOut ownOutput ctx = do
+getBridgeDatumFromTxOut :: TxOut -> ScriptContext -> Maybe BridgeDatum
+getBridgeDatumFromTxOut ownOutput ctx = do
   -- Get the Datum from the TxOut
   datum <- getDatumFromTxOut ownOutput ctx
   -- Extract the BridgeNFTDatum from the Datum
-  getBridgeNFTDatum $ trace "I'm getting to getBridgeNFTDatum for new datum" datum
+  getBridgeDatum $ trace "I'm getting to getBridgeNFTDatum for new datum" datum
 
 -- Given a script context, find the bridge NFT UTXO
 -- XXX copypasta for reference inputs, could probably be unified with getBridgeNFTDatumFromContext
-getRefBridgeNFTDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeNFTDatum
-getRefBridgeNFTDatumFromContext currencySymbol scriptContext = do
+getRefBridgeDatumFromContext :: CurrencySymbol -> ScriptContext -> Maybe BridgeDatum
+getRefBridgeDatumFromContext currencySymbol scriptContext = do
   -- Find the input by currency symbol
   inputInfo <- findInputByCurrencySymbol currencySymbol (txInfoReferenceInputs (scriptContextTxInfo scriptContext))
   -- Get the transaction output from the input info
@@ -121,7 +121,7 @@ getRefBridgeNFTDatumFromContext currencySymbol scriptContext = do
   -- Get the datum from the transaction output
   datum <- getDatumFromTxOut txOut scriptContext
   -- Get the BridgeNFTDatum from the datum
-  getBridgeNFTDatum datum
+  getBridgeDatum datum
 
 ------------------------------------------------------------------------------
 -- Bridge Contract
@@ -140,7 +140,7 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _ _) =
     conditions :: [Bool]
     conditions = case redeemer of
       -- Update the bridge state
-      UpdateBridge daSchema daCommittee oldRootHash newTopHash sig ->
+      UpdateBridge daSchema daCommittee oldRootHash topHash sig ->
         [ -- Core validation, below
           traceBool
             "core validation passed"
@@ -149,9 +149,9 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _ _) =
               daSchema
               daCommittee
               oldRootHash
-              newTopHash
+              topHash
               sig
-              oldNFTTopHash,
+              oldTopHash,
           -- The NFT must be again included in the outputs
           traceBool "output has nft" "output doesn't have nft" outputHasNFT,
           -- The NFT's data must have been updated
@@ -163,26 +163,26 @@ bridgeTypedValidator params () redeemer ctx@(ScriptContext _txInfo _ _) =
       [o] -> o
       _ -> PlutusTx.traceError "expected exactly one output"
 
-    oldBridgeNFTDatum :: BridgeNFTDatum
-    oldBridgeNFTDatum = case getBridgeNFTDatumFromContext (bridgeNFTCurrencySymbol params) ctx of
+    oldBridgeDatum :: BridgeDatum
+    oldBridgeDatum = case getBridgeDatumFromContext (bridgeNFTCurrencySymbol params) ctx of
       Just datum -> datum
       Nothing -> PlutusTx.traceError "Can't find old bridge datum"
 
-    newBridgeNFTDatum :: BridgeNFTDatum
-    newBridgeNFTDatum = case getBridgeNFTDatumFromTxOut ownOutput ctx of
+    newBridgeDatum :: BridgeDatum
+    newBridgeDatum = case getBridgeDatumFromTxOut ownOutput ctx of
       Just datum -> datum
       Nothing -> PlutusTx.traceError "Can't find new bridge datum"
 
-    oldNFTTopHash :: Blake2b_256
-    oldNFTTopHash = bridgeNFTTopHash oldBridgeNFTDatum
+    oldTopHash :: Blake2b_256
+    oldTopHash = bridgeTopHash oldBridgeDatum
 
-    newNFTTopHash :: Blake2b_256
-    newNFTTopHash = bridgeNFTTopHash newBridgeNFTDatum
+    newTopHash :: Blake2b_256
+    newTopHash = bridgeTopHash newBridgeDatum
 
     -- The output NFT UTXO's datum must match the new values for the root hashes
     nftUpdated :: Blake2b_256 -> Bool
-    nftUpdated newTopHash =
-      traceBool "new top hash = old top hash" "new top hash != old top hash" $ newNFTTopHash == newTopHash
+    nftUpdated topHash =
+      traceBool "new top hash = old top hash" "new top hash != old top hash" $ newTopHash == topHash
 
     -- There must be exactly one output UTXO with our NFT's unique currency symbol
     outputHasNFT :: Bool

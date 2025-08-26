@@ -4,7 +4,7 @@
 module Contract.Bounty where
 
 import Common
-import Contract.Bridge (BridgeNFTDatum (..), getRefBridgeNFTDatumFromContext)
+import Contract.Bridge (BridgeDatum (..), getRefBridgeDatumFromContext)
 import Contract.DaH
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1 (before, contains)
@@ -17,13 +17,22 @@ import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
 import Prelude qualified as HP
 
+newtype BountyDatum = BountyDatum
+  { bountyDeadline :: POSIXTime
+  }
+  deriving newtype (Generic, HP.Show)
+  deriving anyclass (HasBlueprintDefinition)
+
+PlutusTx.makeLift ''BountyDatum
+PlutusTx.makeIsDataSchemaIndexed ''BountyDatum [('BountyDatum, 0)]
+
 ------------------------------------------------------------------------------
 -- Initialization parameters for client contract
 ------------------------------------------------------------------------------
 
-data ClientParams = ClientParams
+data BountyParams = BountyParams
   { -- | Unique currency symbol (hash of minting policy) of the bridge contract NFT
-    bountyNFTCurrencySymbol :: CurrencySymbol,
+    bountyCurrencySymbol :: CurrencySymbol,
     -- | Credential of claimant (bounty prize can only be sent to this credential)
     bountyClaimantPubKeyHash :: PubKeyHash,
     -- | Credential of offerer (to whom to send back the bounty if not claimed before timeout)
@@ -31,24 +40,23 @@ data ClientParams = ClientParams
     -- | ID of topic in which data must be published
     bountyTopicId :: TopicId,
     -- | Hash of data that must be proven to be present in DA
-    bountyMessageHash :: Hash,
-    bountyDeadline :: POSIXTime
+    bountyMessageHash :: Hash
   }
   deriving stock (Generic, HP.Show)
   deriving anyclass (HasBlueprintDefinition)
 
-PlutusTx.makeLift ''ClientParams
-PlutusTx.makeIsDataSchemaIndexed ''ClientParams [('ClientParams, 0)]
+PlutusTx.makeLift ''BountyParams
+PlutusTx.makeIsDataSchemaIndexed ''BountyParams [('BountyParams, 0)]
 
 ------------------------------------------------------------------------------
 -- Redeemers for client contract
 ------------------------------------------------------------------------------
 
-data ClientRedeemer = ClaimBounty SkyDataProofH | Timeout
+data BountyRedeemer = ClaimBounty SkyDataProofH | Timeout
   deriving (HP.Eq, HP.Show)
 
-PlutusTx.makeLift ''ClientRedeemer
-PlutusTx.makeIsDataSchemaIndexed ''ClientRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
+PlutusTx.makeLift ''BountyRedeemer
+PlutusTx.makeIsDataSchemaIndexed ''BountyRedeemer [('ClaimBounty, 0), ('Timeout, 1)]
 
 ------------------------------------------------------------------------------
 -- Client contract validator
@@ -100,12 +108,12 @@ validateTimeout bountyDeadline txValidRange =
 
 -- Main validator function
 clientTypedValidator ::
-  ClientParams ->
-  () ->
-  ClientRedeemer ->
+  BountyParams ->
+  BountyDatum ->
+  BountyRedeemer ->
   ScriptContext ->
   Bool
-clientTypedValidator ClientParams {..} () redeemer ctx =
+clientTypedValidator BountyParams {..} BountyDatum {..} redeemer ctx =
   case redeemer of
     ClaimBounty proof ->
       validateClaimBounty
@@ -127,12 +135,12 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
       validateTimeout bountyDeadline txValidRange
         && allPaidToCredential bountyOffererPubKeyHash
   where
-    bridgeNftDatum = case getRefBridgeNFTDatumFromContext bountyNFTCurrencySymbol ctx of
+    bridgeDatum = case getRefBridgeDatumFromContext bountyCurrencySymbol ctx of
       Just d -> d
       Nothing -> traceError "Can't get nft datum from context"
     -- DA Top hash stored in NFT
     daTopHash :: Hash
-    daTopHash = bridgeNFTTopHash bridgeNftDatum
+    daTopHash = bridgeTopHash bridgeDatum
     -- Tx validity interval
     txValidRange = txInfoValidRange . scriptContextTxInfo $ ctx
     -- Bounty prize funds are sent to pre-configured address
@@ -146,20 +154,23 @@ clientTypedValidator ClientParams {..} () redeemer ctx =
 ------------------------------------------------------------------------------
 
 {-# INLINEABLE clientUntypedValidator #-}
-clientUntypedValidator :: ClientParams -> BuiltinData -> BuiltinUnit
+clientUntypedValidator :: BountyParams -> BuiltinData -> BuiltinUnit
 clientUntypedValidator params ctx =
   PlutusTx.check
     $ clientTypedValidator
       params
-      () -- ignore the untyped datum, it's unused
+      datum
       redeemer
       scriptContext
   where
     scriptContext = PlutusTx.unsafeFromBuiltinData ctx
+    datum = case scriptContextScriptInfo scriptContext of
+      SpendingScript _TxOutRef (Just datum') -> PlutusTx.unsafeFromBuiltinData $ getDatum datum'
+      _ -> PlutusTx.traceError "Expected datum"
     redeemer = PlutusTx.unsafeFromBuiltinData $ getRedeemer $ scriptContextRedeemer scriptContext
 
 clientValidatorScript ::
-  ClientParams ->
+  BountyParams ->
   CompiledCode (BuiltinData -> BuiltinUnit)
 clientValidatorScript params =
   $$(PlutusTx.compile [||clientUntypedValidator||])

@@ -7,6 +7,7 @@ import Common.OffChain ()
 import Data.Aeson
 import Data.ByteString qualified as BS
 import Data.OpenApi
+import Data.Time.Clock.POSIX
 import GHC.Generics
 import GeniusYield.Types
 import Servant
@@ -79,7 +80,7 @@ data OfferBountyRequest = OfferBountyRequest
     obrMessageHash :: Hash,
     obrAmount :: Integer,
     -- | Number of slots from the current
-    obrDeadline :: Integer,
+    obrDeadline :: POSIXTime,
     obrChangeAddr :: GYAddress,
     obrUsedAddrs :: [GYAddress],
     obrCollateral :: Maybe GYTxOutRefCbor

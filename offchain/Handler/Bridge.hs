@@ -1,9 +1,9 @@
 module Handler.Bridge where
 
-import API.SkyMintingPolicy
 import App
 import Common
-import Contract.Bridge (BridgeNFTDatum (..), BridgeParams (..), BridgeRedeemer (..))
+import Contract.Bridge (BridgeDatum (..), BridgeParams (..), BridgeRedeemer (..))
+import Contract.MintingPolicy (SkyMintingParams (..))
 import Control.Concurrent.MVar
 import Control.Monad.Error.Class
 import Control.Monad.IO.Class
@@ -14,6 +14,7 @@ import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log.Class
 import PlutusLedgerApi.V1
+import Script
 import Transaction.Bridge
 
 createBridgeHandler ::
@@ -26,7 +27,7 @@ createBridgeHandler ::
   m GYTxId
 createBridgeHandler = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -55,7 +56,7 @@ createBridgeHandler = do
         (configTokenName appConfig)
         skyToken
         skyPolicy
-        topHash
+        (BridgeDatum topHash)
         bridgeAddr
         (cuserAddressPubKeyHash appAdmin)
   logTrace_ $ "Transaction id: " <> pack (show tId)
@@ -70,7 +71,7 @@ readBridgeHandler ::
   m Text
 readBridgeHandler = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -91,7 +92,7 @@ readBridgeHandler = do
   case maybeBridgeDatum of
     -- will decodeASCII work here? topHash is in hex, if I'm not mistaken
     -- TODO: ask Fare
-    Just (BridgeNFTDatum topHash) -> pure . decodeASCII . fromBuiltin . toByteString $ topHash
+    Just (BridgeDatum topHash) -> pure . decodeASCII . fromBuiltin . toByteString $ topHash
     Nothing -> throwError $ APIError "Can't get the datum from bridge"
 
 updateBridgeHandler ::
@@ -104,7 +105,7 @@ updateBridgeHandler ::
   m GYTxId
 updateBridgeHandler = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -135,7 +136,7 @@ updateBridgeHandler = do
   state <- liftIO $ readMVar appStateR
   let da = state._blockState._skyDa
       topHash = computeDigest @Blake2b_256 $ da
-      newDatum = BridgeNFTDatum topHash
+      newDatum = BridgeDatum topHash
   logTrace_ $ "New utxo datum: " <> pack (show topHash)
 
   (schema, committee) <- do

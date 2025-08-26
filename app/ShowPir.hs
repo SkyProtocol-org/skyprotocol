@@ -3,7 +3,7 @@
 module Main where
 
 -- import Contract.Bridge (BridgeParams (..), bridgeValidatorScript)
-import Contract.MintingPolicy (skyMintingPolicyScript)
+import Contract.MintingPolicy
 -- import qualified Data.Text.IO as TIO
 import PlutusCore.Pretty (prettyReadableSimple)
 import PlutusLedgerApi.V2 (CurrencySymbol (..))
@@ -13,7 +13,7 @@ import PlutusTx.Code (CompiledCode, getPir)
 
 main :: IO ()
 main = do
-  let script = skyMintingPolicyScript ""
+  let script = skyMintingPolicyScript $ SkyMintingParams ""
   let code = prettyReadableSimple $ getPir script
   print code
 

@@ -120,7 +120,6 @@ library offchain
     API.Bounty
     API.Bridge
     API.Da
-    API.SkyMintingPolicy
     API.Types
     API.Util
     App
@@ -130,6 +129,7 @@ library offchain
     Handler.Bounty
     Handler.Bridge
     Handler.Da
+    Script
     Transaction
     Transaction.Bounty
     Transaction.Bridge

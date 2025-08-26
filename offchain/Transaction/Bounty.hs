@@ -1,14 +1,15 @@
 module Transaction.Bounty where
 
-import Contract.Bounty (ClientRedeemer)
+import Contract.Bounty (BountyDatum, BountyRedeemer)
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 
-mkSendSkeleton ::
+mkOfferBountySkeleton ::
   (HasCallStack, GYTxBuilderMonad m) =>
   -- | Where to send
   GYAddress ->
+  BountyDatum ->
   -- | Amount to send
   Integer ->
   -- | What asset to send
@@ -16,13 +17,13 @@ mkSendSkeleton ::
   -- | Signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV3)
-mkSendSkeleton addr amount assetClass signer =
+mkOfferBountySkeleton addr datum amount assetClass signer =
   pure $
     mustHaveOutput
       GYTxOut
         { gyTxOutAddress = addr,
           gyTxOutValue = valueSingleton assetClass amount,
-          gyTxOutDatum = Nothing,
+          gyTxOutDatum = Just (datumFromPlutusData datum, GYTxOutUseInlineDatum),
           gyTxOutRefS = Nothing
         }
       <> mustBeSignedBy signer
@@ -38,7 +39,7 @@ mkClaimBountySkeleton ::
   -- | NFT ref
   GYTxOutRef ->
   -- | Redeemer
-  ClientRedeemer ->
+  BountyRedeemer ->
   -- | Where to send funds
   GYAddress ->
   -- | How much to send
