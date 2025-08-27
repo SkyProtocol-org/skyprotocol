@@ -24,10 +24,12 @@ createBridgeHandler ::
     MonadIO m,
     MonadError AppError m
   ) =>
+  -- | Bridge admin
+  CardanoUser ->
   m GYTxId
-createBridgeHandler = do
+createBridgeHandler bridgeAdmin = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash bridgeAdmin
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -47,10 +49,10 @@ createBridgeHandler = do
   logTrace_ "Building, signing and submitting minting policy"
   tId <-
     buildAndRunGY
-      (cuserSigningKey appAdmin)
+      (cuserSigningKey bridgeAdmin)
       Nothing
-      [cuserAddress appAdmin]
-      (cuserAddress appAdmin)
+      [cuserAddress bridgeAdmin]
+      (cuserAddress bridgeAdmin)
       Nothing
       $ mkMintingSkeleton
         (configTokenName appConfig)
@@ -58,7 +60,7 @@ createBridgeHandler = do
         skyPolicy
         (BridgeDatum topHash)
         bridgeAddr
-        (cuserAddressPubKeyHash appAdmin)
+        (cuserAddressPubKeyHash bridgeAdmin)
   logTrace_ $ "Transaction id: " <> pack (show tId)
   pure tId
 
@@ -68,10 +70,12 @@ readBridgeHandler ::
     MonadError AppError m,
     MonadIO m
   ) =>
+  -- | Bridge admin public key hash
+  GYPubKeyHash ->
   m Text
-readBridgeHandler = do
+readBridgeHandler bridgeAdminPubKeyHash = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus bridgeAdminPubKeyHash
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -102,10 +106,12 @@ updateBridgeHandler ::
     MonadError AppError m,
     MonadLog m
   ) =>
+  -- | Bridge admin
+  CardanoUser ->
   m GYTxId
-updateBridgeHandler = do
+updateBridgeHandler bridgeAdmin = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash bridgeAdmin
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -128,7 +134,7 @@ updateBridgeHandler = do
 
   -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
   (collateral, _amt) <- do
-    mC <- runQuery $ getCollateral' (cuserAddress appAdmin) 10
+    mC <- runQuery $ getCollateral' (cuserAddress bridgeAdmin) 10
     case mC of
       Nothing -> throwError $ APIError "Can't find utxo for collateral"
       Just c -> pure c
@@ -153,10 +159,10 @@ updateBridgeHandler = do
       bridgeOldRootHash = oldRootHash
       bridgeNewTopHash = topHash
       -- TODO: make this safe
-      adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey appAdmin in signingKeyToRawBytes sk
+      adminSecKeyBytes = let (AGYPaymentSigningKey sk) = cuserSigningKey bridgeAdmin in signingKeyToRawBytes sk
       adminSecKey = fromByteString $ toBuiltin adminSecKeyBytes
       signature = signMessage adminSecKey topHash
-      adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey appAdmin
+      adminPubKeyBytes = paymentVerificationKeyRawBytes $ cuserVerificationKey bridgeAdmin
       adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
       bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
       bridgeRedeemer = UpdateBridge {..}
@@ -164,10 +170,10 @@ updateBridgeHandler = do
   logTrace_ "Building, signing and submitting bridge update"
   tId <-
     buildAndRunGY
-      (cuserSigningKey appAdmin)
+      (cuserSigningKey bridgeAdmin)
       Nothing
-      [cuserAddress appAdmin]
-      (cuserAddress appAdmin)
+      [cuserAddress bridgeAdmin]
+      (cuserAddress bridgeAdmin)
       (Just $ GYTxOutRefCbor collateral)
       $ mkUpdateBridgeSkeleton
         (bridgeValidator' $ BridgeParams curSym)
@@ -176,7 +182,7 @@ updateBridgeHandler = do
         bridgeRedeemer
         skyToken
         bridgeAddr
-        (cuserAddressPubKeyHash appAdmin)
+        (cuserAddressPubKeyHash bridgeAdmin)
   logTrace_ $ "Transaction id: " <> pack (show tId)
 
   -- update the bridged state after we update the bridge

@@ -110,7 +110,8 @@ getProofHandler tId mId = do
       maybeRmdProof = runIdentity $ getSkyDataProofH (tId, mId) da :: Maybe (Hash, SkyDataProofH)
   case maybeRmdProof of
     Nothing -> do
-      logAttention_ $ "Message with id: " <> pack (show $ toInt tId) <> " in topic with id: " <> pack (show $ toInt tId) <> " not found"
-      throwError $ DaError $ "Message with id: " <> show (toInt tId) <> " in topic with id: " <> show (toInt tId) <> " not found"
+      let errMsg = "Message with id: " <> show (toInt tId) <> " in topic with id: " <> show (toInt tId) <> " not found"
+      logAttention_ $ pack errMsg
+      throwError $ DaError errMsg
     Just (_rmd, proof) ->
       pure . fromBuiltin . toByteString $ proof

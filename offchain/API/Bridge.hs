@@ -31,7 +31,17 @@ data BridgeApi mode = BridgeApi
 bridgeServer :: BridgeApi (AsServerT AppM)
 bridgeServer =
   BridgeApi
-    { create = createBridgeHandler,
-      read = readBridgeHandler,
-      update = updateBridgeHandler
+    { create = createBridgeH,
+      read = readBridgeH,
+      update = updateBridgeH
     }
+  where
+    createBridgeH = do
+      AppEnv {..} <- ask
+      createBridgeHandler appAdmin
+    readBridgeH = do
+      AppEnv {..} <- ask
+      readBridgeHandler $ cuserAddressPubKeyHash appAdmin
+    updateBridgeH = do
+      AppEnv {..} <- ask
+      updateBridgeHandler appAdmin
