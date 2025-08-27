@@ -25,23 +25,27 @@ import Utils
 
 offerBountyHandler ::
   ( Monad m,
-    MonadReader AppEnv m,
     MonadLog m,
     MonadError AppError m,
-    MonadIO m
+    MonadIO m,
+    MonadReader AppEnv m
   ) =>
   TopicId ->
   Hash ->
   TP.POSIXTime ->
   Integer ->
+  -- | Bridge admin public key hash
+  GYPubKeyHash ->
+  -- | Bounty claimant public key hash
+  GYPubKeyHash ->
+  -- | Bounty offerer
+  CardanoUser ->
   m GYTxId
-offerBountyHandler topicId messageHash deadline amount = do
-  AppEnv {..} <- ask
-
-  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+offerBountyHandler topicId messageHash deadline amount bridgeAdminPubKeyHash claimantPubKeyHash bountyOfferer = do
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus bridgeAdminPubKeyHash
       bountyCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
-      bountyClaimantPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appClaimant
-      bountyOffererPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appOfferer
+      bountyClaimantPubKeyHash = pubKeyHashToPlutus claimantPubKeyHash
+      bountyOffererPubKeyHash = pubKeyHashToPlutus $ cuserAddressPubKeyHash bountyOfferer
 
   let bountyDeadline = posixTimeToPlutusTime deadline
       bountyParams =
@@ -58,7 +62,7 @@ offerBountyHandler topicId messageHash deadline amount = do
 
   collateral <- do
     logTrace_ "Searching utxos for collateral"
-    utxos' <- runQuery $ utxosAtAddress (cuserAddress appOfferer) Nothing
+    utxos' <- runQuery $ utxosAtAddress (cuserAddress bountyOfferer) Nothing
     let utxos = utxosToList utxos'
     case utxos of
       (utxo : _) -> pure $ Just $ GYTxOutRefCbor (utxoRef utxo)
@@ -67,22 +71,22 @@ offerBountyHandler topicId messageHash deadline amount = do
   logTrace_ "Constructing body for bounty offering"
   body <-
     runBuilder
-      [cuserAddress appOfferer]
-      (cuserAddress appOfferer)
+      [cuserAddress bountyOfferer]
+      (cuserAddress bountyOfferer)
       collateral
       $ mkOfferBountySkeleton
         validatorAddr
         bountyDatum
         amount
         GYLovelace
-        (cuserAddressPubKeyHash appOfferer)
+        (cuserAddressPubKeyHash bountyOfferer)
 
   tid <-
     runGY
-      (cuserSigningKey appOfferer)
+      (cuserSigningKey bountyOfferer)
       Nothing
-      [cuserAddress appOfferer]
-      (cuserAddress appOfferer)
+      [cuserAddress bountyOfferer]
+      (cuserAddress bountyOfferer)
       collateral
       $ pure body
   logTrace_ $ "Transaction id: " <> pack (show tid)
@@ -98,15 +102,21 @@ claimBountyHandler ::
   TopicId ->
   MessageId ->
   Hash ->
+  -- | Bridge admin public key hash
+  GYPubKeyHash ->
+  -- | Bounty offerer public key hash
+  GYPubKeyHash ->
+  -- | Bounty claimant
+  CardanoUser ->
   m GYTxId
-claimBountyHandler topicId messageId messageHash = do
+claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPubKeyHash bountyClaimant = do
   AppEnv {..} <- ask
-  let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appAdmin
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus bridgeAdminPubKeyHash
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId $ configTokenName appConfig
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
-      bountyClaimantPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appClaimant
-      bountyOffererPubKeyHash = pubKeyHashToPlutus . pubKeyHash $ cuserVerificationKey appOfferer
+      bountyClaimantPubKeyHash = pubKeyHashToPlutus $ cuserAddressPubKeyHash bountyClaimant
+      bountyOffererPubKeyHash = pubKeyHashToPlutus offererPubKeyHash
 
   let bountyParams =
         BountyParams
@@ -158,7 +168,7 @@ claimBountyHandler topicId messageId messageHash = do
 
   collateral <- do
     logTrace_ "Searching utxos for collateral"
-    utxos' <- runQuery $ utxosAtAddress (cuserAddress appClaimant) Nothing
+    utxos' <- runQuery $ utxosAtAddress (cuserAddress bountyClaimant) Nothing
     let utxos = utxosToList utxos'
     case utxos of
       (utxo : _) -> pure $ Just $ GYTxOutRefCbor (utxoRef utxo)
@@ -166,8 +176,8 @@ claimBountyHandler topicId messageId messageHash = do
 
   body <-
     runBuilder
-      [cuserAddress appClaimant]
-      (cuserAddress appClaimant)
+      [cuserAddress bountyClaimant]
+      (cuserAddress bountyClaimant)
       collateral
       $ mkClaimBountySkeleton
         deadlineSlot
@@ -175,15 +185,15 @@ claimBountyHandler topicId messageId messageHash = do
         (bountyValidator' bountyParams)
         nftRef
         redeemer
-        (cuserAddress appClaimant)
+        (cuserAddress bountyClaimant)
         bountyAmount
-        (pubKeyHash $ cuserVerificationKey appClaimant)
+        (pubKeyHash $ cuserVerificationKey bountyClaimant)
   tid <-
     runGY
-      (cuserSigningKey appClaimant)
+      (cuserSigningKey bountyClaimant)
       Nothing
-      [cuserAddress appClaimant]
-      (cuserAddress appClaimant)
+      [cuserAddress bountyClaimant]
+      (cuserAddress bountyClaimant)
       collateral
       $ pure body
   logTrace_ $ "Transaction id: " <> pack (show tid)

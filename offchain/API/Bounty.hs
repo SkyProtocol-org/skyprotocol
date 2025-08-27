@@ -2,6 +2,7 @@ module API.Bounty (BountyApi (..), bountyServer) where
 
 import API.Types
 import App
+import Control.Monad.Reader
 import GHC.Generics (Generic)
 import GeniusYield.Types
 import Handler.Bounty
@@ -33,6 +34,21 @@ bountyServer =
     }
   where
     offerBountyH OfferBountyRequest {..} = do
-      offerBountyHandler obrTopicId obrMessageHash obrDeadline obrAmount
+      AppEnv {..} <- ask
+      offerBountyHandler
+        obrTopicId
+        obrMessageHash
+        obrDeadline
+        obrAmount
+        (cuserAddressPubKeyHash appAdmin)
+        (cuserAddressPubKeyHash appClaimant)
+        appOfferer
     claimBountyH ClaimBountyRequest {..} = do
-      claimBountyHandler cbrTopicId cbrMessageId cbrMessageHash
+      AppEnv {..} <- ask
+      claimBountyHandler
+        cbrTopicId
+        cbrMessageId
+        cbrMessageHash
+        (cuserAddressPubKeyHash appAdmin)
+        (cuserAddressPubKeyHash appOfferer)
+        appClaimant
