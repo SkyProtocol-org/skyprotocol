@@ -80,25 +80,17 @@ data OfferBountyRequest = OfferBountyRequest
     obrMessageHash :: Hash,
     obrAmount :: Integer,
     -- | Number of slots from the current
-    obrDeadline :: POSIXTime,
-    obrChangeAddr :: GYAddress,
-    obrUsedAddrs :: [GYAddress],
-    obrCollateral :: Maybe GYTxOutRefCbor
+    obrDeadline :: POSIXTime
   }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq)
   deriving anyclass (ToSchema)
 
 instance FromJSON OfferBountyRequest where
   parseJSON = withObject "OfferBountyRequest" $ \v -> do
-    changeAddr <- v .: "changeAddr"
-    usedAddrs <- v .: "usedAddrs"
-    obrCollateral <- v .:? "collateral"
     obrTopicId <- v .: "topicId"
     obrDeadline <- v .: "deadline"
     obrMessageHash <- v .: "messageHash"
     obrAmount <- v .: "amount"
-    let obrChangeAddr = unsafeAddressFromText changeAddr
-        obrUsedAddrs = fmap unsafeAddressFromText usedAddrs
     pure OfferBountyRequest {..}
 
 instance ToJSON OfferBountyRequest where
@@ -107,9 +99,6 @@ instance ToJSON OfferBountyRequest where
       [ "topicId" .= obrTopicId,
         "messageHash" .= obrMessageHash,
         "deadline" .= obrDeadline,
-        "changeAddr" .= addressToText obrChangeAddr,
-        "usedAddrs" .= fmap addressToText obrUsedAddrs,
-        "collateral" .= obrCollateral,
         "amount" .= obrAmount
       ]
 
@@ -119,30 +108,16 @@ instance ToJSON OfferBountyRequest where
 data ClaimBountyRequest = ClaimBountyRequest
   { cbrTopicId :: TopicId,
     cbrMessageId :: MessageId,
-    cbrMessageHash :: Hash,
-    -- | Number of slots from the current. Should be the same as in OfferBountyRequest
-    cbrDeadline :: Integer,
-    -- | The slot where the deadline was started
-    cbrDeadlineStart :: Integer,
-    cBountyrChangeAddr :: GYAddress,
-    cBountyrUsedAddrs :: [GYAddress],
-    cBountyrCollateral :: Maybe GYTxOutRefCbor
+    cbrMessageHash :: Hash
   }
-  deriving (Show, Generic)
+  deriving (Show, Generic, Eq)
   deriving anyclass (ToSchema)
 
 instance FromJSON ClaimBountyRequest where
   parseJSON = withObject "ClaimBountyRequest" $ \v -> do
-    changeAddr <- v .: "changeAddr"
-    usedAddrs <- v .: "usedAddrs"
-    cBountyrCollateral <- v .:? "collateral"
     cbrTopicId <- v .: "topicId"
     cbrMessageId <- v .: "messageId"
-    cbrDeadline <- v .: "deadline"
-    cbrDeadlineStart <- v .: "deadlineStart"
     cbrMessageHash <- v .: "messageHash"
-    let cBountyrChangeAddr = unsafeAddressFromText changeAddr
-        cBountyrUsedAddrs = fmap unsafeAddressFromText usedAddrs
     pure ClaimBountyRequest {..}
 
 instance ToJSON ClaimBountyRequest where
@@ -150,12 +125,7 @@ instance ToJSON ClaimBountyRequest where
     object
       [ "topicId" .= cbrTopicId,
         "messageId" .= cbrMessageId,
-        "messageHash" .= cbrMessageHash,
-        "deadline" .= cbrDeadline,
-        "deadlineStart" .= cbrDeadlineStart,
-        "changeAddr" .= addressToText cBountyrChangeAddr,
-        "usedAddrs" .= fmap addressToText cBountyrUsedAddrs,
-        "collateral" .= cBountyrCollateral
+        "messageHash" .= cbrMessageHash
       ]
 
 newtype ProofBytes = ProofBytes {getProofBytes :: BS.ByteString}

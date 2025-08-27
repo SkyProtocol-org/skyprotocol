@@ -260,13 +260,16 @@ bountySpec =
             updateBridgeTest TestInfo {..} initialState updatedDa
 
             currentSlot <- slotOfCurrentBlock
-            let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 2
+            let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 10
             gyDeadline <- slotToEndTime deadlineSlot
             let deadline = timeToPlutus gyDeadline
             gyLogDebug' "" $ printf "current slot: %s, deadline slot: %s, deadline: %s" currentSlot deadlineSlot gyDeadline
 
             offerBountyTest TestInfo {..} topicId messageHash deadline
-            claimBountyTest TestInfo {..} topicId messageHash deadlineSlot proof
+            currentSlot' <- slotOfCurrentBlock
+            let bountySlot = unsafeSlotFromInteger $ slotToInteger currentSlot' + 1
+            gyLogDebug' "" $ printf "deadline slot: %s, bounty slot: %s" deadlineSlot bountySlot
+            claimBountyTest TestInfo {..} topicId messageHash bountySlot proof
         ]
     ]
 

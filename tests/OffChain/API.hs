@@ -11,17 +11,20 @@ import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Concurrent.MVar
 import Control.Monad.IO.Class (liftIO)
+import Data.Aeson
 import Data.Yaml.Config (loadYamlSettings, useEnv)
 import Log
 import Log.Backend.LogList
 import Network.HTTP.Client (defaultManagerSettings, newManager)
 import Network.Wai.Handler.Warp (run)
+import PlutusLedgerApi.V1 (POSIXTime (..))
 import Servant
 import Servant.Client
 import Servant.Client.Generic
 import Test.Tasty
 import Test.Tasty.HUnit
 import Util
+import Utils
 
 testEnv :: AppConfig -> Logger -> IO AppEnv
 testEnv appConfig logger = do
@@ -94,6 +97,16 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
   testGroup
     "API Tests"
     [ testGroup
+        "JSON conversion for API types"
+        [ testCase "OfferBountyRequest" $ do
+            let hash = ofHex "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
+                req = OfferBountyRequest (fromInt 0) hash 2 1756332000
+            decode (encode req) @?= Just req,
+          testCase "posixTimeToPlutusTime" $ do
+            let pTime = 1756332000
+            posixTimeToPlutusTime pTime @?= POSIXTime 1756332000
+        ],
+      testGroup
         "Health client"
         let healthC = skyClient // health
          in [ testCase "health endpoint" $ do

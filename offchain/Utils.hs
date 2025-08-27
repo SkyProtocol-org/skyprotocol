@@ -30,4 +30,4 @@ currentPOSIXTime = do
 posixTimeToPlutusTime :: POSIXTime -> T.POSIXTime
 posixTimeToPlutusTime t =
   let (MkFixed nominalDiffTime) = nominalDiffTimeToSeconds t
-   in T.POSIXTime $ nominalDiffTime `div` 1_000_000_000
+   in T.POSIXTime $ nominalDiffTime `div` 1_000_000_000_000

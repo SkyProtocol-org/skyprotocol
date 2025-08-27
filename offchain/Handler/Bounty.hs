@@ -11,9 +11,7 @@ import Control.Monad.Error.Class
 import Control.Monad.IO.Class
 import Control.Monad.Identity
 import Control.Monad.Reader
-import Data.Fixed
 import Data.Text (pack)
-import Data.Time
 import Data.Time.Clock.POSIX qualified as TP
 import GeniusYield.TxBuilder
 import GeniusYield.Types
@@ -126,10 +124,8 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
             ..
           }
 
-  utcTime <- liftIO TP.getCurrentTime
-  let (MkFixed nominalDiffTime) = nominalDiffTimeToSeconds $ diffUTCTime utcTime utcTimeEpoch
-      curTime = nominalDiffTime `div` 1_000_000_000
-      deadlineSlot = unsafeSlotFromInteger curTime
+  currentSlot <- runQuery slotOfCurrentBlock
+  let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 1
 
   bridgeUtxos <- runQuery $ do
     addr <- bridgeValidatorAddress $ BridgeParams curSym
