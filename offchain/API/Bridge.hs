@@ -1,6 +1,7 @@
 module API.Bridge (BridgeApi (..), bridgeServer) where
 
 import App
+import Control.Monad.Reader
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import GeniusYield.Types
