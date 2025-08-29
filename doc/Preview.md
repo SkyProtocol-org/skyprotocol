@@ -285,7 +285,7 @@ bash scripts/offer-bounty.sh $topicId $(cat scripts/message_hash) $deadline $amo
 
 The `topicId` is the one you got from creating topic response.
 `messageHash` can be found in the `scripts/message_hash`.
-`deadline` is a POSIX time converted to an integer.
+`deadline` is a POSIX time converted to an integer(seconds).
 `amount` is an amount that you want to offer.
 
 In my example run, I get:

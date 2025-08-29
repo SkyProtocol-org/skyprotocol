@@ -124,15 +124,12 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
             ..
           }
 
-  currentSlot <- runQuery slotOfCurrentBlock
-  let deadlineSlot = unsafeSlotFromInteger $ slotToInteger currentSlot + 1
-
   bridgeUtxos <- runQuery $ do
     addr <- bridgeValidatorAddress $ BridgeParams curSym
     utxosAtAddressWithDatums addr $ Just skyToken
   bountyUtxos <- runQuery $ do
     addr <- bountyValidatorAddress bountyParams
-    utxosAtAddress addr Nothing
+    utxosAtAddressWithDatums addr Nothing
 
   let utxoWithDatum = flip filter bridgeUtxos $ \(out, _) ->
         let assets = valueToList $ utxoValue out
@@ -145,12 +142,19 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
 
   -- TODO: make this safe
   -- get the first utxo. TODO: search for the one we need
-  let bountyUtxo = head $ utxosToList bountyUtxos
+  let bountyUtxo = head bountyUtxos
       bountyAmount =
         snd
           . head -- get first asset. TODO: search for the one we need
           . valueToList
-          $ utxoValue bountyUtxo
+          . utxoValue
+          $ fst bountyUtxo
+      maybeDatum = unsafeFromBuiltinData . datumToPlutus' <$> snd bountyUtxo
+  deadline <- case maybeDatum of
+    Just BountyDatum {..} -> pure bountyDeadline
+    Nothing -> throwError $ APIError "Can't find datum with deadline"
+
+  let deadlineSlot = unsafeSlotFromInteger $ getPOSIXTime deadline
 
   -- TODO: Fix this
   state <- liftIO $ readMVar appStateR
@@ -177,7 +181,7 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
       collateral
       $ mkClaimBountySkeleton
         deadlineSlot
-        (utxoRef bountyUtxo)
+        (utxoRef $ fst bountyUtxo)
         (bountyValidator' bountyParams)
         nftRef
         redeemer

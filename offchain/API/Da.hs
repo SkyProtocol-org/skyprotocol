@@ -67,27 +67,11 @@ daServer =
   where
     publicServer =
       PublicDaApi
-        { readMessage = readTopicH,
-          getProof = getProofH
+        { readMessage = \tId mId -> RawBytes <$> readTopicHandler tId mId,
+          getProof = \tId mId -> ProofBytes <$> getProofHandler tId mId
         }
-    protectedServer u =
+    protectedServer _u =
       ProtectedDaApi
-        { createTopic = createTopicH u,
-          publishMessage = publishMessageH u
+        { createTopic = createTopicHandler,
+          publishMessage = \tId (RawBytes msgBody) -> publishMessageHandler tId msgBody
         }
-
-readTopicH :: TopicId -> MessageId -> AppM RawBytes
-readTopicH tId mId = do
-  RawBytes <$> readTopicHandler tId mId
-
-createTopicH :: User -> AppM TopicId
-createTopicH _user = do
-  createTopicHandler
-
-publishMessageH :: User -> TopicId -> RawBytes -> AppM (MessageId, Hash)
-publishMessageH _user topicId (RawBytes msgBody) = do
-  publishMessageHandler topicId msgBody
-
-getProofH :: TopicId -> MessageId -> AppM ProofBytes
-getProofH topicId messageId = do
-  ProofBytes <$> getProofHandler topicId messageId

@@ -29,11 +29,11 @@ data BountyApi mode = BountyApi
 bountyServer :: BountyApi (AsServerT AppM)
 bountyServer =
   BountyApi
-    { offer = offerBountyH,
-      claim = claimBountyH
+    { offer = offerBountyApiHandler,
+      claim = claimBountyApiHandler
     }
   where
-    offerBountyH OfferBountyRequest {..} = do
+    offerBountyApiHandler OfferBountyRequest {..} = do
       AppEnv {..} <- ask
       offerBountyHandler
         obrTopicId
@@ -43,7 +43,7 @@ bountyServer =
         (cuserAddressPubKeyHash appAdmin)
         (cuserAddressPubKeyHash appClaimant)
         appOfferer
-    claimBountyH ClaimBountyRequest {..} = do
+    claimBountyApiHandler ClaimBountyRequest {..} = do
       AppEnv {..} <- ask
       claimBountyHandler
         cbrTopicId
