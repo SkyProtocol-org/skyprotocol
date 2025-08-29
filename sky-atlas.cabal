@@ -25,6 +25,7 @@ common common
     MultiParamTypeClasses
     MultiWayIf
     NumericUnderscores
+    OverloadedRecordDot
     OverloadedStrings
     PatternSynonyms
     RecordWildCards
@@ -117,16 +118,21 @@ library offchain
   exposed-modules:
     API
     API.Bounty
-    API.Bounty.Contracts
     API.Bridge
-    API.Bridge.Contracts
     API.Da
-    API.SkyMintingPolicy
     API.Types
     API.Util
     App
     App.Env
     App.Error
+    Handler
+    Handler.Bounty
+    Handler.Bridge
+    Handler.Da
+    Script
+    Transaction
+    Transaction.Bounty
+    Transaction.Bridge
     Utils
 
   build-depends:
@@ -212,6 +218,7 @@ test-suite offchain-tests
     Util
 
   build-depends:
+    , aeson
     , atlas-cardano
     , base
     , extra

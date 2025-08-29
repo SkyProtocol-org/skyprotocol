@@ -189,20 +189,13 @@ refer to [Getting ADA tokens on the Preview network](#get-ada-tokens-on-the-prev
 Start by creating the bridge with the admin address (using the functions defined earlier,
 that must be defined in your client):
 ```bash
-bash scripts/create-bridge.sh "$(get_addr admin)"
+bash scripts/create-bridge.sh
 ```
 
 The script will issue a transaction on the Preview network, which may take up to 13-25 seconds,
 and the output would look something like this (from the same test execution):
 ```
-Payload to submit:
-{
-  "changeAddr": "addr_test1vzjfhrxw8cuh0y0u0mp3tgv6qkgrv0wzwkyvwqcl0dlmn8que9j3x",
-  "usedAddrs": [
-    "addr_test1vzjfhrxw8cuh0y0u0mp3tgv6qkgrv0wzwkyvwqcl0dlmn8que9j3x"
-  ]
-}
-"97559b99eca31ecb934315331be8ea41b1fbe88a750e3c52f132b72937dd47b7"
+"85ad195c468431f58148497374061eadb619df0b0220164bbaf3491d2490c1fa"
 ```
 The last line, printed when the transaction is complete, is the transaction id,
 which you can copy (without quotes) and
@@ -257,7 +250,7 @@ It doesn't have to be the same message; it can be anything.
 
 The next step will be to update the bridge with the new state of the DA:
 ```bash
-bash scripts/update-bridge.sh $(get_addr admin)
+bash scripts/update-bridge.sh
 ```
 
 The response will again include the transaction id,
@@ -287,21 +280,13 @@ The data attached is the new root hash of the DA from which all can be verified.
 
 Now you can offer a bounty:
 ```bash
-topicId=0 deadline=1000000 amount=42666007
-bash scripts/offer-bounty.sh $topicId $(cat scripts/message_hash) $deadline $amount $(get_addr offerer)
+bash scripts/offer-bounty.sh $topicId $(cat scripts/message_hash) $deadline $amount
 ```
 
 The `topicId` is the one you got from creating topic response.
-`messageHash` can be found in the `scripts/message_hash`
-(or computing the Blake2b_256 digest of the message for which you offer the bounty).
-`deadline` is a number of slots (each about 13s) that the offer is active for
-(You can safely input some big number here if you're testing the positive case,
-a small number if you're testing the negative case).
-`amount` is an amount that you want to offer in Lovelace (1e-6 ADA).
-[Nit: some data about the offerer and claimant is currently being taken
-from the server command line invocation instead of arguments plus a wallet;
-that's OK, that's an easy issue we'll fix shortly;
-what matters is that the contract invocation works great, which is what we're demoing.]
+`messageHash` can be found in the `scripts/message_hash`.
+`deadline` is a POSIX time converted to an integer(seconds).
+`amount` is an amount that you want to offer.
 
 In my example run, I get:
 ```
@@ -327,12 +312,9 @@ https://preview.cexplorer.io/tx/3ea29aaa145ee45ece13c52a705f58f52734a7de0271ffcd
 
 To claim a bounty:
 ```bash
-bash scripts/claim-bounty.sh $topicId $messageId $(cat scripts/message_hash) $deadlineStart $deadline $(get_addr claimant)
+bash scripts/claim-bounty.sh $topicId $messageId $(cat scripts/message_hash)
 ```
 The `topicId` is the one you got from creating topic response.
 `messageId` is the one you got from publishing a message.
 `messageHash` can be found in the `scripts/message_hash`.
-`deadlineStart` is a slot where the offering of bounty happends. You should get this as the second output from `scripts/offer-bounty.sh` (in the above case, 89563139).
-`deadline` is a number of slots that the offer is active for.
-NOTE: `topicId`, `messageHash` and `deadline` should be the same, as inthe call to offer a bounty!.
--->
+NOTE: `topicId` and `messageHash` should be the same, as in the call to offer a bounty!.

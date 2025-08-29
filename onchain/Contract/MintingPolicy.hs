@@ -1,26 +1,33 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Contract.MintingPolicy where
 
+import GHC.Generics (Generic)
 import PlutusLedgerApi.V3
 import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol, txSignedBy)
 import PlutusTx
 import PlutusTx.AssocMap as AM
+import PlutusTx.Blueprint
 import PlutusTx.List qualified as List
 import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
+import Prelude qualified as HP
 
-type SkyMintingParams = PubKeyHash
+newtype SkyMintingParams = SkyMintingParams PubKeyHash
+  deriving newtype (Generic, HP.Show)
+  deriving anyclass (HasBlueprintDefinition)
 
-type SkyMintingRedeemer = ()
+PlutusTx.makeLift ''SkyMintingParams
+PlutusTx.makeIsDataSchemaIndexed ''SkyMintingParams [('SkyMintingParams, 0)]
 
 {-# INLINEABLE skyTypedMintingPolicy #-}
 skyTypedMintingPolicy ::
   SkyMintingParams ->
-  SkyMintingRedeemer ->
+  () ->
   ScriptContext ->
   Bool
-skyTypedMintingPolicy pkh _redeemer ctx =
+skyTypedMintingPolicy (SkyMintingParams pkh) _redeemer ctx =
   List.and
     [ traceBool
         "Signed properly"

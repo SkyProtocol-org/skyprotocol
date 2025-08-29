@@ -2,10 +2,9 @@
 
 module OnChain.MintingPolicySpec (mintingPolicySpec, mintingPolicyTest) where
 
-import API.Bridge.Contracts (mkMintingSkeleton)
-import API.SkyMintingPolicy
 import Common
 import Contract.Bridge
+import Contract.MintingPolicy
 import GeniusYield.Imports
 import GeniusYield.Test.Clb
 import GeniusYield.Test.Utils
@@ -13,7 +12,9 @@ import GeniusYield.TxBuilder
 import GeniusYield.Types
 import PlutusLedgerApi.V1 (ScriptHash (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
+import Script
 import Test.Tasty
+import Transaction.Bridge (mkMintingSkeleton)
 import Util
 
 mintingPolicySpec :: TestTree
@@ -39,7 +40,7 @@ mintingPolicyTest TestInfo {..} topHash = do
   addr <- getUserAddr $ admin testWallets
   pkh <- addressToPubKeyHash' addr
 
-  let skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+  let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId "SkyBridge"
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -52,7 +53,7 @@ mintingPolicyTest TestInfo {..} topHash = do
         "SkyBridge"
         skyToken
         skyPolicy
-        topHash
+        (BridgeDatum topHash)
         bridgeVAddr
         pkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)

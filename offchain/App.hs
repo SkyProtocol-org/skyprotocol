@@ -56,9 +56,14 @@ nt env m = do
     Right res -> pure res
     Left err -> throwError err500 {errBody = "Something went wrong. Please contact support with this information: " <> appErrorToUserError err}
 
--- instance MonadRandom AppM => GYTxBuilderMonad AppM where
-
-runQuery :: GYTxQueryMonadIO a -> AppM a
+runQuery ::
+  ( Monad m,
+    MonadReader AppEnv m,
+    MonadError AppError m,
+    MonadIO m
+  ) =>
+  GYTxQueryMonadIO a ->
+  m a
 runQuery q = do
   AppEnv {..} <- ask
   case configAtlas appConfig of
@@ -70,6 +75,11 @@ runQuery q = do
 
 -- TODO replace these with specific wrapped functions instead of generalized `run*`
 runBuilder ::
+  ( Monad m,
+    MonadReader AppEnv m,
+    MonadError AppError m,
+    MonadIO m
+  ) =>
   -- | User's used addresses.
   [GYAddress] ->
   -- | User's change address.
@@ -77,7 +87,7 @@ runBuilder ::
   -- | Browser wallet's reserved collateral (if set).
   Maybe GYTxOutRefCbor ->
   GYTxBuilderMonadIO (GYTxSkeleton v) ->
-  AppM GYTxBody
+  m GYTxBody
 runBuilder addrs addr collateral skeleton = do
   AppEnv {..} <- ask
   case configAtlas appConfig of
@@ -102,6 +112,11 @@ runBuilder addrs addr collateral skeleton = do
           (skeleton >>= buildTxBody)
 
 runGY ::
+  ( Monad m,
+    MonadReader AppEnv m,
+    MonadError AppError m,
+    MonadIO m
+  ) =>
   GYSomePaymentSigningKey ->
   Maybe GYSomeStakeSigningKey ->
   -- | User's used addresses.
@@ -111,7 +126,7 @@ runGY ::
   -- | Browser wallet's reserved collateral (if set).
   Maybe GYTxOutRefCbor ->
   GYTxMonadIO GYTxBody ->
-  AppM GYTxId
+  m GYTxId
 runGY psk ssk addrs addr collateral body = do
   AppEnv {..} <- ask
   case configAtlas appConfig of
@@ -138,6 +153,11 @@ runGY psk ssk addrs addr collateral body = do
           (body >>= signAndSubmitConfirmed)
 
 buildAndRunGY ::
+  ( Monad m,
+    MonadReader AppEnv m,
+    MonadError AppError m,
+    MonadIO m
+  ) =>
   GYSomePaymentSigningKey ->
   Maybe GYSomeStakeSigningKey ->
   -- | User's used addresses.
@@ -147,7 +167,7 @@ buildAndRunGY ::
   -- | Browser wallet's reserved collateral (if set).
   Maybe GYTxOutRefCbor ->
   GYTxMonadIO (GYTxSkeleton v) ->
-  AppM GYTxId
+  m GYTxId
 buildAndRunGY psk ssk addrs addr collateral skeleton = do
   AppEnv {..} <- ask
   case configAtlas appConfig of
@@ -174,6 +194,11 @@ buildAndRunGY psk ssk addrs addr collateral skeleton = do
           (skeleton >>= buildTxBody >>= signAndSubmitConfirmed)
 
 runAnyGY ::
+  ( Monad m,
+    MonadReader AppEnv m,
+    MonadError AppError m,
+    MonadIO m
+  ) =>
   GYSomePaymentSigningKey ->
   Maybe GYSomeStakeSigningKey ->
   -- | User's used addresses.
@@ -183,7 +208,7 @@ runAnyGY ::
   -- | Browser wallet's reserved collateral (if set).
   Maybe GYTxOutRefCbor ->
   GYTxMonadIO a ->
-  AppM a
+  m a
 runAnyGY psk ssk addrs addr collateral action = do
   AppEnv {..} <- ask
   case configAtlas appConfig of

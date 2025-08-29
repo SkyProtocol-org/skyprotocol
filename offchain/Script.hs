@@ -1,4 +1,4 @@
-module API.SkyMintingPolicy where
+module Script where
 
 import Contract.Bounty
 import Contract.Bridge
@@ -19,8 +19,8 @@ bridgeValidator' bp = scriptFromPlutus $ bridgeValidatorScript bp
 bridgeValidatorAddress :: (HasCallStack, GYTxQueryMonad m) => BridgeParams -> m GYAddress
 bridgeValidatorAddress bp = scriptAddress $ bridgeValidator' bp
 
-bountyValidator' :: ClientParams -> GYScript 'PlutusV3
+bountyValidator' :: BountyParams -> GYScript 'PlutusV3
 bountyValidator' cp = scriptFromPlutus $ clientValidatorScript cp
 
-bountyValidatorAddress :: (HasCallStack, GYTxQueryMonad m) => ClientParams -> m GYAddress
+bountyValidatorAddress :: (HasCallStack, GYTxQueryMonad m) => BountyParams -> m GYAddress
 bountyValidatorAddress cp = scriptAddress $ bountyValidator' cp

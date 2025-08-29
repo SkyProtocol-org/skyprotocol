@@ -3,11 +3,10 @@
 
 module OnChain.BridgeSpec (bridgeSpec, updateBridgeTest) where
 
-import API.Bridge.Contracts (mkUpdateBridgeSkeleton)
-import API.SkyMintingPolicy
 import App.Env hiding (getCardanoUser)
 import Common
 import Contract.Bridge
+import Contract.MintingPolicy
 import GeniusYield.HTTP.Errors
 import GeniusYield.Imports
 import GeniusYield.Test.Clb
@@ -20,8 +19,10 @@ import PlutusLedgerApi.V1.Time (POSIXTime (..))
 import PlutusLedgerApi.V1.Value (CurrencySymbol (..))
 import PlutusTx qualified
 import PlutusTx.Builtins.Internal (BuiltinByteString (..))
+import Script
 import Test.Tasty
 import Test.Tasty.HUnit
+import Transaction.Bridge (mkUpdateBridgeSkeleton)
 import Util
 import Utils
 import Prelude
@@ -33,7 +34,7 @@ bridgeSpec =
     [ testGroup
         "Bridge validator"
         [ testCase "to/from builtin data BridgeNFTDatum" $ do
-            let datum = BridgeNFTDatum $ ofHex "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
+            let datum = BridgeDatum $ ofHex "69217a3079908094e11121d042354a7c1f55b6482ca1a51e1b250dfd1ed0eef9"
             let builtinDatum = PlutusTx.toBuiltinData datum
             PlutusTx.fromBuiltinData builtinDatum @?= Just datum,
           testCase "multiSigValid" $ do
@@ -109,7 +110,7 @@ updateBridgeTest TestInfo {..} (initialDa, schema, committee) updatedDa = do
 
   let topH2 = computeDigest @Hash updatedDa
 
-      skyPolicy = skyMintingPolicy' $ pubKeyHashToPlutus pkh
+      skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus pkh
       skyPolicyId = mintingPolicyId skyPolicy
       skyToken = GYToken skyPolicyId "SkyBridge"
       curSym = CurrencySymbol $ getScriptHash $ scriptHashToPlutus $ scriptHash skyPolicy
@@ -150,7 +151,7 @@ updateBridgeTest TestInfo {..} (initialDa, schema, committee) updatedDa = do
       mkUpdateBridgeSkeleton
         (bridgeValidator' $ BridgeParams curSym)
         (utxoRef bridgeUtxo)
-        (BridgeNFTDatum topH2)
+        (BridgeDatum topH2)
         bridgeRedeemer
         skyToken
         bridgeVAddr

@@ -1,4 +1,4 @@
-module API.Bridge.Contracts where
+module Transaction.Bridge where
 
 import Common.Crypto (Hash)
 import Contract.Bridge
@@ -15,15 +15,13 @@ mkMintingSkeleton ::
   -- | Minting policy
   GYScript 'PlutusV3 ->
   -- | Top hash
-  Hash ->
+  BridgeDatum ->
   -- | Addr of the bridge validator
   GYAddress ->
   -- | Minting policy signer
   GYPubKeyHash ->
   m (GYTxSkeleton 'PlutusV3)
-mkMintingSkeleton tokenName skyToken skyPolicy topHash bvAddr mintSigner = do
-  let bridgeNFTDatum = BridgeNFTDatum topHash
-
+mkMintingSkeleton tokenName skyToken skyPolicy bridgeDatum bvAddr mintSigner = do
   -- skeleton for minting transaction
   pure $
     mustMint @'PlutusV3 (GYBuildPlutusScript $ GYBuildPlutusScriptInlined skyPolicy) unitRedeemer tokenName 1
@@ -31,7 +29,7 @@ mkMintingSkeleton tokenName skyToken skyPolicy topHash bvAddr mintSigner = do
         GYTxOut
           { gyTxOutAddress = bvAddr,
             gyTxOutValue = valueSingleton skyToken 1,
-            gyTxOutDatum = Just (datumFromPlutusData bridgeNFTDatum, GYTxOutUseInlineDatum),
+            gyTxOutDatum = Just (datumFromPlutusData bridgeDatum, GYTxOutUseInlineDatum),
             gyTxOutRefS = Nothing
           }
       <> mustBeSignedBy mintSigner
@@ -43,7 +41,7 @@ mkUpdateBridgeSkeleton ::
   -- | Bridge ref
   GYTxOutRef ->
   -- | New bridge Datum
-  BridgeNFTDatum ->
+  BridgeDatum ->
   -- | Redeemer
   BridgeRedeemer ->
   -- | Token to send
