@@ -109,7 +109,7 @@ done
 
 For instance, in one test run, the following addresses were generated for me:
 ```
-admin: addr_test1vzjfhrxw8cuh0y0u0mp3tgv6qkgrv0wzwkyvwqcl0dlmn8que9j3x
+admin: addr_test1vphn4ctq3le9at9ycgr3cnhmp0kjgm8thfhfv7fdgqvwr0c5fyk6v
 offerer: addr_test1vq7n4lzvn6dcq4v9g2trt8gavywkg2m49wgw00n4jdlpewctkep2n
 claimant: addr_test1vrzpm7yp4sjk3cp5r5ufvh54exlqm9n2n76thwup5vfh64cgtkrkk
 ```
@@ -126,13 +126,13 @@ https://preview.cexplorer.io/
 For instance, funding the above admin address, I got a JSON response:
 ```
 {"amount":{"lovelace":10000200000},
- "txid":"1f40c3e4df93e579338c28894a33b6056093379d574b3a456c46c0633304fd23",
- "txin":"d47861845f454490f842f7957960bac07e648164d3724c66c2edbdd544811d30#12"}
+ "txid":"74f18cef2a89c2b4d82ce25a6cff2cbf21b3b0349b07b693083cc4f8506158fe",
+ "txin":"9d9a840c28fe7728c2f2b2f51af7c4eba057adaedddf52a73b6d77bf540aa6c7#100"}
 ```
 
 And indeed looking at this transaction in the explorer, we can see the account funded:
-https://preview.cexplorer.io/tx/1f40c3e4df93e579338c28894a33b6056093379d574b3a456c46c0633304fd23
-https://preview.cexplorer.io/address/addr_test1vzjfhrxw8cuh0y0u0mp3tgv6qkgrv0wzwkyvwqcl0dlmn8que9j3x
+https://preview.cexplorer.io/tx/74f18cef2a89c2b4d82ce25a6cff2cbf21b3b0349b07b693083cc4f8506158fe
+https://preview.cexplorer.io/address/addr_test1vphn4ctq3le9at9ycgr3cnhmp0kjgm8thfhfv7fdgqvwr0c5fyk6v
 
 <!--
 TODO: explain how to send funds from one address to the other
@@ -195,12 +195,12 @@ bash scripts/create-bridge.sh
 The script will issue a transaction on the Preview network, which may take up to 13-25 seconds,
 and the output would look something like this (from the same test execution):
 ```
-"85ad195c468431f58148497374061eadb619df0b0220164bbaf3491d2490c1fa"
+"f7e69eeb1adaeac8c1cdb39e676e9a4db1e385e00e5b93d1625afcc1f6f0047b"
 ```
 The last line, printed when the transaction is complete, is the transaction id,
 which you can copy (without quotes) and
 insert in the search bar in the [explorer](https://preview.cexplorer.io/) to see the results.
-(e.g. https://preview.cexplorer.io/tx/97559b99eca31ecb934315331be8ea41b1fbe88a750e3c52f132b72937dd47b7
+(e.g. https://preview.cexplorer.io/tx/f7e69eeb1adaeac8c1cdb39e676e9a4db1e385e00e5b93d1625afcc1f6f0047b
 for the execution above).
 
 _PS_: The bridge is identified by a NFT that is determined by the admin address.
@@ -208,8 +208,8 @@ You cannot re-create the NFT, and thus cannot create a new bridge with the same 
 In theory, given committee signatures, you could recycle the bridge and the NFT,
 but we haven't written code for that yet.
 In production, the bridge will only be created once.
-[Don't mind the small amount of ADA left on the bridge; see issue #66 for that.
-https://github.com/SkyProtocol-org/skyprotocol/issues/66]
+(Note that the small amount of ADA on the Bridge is mandated by CIP-55
+as a measure to avoid "dust" UTxOs.)
 
 ### Populate the DA
 
@@ -260,17 +260,10 @@ For instance, after publishing a bunch of messages on bunch of topics,
 I had the following transaction
 (as usual, the txid was printed when confirmed, after a few seconds):
 ```
-Payload to submit:
-{
-  "changeAddr": "addr_test1vzjfhrxw8cuh0y0u0mp3tgv6qkgrv0wzwkyvwqcl0dlmn8que9j3x",
-  "usedAddrs": [
-    "addr_test1vzjfhrxw8cuh0y0u0mp3tgv6qkgrv0wzwkyvwqcl0dlmn8que9j3x"
-  ]
-}
-"135d23dd85d1d2d9aec702fb9d63e6931525ec203e6a3cbedfb92982c62927c5"
+"126636c7c9f497d6f32ce0fcb01d93b4b66554a9b8afb58bbe0db90fe7f81994"
 ```
 And you can see the transaction at:
-https://preview.cexplorer.io/tx/135d23dd85d1d2d9aec702fb9d63e6931525ec203e6a3cbedfb92982c62927c5
+https://preview.cexplorer.io/tx/126636c7c9f497d6f32ce0fcb01d93b4b66554a9b8afb58bbe0db90fe7f81994
 See how one UTXO carries the state of the bridge,
 with the input UTXO previously holding the bridge state losing its SkyBridge NFT (-1)
 while the output UTXO now holding the bridge state gains this SkyBridge NFT (1).
@@ -280,13 +273,15 @@ The data attached is the new root hash of the DA from which all can be verified.
 
 Now you can offer a bounty:
 ```bash
+topicId=0 amount=10000000 deadline="$(date -u +%s -d 'now + 1 day')"000
+
 bash scripts/offer-bounty.sh $topicId $(cat scripts/message_hash) $deadline $amount
 ```
 
 The `topicId` is the one you got from creating topic response.
 `messageHash` can be found in the `scripts/message_hash`.
-`deadline` is a POSIX time converted to an integer(seconds).
-`amount` is an amount that you want to offer.
+`deadline` is an integer number of milliseconds since Unix Epoch.
+`amount` is an amount that you want to offer in Lovelace (1e-6 ADA)
 
 In my example run, I get:
 ```
@@ -298,23 +293,22 @@ Payload to submit:
   "messageHash": {
     "hash": "58b5cf2999c3a08d032c4d57368a5b659aae66200cef25f0054b472cc67aa5e9"
   },
-  "deadline": 10000,
-  "changeAddr": "addr_test1vq7n4lzvn6dcq4v9g2trt8gavywkg2m49wgw00n4jdlpewctkep2n",
-  "usedAddrs": [
-    "addr_test1vq7n4lzvn6dcq4v9g2trt8gavywkg2m49wgw00n4jdlpewctkep2n"
-  ],
-  "amount": 42
+  "deadline": 1756662953000,
+  "amount": 10000000
 }
-["164122e5b1f3ddc16ae888793d93f42c3aee368ab11d51c046a15b7f99b21285",89584206]
+"8e2a6df8bde7ddc9f5813a59c2a28177b996481da0633bca7f5963c35459daed"
 ```
 As you see this transaction creates a contract with the reward amount in the contract:
-https://preview.cexplorer.io/tx/3ea29aaa145ee45ece13c52a705f58f52734a7de0271ffcd3c4cc5259547be39
+https://preview.cexplorer.io/tx/8e2a6df8bde7ddc9f5813a59c2a28177b996481da0633bca7f5963c35459daed
 
 To claim a bounty:
 ```bash
+messageId=0
 bash scripts/claim-bounty.sh $topicId $messageId $(cat scripts/message_hash)
 ```
 The `topicId` is the one you got from creating topic response.
 `messageId` is the one you got from publishing a message.
 `messageHash` can be found in the `scripts/message_hash`.
 NOTE: `topicId` and `messageHash` should be the same, as in the call to offer a bounty!.
+
+-->
