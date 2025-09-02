@@ -154,7 +154,11 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
     Just BountyDatum {..} -> pure bountyDeadline
     Nothing -> throwError $ APIError "Can't find datum with deadline"
 
-  let deadlineSlot = unsafeSlotFromInteger $ getPOSIXTime deadline
+  -- TODO: make this safe, check for over/under-flows, etc
+  deadlineSlot' <- runQuery $ enclosingSlotFromTime' $ timeFromPlutus deadline
+  -- Since the deadline set by the user can be in the interval of the slot
+  -- we should make a margin of error here, when converting
+  let deadlineSlot = unsafeSlotFromInteger $ slotToInteger deadlineSlot' - 1
 
   -- TODO: Fix this
   state <- liftIO $ readMVar appStateR
