@@ -96,7 +96,7 @@ readBridgeHandler bridgeAdminPubKeyHash = do
   case maybeBridgeDatum of
     -- will decodeASCII work here? topHash is in hex, if I'm not mistaken
     -- TODO: ask Fare
-    Just (BridgeDatum topHash) -> pure . decodeASCII . fromBuiltin . toByteString $ topHash
+    Just (BridgeDatum topHash) -> pure . hexOf . toByteString $ topHash
     Nothing -> throwError $ APIError "Can't get the datum from bridge"
 
 updateBridgeHandler ::
