@@ -132,13 +132,6 @@ updateBridgeHandler bridgeAdmin = do
     _ -> throwError $ APIError "Can't find bridge utxos"
   logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 
-  -- NOTE: we need collateral here, so if user haven't provided one - we create one ourselves
-  (collateral, _amt) <- do
-    mC <- runQuery $ getCollateral' (cuserAddress bridgeAdmin) 10
-    case mC of
-      Nothing -> throwError $ APIError "Can't find utxo for collateral"
-      Just c -> pure c
-
   state <- liftIO $ readMVar appStateR
   let da = state._blockState._skyDa
       topHash = computeDigest @Blake2b_256 $ da
@@ -174,7 +167,7 @@ updateBridgeHandler bridgeAdmin = do
       Nothing
       [cuserAddress bridgeAdmin]
       (cuserAddress bridgeAdmin)
-      (Just $ GYTxOutRefCbor collateral)
+      Nothing
       $ mkUpdateBridgeSkeleton
         (bridgeValidator' $ BridgeParams curSym)
         (utxoRef bridgeUtxo)

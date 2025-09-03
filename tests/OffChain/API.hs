@@ -105,8 +105,8 @@ apiSpec = withResource startAPI closeAPI $ \getTestEnv ->
                 req = OfferBountyRequest (fromInt 0) hash 2 1756332000
             decode (encode req) @?= Just req,
           testCase "posixTimeToPlutusTime" $ do
-            let pTime = 1756332000
-            posixTimeToPlutusTime pTime @?= POSIXTime 1756332000
+            let pTime = decode "1756332000"
+            posixTimeToPlutusTime <$> pTime @?= Just (POSIXTime 1756332000000)
         ],
       testGroup
         "Health client"

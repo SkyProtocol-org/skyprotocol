@@ -58,37 +58,19 @@ offerBountyHandler topicId messageHash deadline amount bridgeAdminPubKeyHash cla
   validatorAddr <- runQuery $ do
     bountyValidatorAddress bountyParams
 
-  collateral <- do
-    logTrace_ "Searching utxos for collateral"
-    utxos' <- runQuery $ utxosAtAddress (cuserAddress bountyOfferer) Nothing
-    let utxos = utxosToList utxos'
-    case utxos of
-      (utxo : _) -> pure $ Just $ GYTxOutRefCbor (utxoRef utxo)
-      _ -> throwError $ APIError "Can't find utxo for collateral"
-
-  logTrace_ "Constructing body for bounty offering"
-  body <-
-    runBuilder
-      [cuserAddress bountyOfferer]
-      (cuserAddress bountyOfferer)
-      collateral
-      $ mkOfferBountySkeleton
-        validatorAddr
-        bountyDatum
-        amount
-        GYLovelace
-        (cuserAddressPubKeyHash bountyOfferer)
-
-  tid <-
-    runGY
-      (cuserSigningKey bountyOfferer)
-      Nothing
-      [cuserAddress bountyOfferer]
-      (cuserAddress bountyOfferer)
-      collateral
-      $ pure body
-  logTrace_ $ "Transaction id: " <> pack (show tid)
-  pure tid
+  logTrace_ "Offering bounty"
+  buildAndRunGY
+    (cuserSigningKey bountyOfferer)
+    Nothing
+    [cuserAddress bountyOfferer]
+    (cuserAddress bountyOfferer)
+    Nothing
+    $ mkOfferBountySkeleton
+      validatorAddr
+      bountyDatum
+      amount
+      GYLovelace
+      (cuserAddressPubKeyHash bountyOfferer)
 
 claimBountyHandler ::
   ( Monad m,
@@ -170,35 +152,19 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
       pure $ ClaimBounty proof
     Nothing -> throwError $ APIError "Can't construct a proof"
 
-  collateral <- do
-    logTrace_ "Searching utxos for collateral"
-    utxos' <- runQuery $ utxosAtAddress (cuserAddress bountyClaimant) Nothing
-    let utxos = utxosToList utxos'
-    case utxos of
-      (utxo : _) -> pure $ Just $ GYTxOutRefCbor (utxoRef utxo)
-      _ -> throwError $ APIError "Can't find utxo for collateral"
-
-  body <-
-    runBuilder
-      [cuserAddress bountyClaimant]
+  logTrace_ "Claiming bounty"
+  buildAndRunGY
+    (cuserSigningKey bountyClaimant)
+    Nothing
+    [cuserAddress bountyClaimant]
+    (cuserAddress bountyClaimant)
+    Nothing
+    $ mkClaimBountySkeleton
+      deadlineSlot
+      (utxoRef $ fst bountyUtxo)
+      (bountyValidator' bountyParams)
+      nftRef
+      redeemer
       (cuserAddress bountyClaimant)
-      collateral
-      $ mkClaimBountySkeleton
-        deadlineSlot
-        (utxoRef $ fst bountyUtxo)
-        (bountyValidator' bountyParams)
-        nftRef
-        redeemer
-        (cuserAddress bountyClaimant)
-        bountyAmount
-        (pubKeyHash $ cuserVerificationKey bountyClaimant)
-  tid <-
-    runGY
-      (cuserSigningKey bountyClaimant)
-      Nothing
-      [cuserAddress bountyClaimant]
-      (cuserAddress bountyClaimant)
-      collateral
-      $ pure body
-  logTrace_ $ "Transaction id: " <> pack (show tid)
-  pure tid
+      bountyAmount
+      (pubKeyHash $ cuserVerificationKey bountyClaimant)
