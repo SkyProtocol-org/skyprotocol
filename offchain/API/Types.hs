@@ -7,15 +7,20 @@ import Common.OffChain ()
 import Data.Aeson
 import Data.ByteString qualified as BS
 import Data.OpenApi
+import Data.Text (Text)
 import Data.Time.Clock.POSIX
 import GHC.Generics
 import GeniusYield.Types
 import Servant
 import Servant.OpenApi
 
-newtype User = User
-  { userEmail :: BS.ByteString
+data User = User
+  { userName :: Text,
+    userPassword :: Text
   }
+  deriving (Show, Eq, Generic, FromJSON, ToJSON)
+
+newtype UserDb = UserDb {getUsers :: [User]}
 
 -- TODO: all the change addr, used addrs and collateral are unnecessary
 -- if we don't do this from one node.

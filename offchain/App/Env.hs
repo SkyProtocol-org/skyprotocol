@@ -1,8 +1,12 @@
 module App.Env where
 
+import API.Types (UserDb (..))
 import App.Error
 import Common
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
+import Control.Concurrent.STM (TVar, atomically, writeTVar)
+import Control.Concurrent.STM.TVar (newTVarIO)
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Aeson
@@ -14,6 +18,7 @@ import GeniusYield.Types
 import Log
 import Log.Backend.StandardOutput
 import PlutusLedgerApi.V1 (toBuiltin)
+import System.Exit (exitFailure)
 import Utils
 
 -- TODO: add updatable whitelist for users here or in the AppState
@@ -24,6 +29,7 @@ data AppEnv = AppEnv
     appAdmin :: CardanoUser,
     appClaimant :: CardanoUser,
     appOfferer :: CardanoUser,
+    appUsers :: TVar UserDb,
     appStateW :: MVar AppState, -- Write copy, lock can be held a long time
     appStateR :: MVar AppState, -- Read copy, lock held very briefly but slightly out-of-date (double buffering / "MVCC")
     logger :: Logger
@@ -32,6 +38,7 @@ data AppEnv = AppEnv
 data AppConfig = AppConfig
   { configPort :: Int,
     configLogLevel :: Maybe LogLevel,
+    configUserDbPath :: FilePath,
     configTokenName :: GYTokenName,
     configAtlas :: Maybe GYCoreConfig
   }
@@ -163,8 +170,8 @@ initAppState blockS bridgeS =
       _longTermStorage = ()
     }
 
-initEnv :: AppConfig -> Logger -> Maybe GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
-initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
+initEnv :: AppConfig -> TVar UserDb -> Logger -> Maybe GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
+initEnv appConfig appUsers logger appProviders adminKeys offererKeys claimantKeys = do
   eitherAdmin <- getCardanoUser adminKeys
   eitherOfferer <- getCardanoUser offererKeys
   eitherClaimant <- getCardanoUser claimantKeys
@@ -185,14 +192,34 @@ initEnv appConfig logger appProviders adminKeys offererKeys claimantKeys = do
       pure $ Right AppEnv {..}
     _ -> pure $ Left $ StartupError "Something went wrong when initializing the environment"
 
+loadUsers :: FilePath -> IO UserDb
+loadUsers fp = do
+  eitherUserDb <- eitherDecodeFileStrict fp
+  case eitherUserDb of
+    Right users -> pure $ UserDb users
+    Left err -> do
+      putStrLn err
+      exitFailure
+
+pollFile :: FilePath -> TVar UserDb -> IO ()
+pollFile fp dbVar = do
+  let loop = do
+        users <- loadUsers fp
+        atomically $ writeTVar dbVar users
+        threadDelay (5 * 1000000) -- reload every 5s
+        loop
+  loop
+
 withAppEnv :: FilePath -> FilePath -> FilePath -> (AppEnv -> LogT IO ()) -> IO ()
 withAppEnv adminKeys offererKeys claimantKeys f = do
   config <- loadYamlSettings ["config/local-test.yaml"] [] useEnv
+  appUsers <- newTVarIO =<< loadUsers config.configUserDbPath
+  _ <- forkIO $ pollFile config.configUserDbPath appUsers
   case configAtlas config of
     Nothing -> withStdOutLogger $ \logger -> do
       runLogT "main" logger defaultLogLevel $ do
         logInfo_ "Running in OFFLINE MODE"
-        eitherAppEnv <- liftIO $ initEnv config logger Nothing adminKeys offererKeys claimantKeys
+        eitherAppEnv <- liftIO $ initEnv config appUsers logger Nothing adminKeys offererKeys claimantKeys
         case eitherAppEnv of
           Left err -> liftIO $ print err
           Right appEnv -> f appEnv
@@ -201,7 +228,7 @@ withAppEnv adminKeys offererKeys claimantKeys f = do
         withStdOutLogger $ \logger -> do
           runLogT "main" logger defaultLogLevel $ do
             logInfo_ "Initialized providers"
-            eitherAppEnv <- liftIO $ initEnv config logger (Just providers) adminKeys offererKeys claimantKeys
+            eitherAppEnv <- liftIO $ initEnv config appUsers logger (Just providers) adminKeys offererKeys claimantKeys
             case eitherAppEnv of
               Left err -> liftIO $ print err
               Right appEnv -> f appEnv

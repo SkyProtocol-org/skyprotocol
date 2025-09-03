@@ -1,6 +1,5 @@
 module Transaction.Bridge where
 
-import Common.Crypto (Hash)
 import Contract.Bridge
 import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder

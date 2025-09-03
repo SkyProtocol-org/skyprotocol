@@ -3,6 +3,7 @@ module API
     server,
     app,
     User (..),
+    UserDb (..),
   )
 where
 
@@ -12,6 +13,7 @@ import API.Da
 import API.Types
 import API.Util
 import App
+import Control.Concurrent.STM (TVar)
 import Data.OpenApi
 import Data.Text (Text)
 import GHC.Generics (Generic)
@@ -71,8 +73,8 @@ apiServer =
       docApi = swaggerSchemaUIServerT skyApiSwagger
     }
 
-appCtx :: Context (BasicAuthCheck User ': '[])
-appCtx = authCheck :. EmptyContext
+appCtx :: TVar UserDb -> Context (BasicAuthCheck User ': '[])
+appCtx userDb = authCheck userDb :. EmptyContext
 
 app :: AppEnv -> Application
-app env = genericServeTWithContext (nt env) apiServer appCtx
+app env = genericServeTWithContext (nt env) apiServer (appCtx $ appUsers env)

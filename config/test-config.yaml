@@ -6,6 +6,7 @@ tokenName: "536b79427269646765"
 # Could be one of "trace", "attention" of "info"
 # By default is "trace"
 logLevel: "info"
+userDbPath: "testUser.db"
 
 # atlas:
 #   coreProvider:

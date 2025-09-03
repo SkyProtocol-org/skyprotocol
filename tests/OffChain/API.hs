@@ -10,6 +10,7 @@ import Common
 import Common.OffChain ()
 import Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
 import Control.Concurrent.MVar
+import Control.Concurrent.STM (newTVarIO)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson
 import Data.Yaml.Config (loadYamlSettings, useEnv)
@@ -38,6 +39,7 @@ testEnv appConfig logger = do
   appStateR <- newMVar appState
 
   let appProviders = Nothing
+  appUsers <- newTVarIO =<< loadUsers appConfig.configUserDbPath
 
   pure AppEnv {..}
 

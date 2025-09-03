@@ -20,9 +20,11 @@ where
 import API.Types
 import App.Env
 import App.Error
+import Control.Concurrent.STM
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Maybe (fromJust, fromMaybe)
+import Data.Text.Encoding (decodeUtf8)
 import GeniusYield.GYConfig
 import GeniusYield.TxBuilder hiding (User)
 import GeniusYield.Types
@@ -43,11 +45,16 @@ newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
 runApp :: AppEnv -> AppM a -> IO (Either AppError a)
 runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) (fromMaybe Log.LogTrace $ configLogLevel $ appConfig env) $ runReaderT m env
 
-authCheck :: BasicAuthCheck User
-authCheck = BasicAuthCheck $ \(BasicAuthData username password) ->
-  if username == "skyAdmin" && password == "1234"
-    then return $ Authorized $ User (username <> "@skyprotocol.org")
-    else return Unauthorized
+authCheck :: TVar UserDb -> BasicAuthCheck User
+authCheck userDbVar = BasicAuthCheck $ \(BasicAuthData username password) -> do
+  userDb <- readTVarIO userDbVar
+  let userDb' = (\User {..} -> (userName, User {..})) <$> getUsers userDb
+  case lookup (decodeUtf8 username) userDb' of
+    Just User {..} ->
+      if decodeUtf8 password == userPassword
+        then pure $ Authorized User {..}
+        else pure BadPassword
+    Nothing -> pure NoSuchUser
 
 nt :: AppEnv -> AppM a -> Handler a
 nt env m = do

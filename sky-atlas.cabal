@@ -153,6 +153,7 @@ library offchain
     , servant-swagger-ui
     , sky-atlas:common
     , sky-atlas:onchain
+    , stm
     , text
     , time
     , yaml
@@ -230,6 +231,7 @@ test-suite offchain-tests
     , servant-server
     , sky-atlas:common
     , sky-atlas:offchain
+    , stm
     , tasty
     , tasty-hunit
     , warp
