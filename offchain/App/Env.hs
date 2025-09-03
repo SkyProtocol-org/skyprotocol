@@ -7,8 +7,8 @@ import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM (TVar, atomically, writeTVar)
 import Control.Concurrent.STM.TVar (newTVarIO)
-import Control.Lens
 import Control.Monad.IO.Class
+import Control.Monad.Identity
 import Data.Aeson
 import Data.Text.IO qualified as T
 import Data.Yaml.Config (loadYamlSettings, useEnv)
@@ -94,80 +94,74 @@ getCardanoUser fp = do
   pure $ CardanoUser <$> verKey <*> sigKey <*> addr <*> addrPubKeyHash
 
 data AppState = AppState
-  { _blockState :: BlockState, -- block being defined at the moment
-  -- Not Implemented Yet:
+  { blockState :: BlockState, -- block being defined at the moment
+
+    -- | bridge to the upstream blockchain
+    bridgeState :: BridgeState,
+    -- Not Implemented Yet:
 
     -- | Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
-    _oldBlockQueue :: (),
+    oldBlockQueue :: (),
     -- | table of candidate blocks being signed but not yet fully completed
-    _partialSignatures :: (),
-    -- | bridge to the upstream blockchain
-    _bridgeState :: BridgeState,
+    partialSignatures :: (),
     -- | stake for upstream proof-of-stake
-    _stake :: (),
+    stake :: (),
     -- | peers for block consensus
-    _peers :: (),
+    peers :: (),
     -- | client connections
-    _clients :: (),
+    clients :: (),
     -- | table of payments that were accepted * are pending from subscribers
-    _subscriberPayments :: (),
+    subscriberPayments :: (),
     -- | auctions for blockspace
-    _auctions :: (),
-    _longTermStorage :: ()
+    auctions :: (),
+    longTermStorage :: ()
   }
 
--- long term storage of data, if any
-
+-- | long term storage of data, if any
 data BlockState = BlockState
   { -- | data published on the DA
-    _skyDa :: SkyDa (HashRef Hash),
+    skyDa :: SkyDa (HashRef Hash),
     -- | Not Implemented Yet:
     -- | current topic
-    _topic :: (),
+    topic :: (),
     -- | validation for erasure coding
-    _erasureCoding :: (),
+    erasureCoding :: (),
     -- | super topic under which this topic operates, if any
-    _superTopic :: (),
+    superTopic :: (),
     -- | sub-topics that operate under this topic, if any
-    _subTopics :: (),
+    subTopics :: (),
     -- | payments accepted from publishers but not yet fulfilled
-    _publisherPayments :: ()
+    publisherPayments :: ()
   }
 
-data BridgeState = BridgeState
-  { _bridgedSkyDa :: SkyDa (HashRef Hash) -- data published on the DA *and* bridged on the blockchain
+newtype BridgeState = BridgeState
+  { bridgedSkyDa :: SkyDa (HashRef Hash) -- data published on the DA *and* bridged on the blockchain
   }
-
--- TODO: the use of TemplateHaskell is messing with compilers order of definition.
--- need to replace this with generics
-$(makeLenses ''BridgeState)
-$(makeLenses ''AppState)
-$(makeLenses ''BlockState)
 
 initBlockState :: SkyDa (HashRef Hash) -> BlockState
 initBlockState da =
   BlockState
-    { _skyDa = da,
-      _topic = (),
-      _erasureCoding = (),
-      _superTopic = (),
-      _subTopics = (),
-      _publisherPayments = ()
+    { skyDa = da,
+      topic = (),
+      erasureCoding = (),
+      superTopic = (),
+      subTopics = (),
+      publisherPayments = ()
     }
 
 initAppState :: BlockState -> BridgeState -> AppState
 initAppState blockS bridgeS =
   AppState
-    { _blockState = blockS,
-      _oldBlockQueue = (),
-      _partialSignatures = (),
-      _bridgeState = bridgeS,
-      _stake = (),
-      _peers = (),
-      _clients = (),
-      _subscriberPayments = (),
-      _auctions = (),
-      _longTermStorage = ()
+    { blockState = blockS,
+      bridgeState = bridgeS,
+      oldBlockQueue = (),
+      partialSignatures = (),
+      stake = (),
+      peers = (),
+      clients = (),
+      subscriberPayments = (),
+      auctions = (),
+      longTermStorage = ()
     }
 
 initEnv :: AppConfig -> TVar UserDb -> Logger -> Maybe GYProviders -> FilePath -> FilePath -> FilePath -> IO (Either AppError AppEnv)
@@ -183,9 +177,9 @@ initEnv appConfig appUsers logger appProviders adminKeys offererKeys claimantKey
           adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
       let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
           committee = MultiSigPubKey ([adminPubKey], UInt16 1)
-          _skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
-          _blockState = initBlockState _skyDa
-          appState = initAppState _blockState $ BridgeState _skyDa
+          skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
+          blockState = initBlockState skyDa
+          appState = initAppState blockState $ BridgeState skyDa
 
       appStateW <- newMVar appState
       appStateR <- newMVar appState

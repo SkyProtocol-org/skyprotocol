@@ -140,7 +140,6 @@ library offchain
     , atlas-cardano
     , base
     , bytestring
-    , lens
     , log-base
     , mtl
     , openapi3
@@ -253,7 +252,6 @@ test-suite onchain-tests
     , atlas-cardano
     , base
     , extra
-    , lens
     , plutus-ledger-api
     , plutus-tx
     , sky-atlas:common

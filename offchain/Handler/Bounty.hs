@@ -144,7 +144,7 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
 
   -- TODO: Fix this
   state <- liftIO $ readMVar appStateR
-  let da = state._blockState._skyDa
+  let da = state.blockState.skyDa
       maybeRmdProof = runIdentity $ getSkyDataProofH (topicId, messageId) da :: Maybe (Hash, SkyDataProofH)
   redeemer <- case maybeRmdProof of
     Just (messageHash', proof) -> do

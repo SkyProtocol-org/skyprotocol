@@ -27,7 +27,7 @@ readTopicHandler ::
 readTopicHandler tId mId = do
   stateR <- asks appStateR
   state <- liftIO $ readMVar stateR
-  let SkyDa {..} = state._blockState._skyDa
+  let SkyDa {..} = state.blockState.skyDa
   maybeTopic <- C.lookup tId =<< unwrap skyTopicTrie
   case maybeTopic of
     Nothing -> do
@@ -52,13 +52,13 @@ createTopicHandler = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   tId <- liftIO . modifyMVar stateW $ \state -> do
-    let da = state._blockState._skyDa
+    let da = state.blockState.skyDa
     let (newDa, maybeTopicId) = runIdentity $ insertTopic (computeDigest (ofHex "1ea7f00d" :: Bytes4)) da
     case maybeTopicId of
       Nothing -> throwError $ userError "Can't add topic"
       Just tId -> do
-        let newBlockState = state._blockState {_skyDa = newDa}
-            newState = state {_blockState = newBlockState}
+        let newBlockState = state.blockState {skyDa = newDa}
+            newState = state {blockState = newBlockState}
         modifyMVar_ stateR . const . pure $ newState
         pure (newState, tId)
   logTrace_ $ "Created topic with id: " <> pack (show $ toInt tId)
@@ -78,11 +78,11 @@ publishMessageHandler tId msgBody = do
   stateW <- asks appStateW
   stateR <- asks appStateR
   maybeMessageId <- liftIO . modifyMVar stateW $ \state -> do
-    let da = state._blockState._skyDa
+    let da = state.blockState.skyDa
     timestamp <- currentPOSIXTime
     let (newDa, maybeMessageId) = runIdentity $ C.insertMessage timestamp (toBuiltin msgBody) tId da
-    let newBlockState = state._blockState {_skyDa = newDa}
-        newState = (state {_blockState = newBlockState}, maybeMessageId)
+    let newBlockState = state.blockState {skyDa = newDa}
+        newState = (state {blockState = newBlockState}, maybeMessageId)
     modifyMVar_ stateR . const . pure $ fst newState
     pure newState
   case maybeMessageId of
@@ -106,7 +106,7 @@ getProofHandler ::
 getProofHandler tId mId = do
   stateR <- asks appStateR
   state <- liftIO . readMVar $ stateR
-  let da = state._bridgeState._bridgedSkyDa
+  let da = state.bridgeState.bridgedSkyDa
       maybeRmdProof = runIdentity $ getSkyDataProofH (tId, mId) da :: Maybe (Hash, SkyDataProofH)
   case maybeRmdProof of
     Nothing -> do

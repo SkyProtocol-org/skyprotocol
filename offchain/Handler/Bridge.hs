@@ -9,7 +9,6 @@ import Control.Monad.Error.Class
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import Data.Text (Text, pack)
-import Data.Text.Encoding (decodeASCII)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 import Log.Class
@@ -37,12 +36,12 @@ createBridgeHandler bridgeAdmin = do
   bridgeAddr <- runQuery $ bridgeValidatorAddress $ BridgeParams curSym
 
   state <- liftIO $ readMVar appStateR
-  let SkyDa {..} = state._blockState._skyDa
+  let SkyDa {..} = state.blockState.skyDa
       topHash = computeDigest @Blake2b_256 $ SkyDa {..}
 
   liftIO $ modifyMVar_ appStateW $ \state' -> do
-    let newBlockState = state'._blockState {_skyDa = SkyDa {..}}
-        newState = state' {_blockState = newBlockState}
+    let newBlockState = state'.blockState {skyDa = SkyDa {..}}
+        newState = state' {blockState = newBlockState}
     modifyMVar_ appStateR . const . return $ newState
     pure newState
 
@@ -133,7 +132,7 @@ updateBridgeHandler bridgeAdmin = do
   logTrace_ $ "Found bridge utxo: " <> pack (show bridgeUtxo)
 
   state <- liftIO $ readMVar appStateR
-  let da = state._blockState._skyDa
+  let da = state.blockState.skyDa
       topHash = computeDigest @Blake2b_256 $ da
       newDatum = BridgeDatum topHash
   logTrace_ $ "New utxo datum: " <> pack (show topHash)
@@ -143,7 +142,7 @@ updateBridgeHandler bridgeAdmin = do
     cmt <- unwrap committee
     pure (schema, cmt)
 
-  let bridgedDa = state._bridgeState._bridgedSkyDa
+  let bridgedDa = state.bridgeState.bridgedSkyDa
   daData <- unwrap $ skyTopicTrie bridgedDa
   let oldRootHash = computeDigest @Blake2b_256 daData
 
@@ -180,8 +179,8 @@ updateBridgeHandler bridgeAdmin = do
 
   -- update the bridged state after we update the bridge
   liftIO $ modifyMVar_ appStateW $ \state' -> do
-    let newBridgeState = state'._bridgeState {_bridgedSkyDa = da}
-        newState = state' {_bridgeState = newBridgeState}
+    let newBridgeState = state'.bridgeState {bridgedSkyDa = da}
+        newState = state' {bridgeState = newBridgeState}
     modifyMVar_ appStateR . const . return $ newState
     pure newState
 
