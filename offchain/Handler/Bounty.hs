@@ -38,7 +38,7 @@ offerBountyHandler ::
   GYPubKeyHash ->
   -- | Bounty offerer
   CardanoUser ->
-  m GYTxId
+  m (GYTxSkeleton 'PlutusV3)
 offerBountyHandler topicId messageHash deadline amount bridgeAdminPubKeyHash claimantPubKeyHash bountyOfferer = do
   let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus bridgeAdminPubKeyHash
       bountyCurrencySymbol = CurrencySymbol . getScriptHash . scriptHashToPlutus $ scriptHash skyPolicy
@@ -58,14 +58,9 @@ offerBountyHandler topicId messageHash deadline amount bridgeAdminPubKeyHash cla
   validatorAddr <- runQuery $ do
     bountyValidatorAddress bountyParams
 
-  logTrace_ "Offering bounty"
-  buildAndRunGY
-    (cuserSigningKey bountyOfferer)
-    Nothing
-    [cuserAddress bountyOfferer]
-    (cuserAddress bountyOfferer)
-    Nothing
-    $ mkOfferBountySkeleton
+  logTrace_ "Building offering bounty skeleton"
+  pure $
+    mkOfferBountySkeleton
       validatorAddr
       bountyDatum
       amount
@@ -88,7 +83,7 @@ claimBountyHandler ::
   GYPubKeyHash ->
   -- | Bounty claimant
   CardanoUser ->
-  m GYTxId
+  m (GYTxSkeleton 'PlutusV3)
 claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPubKeyHash bountyClaimant = do
   AppEnv {..} <- ask
   let skyPolicy = skyMintingPolicy' . SkyMintingParams $ pubKeyHashToPlutus bridgeAdminPubKeyHash
@@ -152,14 +147,9 @@ claimBountyHandler topicId messageId messageHash bridgeAdminPubKeyHash offererPu
       pure $ ClaimBounty proof
     Nothing -> throwError $ APIError "Can't construct a proof"
 
-  logTrace_ "Claiming bounty"
-  buildAndRunGY
-    (cuserSigningKey bountyClaimant)
-    Nothing
-    [cuserAddress bountyClaimant]
-    (cuserAddress bountyClaimant)
-    Nothing
-    $ mkClaimBountySkeleton
+  logTrace_ "Building claiming bounty skeleton"
+  pure $
+    mkClaimBountySkeleton
       deadlineSlot
       (utxoRef $ fst bountyUtxo)
       (bountyValidator' bountyParams)

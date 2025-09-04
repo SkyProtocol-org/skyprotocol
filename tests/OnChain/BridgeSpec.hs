@@ -147,15 +147,15 @@ updateBridgeTest TestInfo {..} (initialDa, schema, committee) updatedDa = do
 
   -- update bridge
   asUser (admin testWallets) $ do
-    updateBridgeSkeleton <-
-      mkUpdateBridgeSkeleton
-        (bridgeValidator' $ BridgeParams curSym)
-        (utxoRef bridgeUtxo)
-        (BridgeDatum topH2)
-        bridgeRedeemer
-        skyToken
-        bridgeVAddr
-        pkh
+    let updateBridgeSkeleton =
+          mkUpdateBridgeSkeleton
+            (bridgeValidator' $ BridgeParams curSym)
+            (utxoRef bridgeUtxo)
+            (BridgeDatum topH2)
+            bridgeRedeemer
+            skyToken
+            bridgeVAddr
+            pkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show updateBridgeSkeleton)
     txId <- buildTxBody updateBridgeSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId

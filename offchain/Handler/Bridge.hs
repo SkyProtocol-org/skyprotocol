@@ -25,7 +25,7 @@ createBridgeHandler ::
   ) =>
   -- | Bridge admin
   CardanoUser ->
-  m GYTxId
+  m (GYTxSkeleton 'PlutusV3)
 createBridgeHandler bridgeAdmin = do
   AppEnv {..} <- ask
   let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash bridgeAdmin
@@ -45,23 +45,15 @@ createBridgeHandler bridgeAdmin = do
     modifyMVar_ appStateR . const . return $ newState
     pure newState
 
-  logTrace_ "Building, signing and submitting minting policy"
-  tId <-
-    buildAndRunGY
-      (cuserSigningKey bridgeAdmin)
-      Nothing
-      [cuserAddress bridgeAdmin]
-      (cuserAddress bridgeAdmin)
-      Nothing
-      $ mkMintingSkeleton
-        (configTokenName appConfig)
-        skyToken
-        skyPolicy
-        (BridgeDatum topHash)
-        bridgeAddr
-        (cuserAddressPubKeyHash bridgeAdmin)
-  logTrace_ $ "Transaction id: " <> pack (show tId)
-  pure tId
+  logTrace_ "Building skeleton"
+  pure $
+    mkMintingSkeleton
+      (configTokenName appConfig)
+      skyToken
+      skyPolicy
+      (BridgeDatum topHash)
+      bridgeAddr
+      (cuserAddressPubKeyHash bridgeAdmin)
 
 readBridgeHandler ::
   ( Monad m,
@@ -107,7 +99,7 @@ updateBridgeHandler ::
   ) =>
   -- | Bridge admin
   CardanoUser ->
-  m GYTxId
+  m (GYTxSkeleton 'PlutusV3)
 updateBridgeHandler bridgeAdmin = do
   AppEnv {..} <- ask
   let skyPolicy = skyMintingPolicy' . SkyMintingParams . pubKeyHashToPlutus $ cuserAddressPubKeyHash bridgeAdmin
@@ -159,29 +151,13 @@ updateBridgeHandler bridgeAdmin = do
       bridgeSig = MultiSig [SingleSig (adminPubKey, signature)]
       bridgeRedeemer = UpdateBridge {..}
 
-  logTrace_ "Building, signing and submitting bridge update"
-  tId <-
-    buildAndRunGY
-      (cuserSigningKey bridgeAdmin)
-      Nothing
-      [cuserAddress bridgeAdmin]
-      (cuserAddress bridgeAdmin)
-      Nothing
-      $ mkUpdateBridgeSkeleton
-        (bridgeValidator' $ BridgeParams curSym)
-        (utxoRef bridgeUtxo)
-        newDatum
-        bridgeRedeemer
-        skyToken
-        bridgeAddr
-        (cuserAddressPubKeyHash bridgeAdmin)
-  logTrace_ $ "Transaction id: " <> pack (show tId)
-
-  -- update the bridged state after we update the bridge
-  liftIO $ modifyMVar_ appStateW $ \state' -> do
-    let newBridgeState = state'.bridgeState {bridgedSkyDa = da}
-        newState = state' {bridgeState = newBridgeState}
-    modifyMVar_ appStateR . const . return $ newState
-    pure newState
-
-  pure tId
+  logTrace_ "Building bridge update skeleton"
+  pure $
+    mkUpdateBridgeSkeleton
+      (bridgeValidator' $ BridgeParams curSym)
+      (utxoRef bridgeUtxo)
+      newDatum
+      bridgeRedeemer
+      skyToken
+      bridgeAddr
+      (cuserAddressPubKeyHash bridgeAdmin)

@@ -306,7 +306,7 @@ offerBountyTest TestInfo {..} topicId messageHash deadline = do
   bountyVAddr <- bountyValidatorAddress bountyParams
 
   asUser (offerer testWallets) $ do
-    sendFundsSkeleton <- mkOfferBountySkeleton bountyVAddr bountyDatum 10_000_000 GYLovelace offererPkh
+    let sendFundsSkeleton = mkOfferBountySkeleton bountyVAddr bountyDatum 10_000_000 GYLovelace offererPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody sendFundsSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId
@@ -374,16 +374,16 @@ claimBountyTest TestInfo {..} topicId messageHash slotDeadline proof = do
   asUser (claimant testWallets) $ do
     gyLogDebug' "" $
       printf "CLAIMING BOUNTY bountyUtxo: %s\nbountyAmount: %d" (show bountyUtxo) bountyAmount
-    claimBountySkeleton <-
-      mkClaimBountySkeleton
-        slotDeadline
-        (utxoRef bountyUtxo)
-        (bountyValidator' clientParams)
-        nftRef
-        redeemer
-        claimantAddr
-        bountyAmount
-        claimantPkh
+    let claimBountySkeleton =
+          mkClaimBountySkeleton
+            slotDeadline
+            (utxoRef bountyUtxo)
+            (bountyValidator' clientParams)
+            nftRef
+            redeemer
+            claimantAddr
+            bountyAmount
+            claimantPkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show sendFundsSkeleton)
     txId <- buildTxBody claimBountySkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId

@@ -52,3 +52,14 @@ getAddr =
 
 getUserAddr :: (GYTxUserQueryMonad m) => User -> m GYAddress
 getUserAddr user = pure . NE.head $ userAddresses user
+
+getTestCardanoUser :: (GYTxUserQueryMonad m) => User -> m CardanoUser
+getTestCardanoUser user = do
+  let cuserAddress = NE.head $ userAddresses user
+      cuserSigningKey = AGYPaymentSigningKey $ userPaymentSKey user
+      cuserVerificationKey = paymentVerificationKey $ userPaymentSKey user
+  cuserAddressPubKeyHash <- case addressToPubKeyHash cuserAddress of
+    Just pkh -> pure pkh
+    Nothing -> throwAppError $ someBackendError "Can't construct pubkey hash"
+
+  pure CardanoUser {..}

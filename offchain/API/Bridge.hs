@@ -32,7 +32,35 @@ data BridgeApi mode = BridgeApi
 bridgeServer :: BridgeApi (AsServerT AppM)
 bridgeServer =
   BridgeApi
-    { create = asks appAdmin >>= createBridgeHandler,
+    { create = createBridgeApiHandler,
       read = asks appAdmin >>= readBridgeHandler . cuserAddressPubKeyHash,
-      update = asks appAdmin >>= updateBridgeHandler
+      update = updateBridgeApiHandler
     }
+  where
+    createBridgeApiHandler = do
+      AppEnv {..} <- ask
+      skeleton <- createBridgeHandler appAdmin
+      buildAndRunGY
+        (cuserSigningKey appAdmin)
+        Nothing
+        [cuserAddress appAdmin]
+        (cuserAddress appAdmin)
+        Nothing
+        $ pure skeleton
+    updateBridgeApiHandler = do
+      AppEnv {..} <- ask
+      skeleton <- updateBridgeHandler appAdmin
+      buildAndRunGY
+        (cuserSigningKey appAdmin)
+        Nothing
+        [cuserAddress appAdmin]
+        (cuserAddress appAdmin)
+        Nothing
+        $ pure skeleton
+
+-- -- update the bridged state after we update the bridge
+-- liftIO $ modifyMVar_ appStateW $ \state' -> do
+--   let newBridgeState = state'.bridgeState {bridgedSkyDa = da}
+--       newState = state' {bridgeState = newBridgeState}
+--   modifyMVar_ appStateR . const . return $ newState
+--   pure newState

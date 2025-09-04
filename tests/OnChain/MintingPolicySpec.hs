@@ -48,14 +48,14 @@ mintingPolicyTest TestInfo {..} topHash = do
   bridgeVAddr <- bridgeValidatorAddress $ BridgeParams curSym
 
   asUser (admin testWallets) $ do
-    mintSkeleton <-
-      mkMintingSkeleton
-        "SkyBridge"
-        skyToken
-        skyPolicy
-        (BridgeDatum topHash)
-        bridgeVAddr
-        pkh
+    let mintSkeleton =
+          mkMintingSkeleton
+            "SkyBridge"
+            skyToken
+            skyPolicy
+            (BridgeDatum topHash)
+            bridgeVAddr
+            pkh
     -- gyLogDebug' "" $ printf "tx skeleton: %s" (show mintSkeleton)
     txId <- buildTxBody mintSkeleton >>= signAndSubmitConfirmed
     gyLogDebug' "" $ printf "tx submitted, txId: %s" txId

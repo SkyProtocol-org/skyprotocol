@@ -1,12 +1,10 @@
 module Transaction.Bounty where
 
 import Contract.Bounty (BountyDatum, BountyRedeemer)
-import GHC.Stack (HasCallStack)
 import GeniusYield.TxBuilder
 import GeniusYield.Types
 
 mkOfferBountySkeleton ::
-  (HasCallStack, GYTxBuilderMonad m) =>
   -- | Where to send
   GYAddress ->
   BountyDatum ->
@@ -16,20 +14,18 @@ mkOfferBountySkeleton ::
   GYAssetClass ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV3)
+  GYTxSkeleton 'PlutusV3
 mkOfferBountySkeleton addr datum amount assetClass signer =
-  pure $
-    mustHaveOutput
-      GYTxOut
-        { gyTxOutAddress = addr,
-          gyTxOutValue = valueSingleton assetClass amount,
-          gyTxOutDatum = Just (datumFromPlutusData datum, GYTxOutUseInlineDatum),
-          gyTxOutRefS = Nothing
-        }
-      <> mustBeSignedBy signer
+  mustHaveOutput
+    GYTxOut
+      { gyTxOutAddress = addr,
+        gyTxOutValue = valueSingleton assetClass amount,
+        gyTxOutDatum = Just (datumFromPlutusData datum, GYTxOutUseInlineDatum),
+        gyTxOutRefS = Nothing
+      }
+    <> mustBeSignedBy signer
 
 mkClaimBountySkeleton ::
-  (HasCallStack, GYTxBuilderMonad m) =>
   -- | Deadline
   GYSlot ->
   -- | Where to get funds
@@ -46,7 +42,7 @@ mkClaimBountySkeleton ::
   Integer ->
   -- | Signer
   GYPubKeyHash ->
-  m (GYTxSkeleton 'PlutusV3)
+  GYTxSkeleton 'PlutusV3
 mkClaimBountySkeleton
   deadlineSlot
   bountyRef
@@ -56,25 +52,24 @@ mkClaimBountySkeleton
   recipientAddr
   amt
   signer =
-    pure $
-      mustHaveRefInput nftRef
-        <> mustHaveInput
-          ( GYTxIn
-              { gyTxInTxOutRef = bountyRef,
-                gyTxInWitness =
-                  GYTxInWitnessScript
-                    (GYBuildPlutusScriptInlined validator)
-                    Nothing -- datum can be omitted if it was inlined
-                    $ redeemerFromPlutusData redeemer
-              }
-          )
-        <> mustHaveOutput
-          ( GYTxOut
-              { gyTxOutAddress = recipientAddr,
-                gyTxOutValue = valueSingleton GYLovelace amt,
-                gyTxOutDatum = Nothing,
-                gyTxOutRefS = Nothing
-              }
-          )
-        <> isInvalidAfter deadlineSlot
-        <> mustBeSignedBy signer
+    mustHaveRefInput nftRef
+      <> mustHaveInput
+        ( GYTxIn
+            { gyTxInTxOutRef = bountyRef,
+              gyTxInWitness =
+                GYTxInWitnessScript
+                  (GYBuildPlutusScriptInlined validator)
+                  Nothing -- datum can be omitted if it was inlined
+                  $ redeemerFromPlutusData redeemer
+            }
+        )
+      <> mustHaveOutput
+        ( GYTxOut
+            { gyTxOutAddress = recipientAddr,
+              gyTxOutValue = valueSingleton GYLovelace amt,
+              gyTxOutDatum = Nothing,
+              gyTxOutRefS = Nothing
+            }
+        )
+      <> isInvalidAfter deadlineSlot
+      <> mustBeSignedBy signer

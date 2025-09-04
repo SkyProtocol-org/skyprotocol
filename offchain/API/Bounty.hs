@@ -35,20 +35,39 @@ bountyServer =
   where
     offerBountyApiHandler OfferBountyRequest {..} = do
       AppEnv {..} <- ask
-      offerBountyHandler
-        obrTopicId
-        obrMessageHash
-        obrDeadline
-        obrAmount
-        (cuserAddressPubKeyHash appAdmin)
-        (cuserAddressPubKeyHash appClaimant)
-        appOfferer
+      skeleton <-
+        offerBountyHandler
+          obrTopicId
+          obrMessageHash
+          obrDeadline
+          obrAmount
+          (cuserAddressPubKeyHash appAdmin)
+          (cuserAddressPubKeyHash appClaimant)
+          appOfferer
+
+      buildAndRunGY
+        (cuserSigningKey appOfferer)
+        Nothing
+        [cuserAddress appOfferer]
+        (cuserAddress appOfferer)
+        Nothing
+        $ pure skeleton
+
     claimBountyApiHandler ClaimBountyRequest {..} = do
       AppEnv {..} <- ask
-      claimBountyHandler
-        cbrTopicId
-        cbrMessageId
-        cbrMessageHash
-        (cuserAddressPubKeyHash appAdmin)
-        (cuserAddressPubKeyHash appOfferer)
-        appClaimant
+      skeleton <-
+        claimBountyHandler
+          cbrTopicId
+          cbrMessageId
+          cbrMessageHash
+          (cuserAddressPubKeyHash appAdmin)
+          (cuserAddressPubKeyHash appOfferer)
+          appClaimant
+
+      buildAndRunGY
+        (cuserSigningKey appClaimant)
+        Nothing
+        [cuserAddress appClaimant]
+        (cuserAddress appClaimant)
+        Nothing
+        $ pure skeleton
