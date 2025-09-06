@@ -20,26 +20,28 @@
       let
         # TODO: get overlays in their own file and leave only the skyAtlas config here
         overlay = final: prev: {
-          cardano-cli = with final; stdenv.mkDerivation rec {
-            pname = "cardano-cli";
-            version = "10.11.0.0";
-
-            src = fetchurl {
-              url = "https://github.com/IntersectMBO/cardano-cli/releases/download/cardano-cli-${version}/cardano-cli-${version}-${system}.tar.gz";
-              sha256 = "sha256-bPc3a5NWX+GzVgSlKk2XoE7OhMZZ78wq5olSZr2J6OI=";
-            };
-
-            nativeBuildInputs = [ autoPatchelfHook ];
-            buildInputs = [ zlib ];
-
-            sourceRoot = ".";
-
-            installPhase = ''
-              mkdir -p $out/bin
-              cp "cardano-cli-${system}" $out/bin/cardano-cli
-              chmod +x $out/bin/cardano-cli
-            '';
-          };
+#          cardano-cli = with final; stdenv.mkDerivation rec {
+#            pname = "cardano-cli";
+#            version = "10.11.0.0";
+#
+#            src = fetchurl {
+#              url = "https://github.com/IntersectMBO/cardano-cli/releases/download/cardano-cli-${version}/cardano-cli-${version}-${system}.tar.gz";
+#              sha256 = if system == "x86_64-linux" then "sha256-bPc3a5NWX+GzVgSlKk2XoE7OhMZZ78wq5olSZr2J6OI="
+#                       else if system == "aarch64-linux" then "sha256-S6P/VaFaQVmtJDv5VaFIDOHdtSgLMdQVZ3g6LwaK59c="
+#                       else "sha256-Please/update/flake//with/code/for/your/sys=";
+#            };
+#
+#            nativeBuildInputs = [ autoPatchelfHook ];
+#            buildInputs = [ zlib ];
+#
+#            sourceRoot = ".";
+#
+#            installPhase = ''
+#              mkdir -p $out/bin
+#              cp "cardano-cli-${system}" $out/bin/cardano-cli
+#              chmod +x $out/bin/cardano-cli
+#            '';
+#          };
           haskell-nix = prev.haskell-nix // {
             extraPkgconfigMappings = prev.haskell-nix.extraPkgconfigMappings // {
               # String pkgconfig-depends names are mapped to lists of Nixpkgs
@@ -91,26 +93,30 @@
             skyAtlasProject =
               final.haskell-nix.project' {
                 src = ./.;
+                #index-state = "2025-07-01T00:25:25Z";
+                #index-state = "2025-06-19T03:58:53Z";
+                index-state = "2025-04-15T19:49:23Z";
                 compiler-nix-name = "ghc966";
                 # This is used by `nix develop .` to open a shell for use with
                 # `cabal`, `hlint` and `haskell-language-server`
-                shell.tools = {
-                  cabal = { };
-                  hlint = { };
-                  haskell-language-server = { };
-                  fourmolu = { };
-                  cabal-fmt = { };
+                shell = {
+                  withHoogle = false;
+                  tools = {
+                    cabal = { };
+                    cabal-fmt = { };
+                    fourmolu = { };
+                    haskell-language-server = { };
+                    hlint = { };
+                  };
                 };
 
                 # Non-Haskell shell tools go here
                 shell.buildInputs = with final; [
                   nixpkgs-fmt
-                  cardano-cli
+                  #cardano-cli
                   haskellPackages.lzma
                 ];
 
-                # ???: Fix for `nix flake show --allow-import-from-derivation`
-                evalSystem = "x86_64-linux";
                 inputMap = { "https://chap.intersectmbo.org/" = CHaP; };
 
                 # modules = with final; [{
