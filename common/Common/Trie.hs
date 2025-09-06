@@ -7,7 +7,7 @@ module Common.Trie where
 
 import Common.Crypto
 import Common.Types
-import Control.Monad (Monad, (>=>))
+import Control.Monad (Monad, (>=>), foldM)
 import Data.Function ((&))
 import GHC.Generics (Generic)
 import PlutusTx
@@ -764,6 +764,19 @@ zipNextIndex z =
     . \case
       Nothing -> 0
       Just (k, _) -> 1 + toInt k
+
+zipForgetBefore :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c, MaybeRef e (LiftRef r), Monad e) => TrieZipper r h k c -> e (TrieZipper r h k c)
+zipForgetBefore (Zip f p) = pathForgetBefore [] p >>= return . Zip f
+
+pathForgetBefore :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c, MaybeRef e (LiftRef r), Monad e) => [TrieStep h k (TrieNodeRef r h k c)] -> TriePath h k (TrieNodeRef r h k c) -> e (TriePath h k (TrieNodeRef r h k c))
+pathForgetBefore l p =
+  pathStep p >>= \case
+    Nothing -> foldM (flip stepDown) p l
+    Just (s, p') -> do
+      s' <- case s of
+              LeftStep o -> forgetRef o >>= return . LeftStep
+              _ -> return s
+      pathForgetBefore (s' : l) p'
 
 appendListOfZipper :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> [(k, c)] -> e [(k, c)]
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =

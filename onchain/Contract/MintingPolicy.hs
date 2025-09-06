@@ -14,7 +14,7 @@ import PlutusTx.Prelude
 import PlutusTx.Prelude qualified as PlutusTx
 import Prelude qualified as HP
 
-newtype SkyMintingParams = SkyMintingParams PubKeyHash
+newtype SkyMintingParams = SkyMintingParams { smpPubKeyHash :: PubKeyHash }
   deriving newtype (Generic, HP.Show)
   deriving anyclass (HasBlueprintDefinition)
 
@@ -54,10 +54,10 @@ skyUntypedMintingPolicy ::
   SkyMintingParams ->
   BuiltinData ->
   BuiltinUnit
-skyUntypedMintingPolicy pkh ctx =
+skyUntypedMintingPolicy smp ctx =
   PlutusTx.check
     ( skyTypedMintingPolicy
-        pkh
+        smp
         ()
         (PlutusTx.unsafeFromBuiltinData ctx)
     )
@@ -65,6 +65,6 @@ skyUntypedMintingPolicy pkh ctx =
 skyMintingPolicyScript ::
   SkyMintingParams ->
   CompiledCode (BuiltinData -> BuiltinUnit)
-skyMintingPolicyScript pkh =
+skyMintingPolicyScript smp =
   $$(PlutusTx.compile [||skyUntypedMintingPolicy||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef pkh
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCodeDef smp

@@ -9,6 +9,7 @@ import Cardano.Crypto.DSIGN.Ed25519 (Ed25519DSIGN, SignKeyDSIGN (..))
 import Common.Types
 import Control.Monad (Monad)
 import Data.Aeson
+import Data.Functor.Identity (Identity (..))
 import GHC.Generics (Generic)
 import PlutusLedgerApi.V1.Crypto (PubKeyHash (..))
 import PlutusTx as P
@@ -124,6 +125,10 @@ class (IsHash d) => DigestibleRef d r | r -> d where
   lookupHashRef :: (ToByteString a) => d -> r a
   lookupHashRef d = makeHashRef d $ lookupDigest d
 
+class Monad e => MaybeRef e r where
+  maybeDeref :: r x -> e (Maybe x) -- get the x if available
+  forgetRef :: r x -> e (r x) -- forget the x, keep any ancillary data (e.g. the hash)
+
 -- * Instances
 
 -- ** Digest
@@ -215,7 +220,6 @@ instance (IsHash d, Monad e) => LiftWrapping e (HashRef d) where
 -- instance (IsHash d, MonadReader r m) => LiftWrapping m (HashRef d) where
 --   liftUnwrap = unwrap
 
-{-
 -- ** HashMRef
 
 instance (IsHash d, P.Show a) => P.Show (HashMRef d a) where
@@ -237,10 +241,10 @@ instance (IsHash d) => ToByteString (HashMRef d x) where
 
 instance (IsHash d, ToByteString x, FromByteString x) => FromByteString (HashMRef d x) where
   fromByteString = lookupHashRef . fromByteString
-  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashMRef
+  byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashRef
 
 instance (IsHash d, Dato a) => PreWrapping Identity (HashMRef d) a where
-  wrap = return . digestRef
+  wrap = return . digestMRef
 
 -- Unsafe. TODO: Implement a safer version with an error monad
 instance (IsHash d, Dato a) => Wrapping Identity (HashMRef d) a where
@@ -277,7 +281,12 @@ instance (IsHash d) => LiftWrapping Identity (HashMRef d) where
 
 -- instance (IsHash d, MonadReader r m) => LiftWrapping m (HashMRef d) where
 --   liftUnwrap = unwrap
--}
+
+instance (IsHash d, Monad e) => MaybeRef e (HashMRef d) where
+  maybeDeref = return . hashMRefValue
+  forgetRef r = case r of
+    HashMRef _ Nothing -> return r
+    HashMRef d _ -> return $ HashMRef d Nothing
 
 -- ** LiftRef
 
@@ -288,6 +297,14 @@ instance (IsHash d) => DigestibleRef d (LiftRef (HashRef d)) where
 instance (IsHash d) => DigestibleRef d (LiftRef (Digest d)) where
   refDigest = getDigest . liftref
   makeHashRef d _ = LiftRef . Digest $ d
+
+instance (IsHash d) => DigestibleRef d (LiftRef (HashMRef d)) where
+  refDigest = refDigest . liftref
+  makeHashRef d a = LiftRef $ makeHashRef d a
+
+instance (IsHash d, Monad e) => MaybeRef e (LiftRef (HashMRef d)) where
+  maybeDeref = maybeDeref . liftref
+  forgetRef r = (forgetRef . liftref $ r) >>= return . LiftRef
 
 -- ** SecKey
 
@@ -317,6 +334,9 @@ computeDigest = hashFunction . toByteString
 
 digestRef :: (IsHash d, ToByteString a) => a -> HashRef d a
 digestRef a = HashRef (computeDigest a) a
+
+digestMRef :: (IsHash d, ToByteString a) => a -> HashMRef d a
+digestMRef a = HashMRef (computeDigest a) (Just a)
 
 -- Make that a monadic method on a typeclass with a cache/db for lookup
 lookupDigest :: (IsHash d) => d -> a
