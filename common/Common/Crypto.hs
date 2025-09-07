@@ -288,6 +288,10 @@ instance (IsHash d, Monad e) => MaybeRef e (HashMRef d) where
     HashMRef _ Nothing -> return r
     HashMRef d _ -> return $ HashMRef d Nothing
 
+instance (Monad e) => MaybeRef e Maybe where
+  maybeDeref = return
+  forgetRef _ = return Nothing
+
 -- ** LiftRef
 
 instance (IsHash d) => DigestibleRef d (LiftRef (HashRef d)) where
@@ -303,6 +307,10 @@ instance (IsHash d) => DigestibleRef d (LiftRef (HashMRef d)) where
   makeHashRef d a = LiftRef $ makeHashRef d a
 
 instance (IsHash d, Monad e) => MaybeRef e (LiftRef (HashMRef d)) where
+  maybeDeref = maybeDeref . liftref
+  forgetRef r = (forgetRef . liftref $ r) >>= return . LiftRef
+
+instance (Monad e) => MaybeRef e (LiftRef Maybe) where
   maybeDeref = maybeDeref . liftref
   forgetRef r = (forgetRef . liftref $ r) >>= return . LiftRef
 

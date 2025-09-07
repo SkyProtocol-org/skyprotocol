@@ -77,6 +77,8 @@ class (LiftPreWrapping e r) => LiftWrapping e r where
 
 -- * Instances
 
+--- * Identity
+
 instance (Monad e, Dato a) => PreWrapping e Identity a where
   wrap = return . Identity
 
@@ -113,6 +115,56 @@ instance LiftPreWrapping Identity Identity where
   liftWrap = wrap
 
 instance LiftWrapping Identity Identity where
+  liftUnwrap = unwrap
+
+--- * Maybe
+
+instance (Monad e, Dato a) => PreWrapping e Maybe a where
+  wrap = return . Just
+
+-- TODO: This is unsafe. Do without it?
+instance (Dato a) => Wrapping Identity Maybe a where
+  unwrap = return . fromJust
+
+instance (Dato a) => Wrapping Maybe Maybe a where
+  unwrap = id
+
+{- -- TODO How do we parameterize over what error is thrown for the Nothing case?
+instance (MonadError e m, Dato a) => Wrapping m Identity a where
+  unwrap Nothing = throwError "Found Nothing"
+  unwrap (Just x) = return x
+-}
+
+instance LiftEq Maybe where
+  liftEq = (==)
+
+instance LiftShow Maybe where
+  liftShowsPrec = showsPrec
+
+instance LiftToByteString Maybe where
+  liftByteStringOut = byteStringOut
+  liftToByteString = toByteString
+
+instance LiftFromByteString Maybe where
+  liftFromByteString = fromByteString
+  liftByteStringIn = byteStringIn
+
+instance LiftToData Maybe where
+  liftToBuiltinData = toBuiltinData
+
+instance LiftFromData Maybe where
+  liftFromBuiltinData = fromBuiltinData
+
+instance LiftUnsafeFromData Maybe where
+  liftUnsafeFromBuiltinData = unsafeFromBuiltinData
+
+instance Monad e => LiftPreWrapping e Maybe where
+  liftWrap = wrap
+
+instance LiftWrapping Identity Maybe where
+  liftUnwrap = unwrap
+
+instance LiftWrapping Maybe Maybe where
   liftUnwrap = unwrap
 
 -- ** Fix: Y-combinator or fixed point combinator for types
@@ -185,7 +237,7 @@ instance (LiftDato r, Dato a) => P.Eq (LiftRef r a) where
   LiftRef x == LiftRef y = x `liftEq` y
 
 instance (LiftDato r, Dato a) => HP.Eq (LiftRef r a) where
-  (==) = (HP.==)
+  (==) = (P.==)
 
 instance (LiftDato r, Dato a) => P.Show (LiftRef r a) where
   showsPrec prec (LiftRef ra) = showApp prec "LiftRef" [liftShowsPrec 11 ra]

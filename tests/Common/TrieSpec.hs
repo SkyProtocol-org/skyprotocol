@@ -119,6 +119,45 @@ trieSpec =
                         testLookup initialValues 42 Nothing
                         testLookup [(1, "1"), (0, "0")] 0 $ Just "0"
                         testLookup [(9223372036854775808, "")] 9223372036854775808 $ Just "",
+                      testCase "forgetBefore" $
+{-                        (ofList [(2 :: Integer, ("b" :: BuiltinString)), (4, "d"),
+                                  (9, "i"), (10, "j"), (12, "l"),
+                                  (25, "y"), (666, "$")]
+                          >>= zipperOf >>= refocus (10 :: Integer) >>= zipForgetBefore >>= ofZipper) -}
+                        (Just . TrieTop 10 . LiftRef . Just . Fix . TrieNodeFL $ Branch
+                             (LiftRef . Just . Fix . TrieNodeFL $ Skip 3 0 $
+                              LiftRef . Just . Fix . TrieNodeFL $ Branch
+                               (LiftRef . Just . Fix . TrieNodeFL $ Branch
+                                (LiftRef Nothing)
+                                (LiftRef . Just . Fix . TrieNodeFL $ Branch
+                                 (LiftRef . Just . Fix . TrieNodeFL $ Branch
+                                  (LiftRef Nothing)
+                                  (LiftRef . Just . Fix . TrieNodeFL $ Skip 0 0 $
+                                   LiftRef . Just . Fix . TrieNodeFL $ Leaf "j"))
+                                 (LiftRef . Just . Fix . TrieNodeFL $ Skip 1 0 $
+                                  LiftRef . Just . Fix . TrieNodeFL $ Leaf "l")))
+                               (LiftRef . Just . Fix . TrieNodeFL $ Skip 3 9 $
+                                LiftRef . Just . Fix . TrieNodeFL $ Leaf "y"))
+                             (LiftRef . Just . Fix . TrieNodeFL $ Skip 8 154 $
+                              LiftRef . Just . Fix . TrieNodeFL $ Leaf "$")
+                             :: Maybe (Trie Maybe Integer Integer BuiltinString))
+                        @?= (Just . TrieTop 10 . LiftRef . Just . Fix . TrieNodeFL $ Branch
+                             (LiftRef . Just . Fix . TrieNodeFL $ Skip 3 0 $
+                              LiftRef . Just . Fix . TrieNodeFL $ Branch
+                               (LiftRef . Just . Fix . TrieNodeFL $ Branch
+                                (LiftRef Nothing)
+                                (LiftRef . Just . Fix . TrieNodeFL $ Branch
+                                 (LiftRef . Just . Fix . TrieNodeFL $ Branch
+                                  (LiftRef Nothing)
+                                  (LiftRef . Just . Fix . TrieNodeFL $ Skip 0 0 $
+                                   LiftRef . Just . Fix . TrieNodeFL $ Leaf "j"))
+                                 (LiftRef . Just . Fix . TrieNodeFL $ Skip 1 0 $
+                                  LiftRef . Just . Fix . TrieNodeFL $ Leaf "l")))
+                               (LiftRef . Just . Fix . TrieNodeFL $ Skip 3 9 $
+                                LiftRef . Just . Fix . TrieNodeFL $ Leaf "y"))
+                             (LiftRef . Just . Fix . TrieNodeFL $ Skip 8 154 $
+                              LiftRef . Just . Fix . TrieNodeFL $ Leaf "$")
+                             :: Maybe (Trie Maybe Integer Integer BuiltinString)),
                       testProperty "testing creation of random tries" $ \(listOfK :: [Bytes8]) ->
                         let someTrie :: S = runIdentity $ ofList $ zip listOfK $ fmap PS.show listOfK
                          in case listOfK of

@@ -30,7 +30,7 @@ type Trie r h k c = TrieTop (TrieNodeRef r h k c)
 -- | TrieTop can be seen as a simplified TrieZip where k=0, m=0
 -- Or should we just be using an actual TrieZip???
 newtype TrieTop t = TrieTop_ (Integer, t)
-  deriving (Eq, ToData, FromData, UnsafeFromData) via (Integer, t)
+  deriving (Eq, HP.Eq, HP.Show, ToData, FromData, UnsafeFromData) via (Integer, t)
 
 -- | 'Integer' height of the largest key in the Trie, -1 if empty; 't' top node in the Trie
 pattern TrieTop :: Integer -> t -> TrieTop t
@@ -774,7 +774,7 @@ pathForgetBefore l p =
     Nothing -> foldM (flip stepDown) p l
     Just (s, p') -> do
       s' <- case s of
-              LeftStep o -> forgetRef o >>= return . LeftStep
+              RightStep o -> forgetRef o >>= return . RightStep
               _ -> return s
       pathForgetBefore (s' : l) p'
 
