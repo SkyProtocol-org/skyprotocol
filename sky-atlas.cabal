@@ -125,11 +125,13 @@ library offchain
     App
     App.Env
     App.Error
+    App.Retention
     Handler
     Handler.Bounty
     Handler.Bridge
     Handler.Da
     Script
+    Timer
     Transaction
     Transaction.Bounty
     Transaction.Bridge
@@ -147,6 +149,7 @@ library offchain
     , plutus-ledger-api
     , plutus-tx
     , plutus-tx-plugin
+    , pqueue
     , servant-openapi3
     , servant-server
     , servant-swagger-ui

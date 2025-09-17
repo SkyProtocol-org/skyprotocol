@@ -2,6 +2,7 @@ module App.Env where
 
 import API.Types (UserDb (..))
 import App.Error
+import App.Retention
 import Common
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
@@ -100,8 +101,8 @@ data AppState = AppState
     bridgeState :: BridgeState,
     -- Not Implemented Yet:
 
-    -- | Queue SignedBlocks -- old blocks to be gradually forgotten per retention policy
-    oldBlockQueue :: (),
+    retentionState :: RetentionState,
+
     -- | table of candidate blocks being signed but not yet fully completed
     partialSignatures :: (),
     -- | stake for upstream proof-of-stake
@@ -154,7 +155,7 @@ initAppState blockS bridgeS =
   AppState
     { blockState = blockS,
       bridgeState = bridgeS,
-      oldBlockQueue = (),
+      retentionState = initialRetentionState,
       partialSignatures = (),
       stake = (),
       peers = (),
@@ -226,3 +227,12 @@ withAppEnv adminKeys offererKeys claimantKeys f = do
             case eitherAppEnv of
               Left err -> liftIO $ print err
               Right appEnv -> f appEnv
+
+modifyAppState :: AppEnv -> (AppState -> IO (AppState, a)) -> IO a
+modifyAppState appEnv f = do
+  let stateW = appStateW appEnv
+      stateR = appStateR appEnv
+  modifyMVar stateW $ \state -> do
+    (newState, result) <- f state
+    modifyMVar_ stateR . const . return $ newState
+    return (newState, result)

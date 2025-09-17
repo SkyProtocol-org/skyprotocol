@@ -778,9 +778,11 @@ pathForgetBefore l p =
               _ -> return s
       pathForgetBefore (s' : l) p'
 
+forgetBefore :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c, MaybeRef e (LiftRef r), Monad e) => k -> Trie r h k c -> e (Trie r h k c)
+forgetBefore k = zipperOf >=> refocus k >=> zipForgetBefore >=> ofZipper
+
 appendListOfZipper :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => TrieZipper r h k c -> [(k, c)] -> e [(k, c)]
 appendListOfZipper (Zip (t :: TrieNodeRef r h k c) p@(TriePath _ k _ _)) a =
-  -- trace "aloz" $
   fr t >>= \case
     Empty -> return a
     Leaf v -> return ((k, v) : a)
@@ -833,6 +835,11 @@ ofList bindings = empty >>= zipperOf >>= zipInsertList bindings >>= ofZipper
 
 listOf :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) => Trie r h k c -> e [(k, c)]
 listOf = zipperOf >=> flip appendListOfZipper []
+
+-- TODO: make a Trie traversable, use that, etc.
+trieMap :: (TrieHeightKey h k, LiftWrapping e r, Monad e, Applicative e, LiftDato r, Dato c, Dato c') =>
+  (k -> c -> e c') -> Trie r h k c -> e (Trie r h k c')
+trieMap f t = listOf t >>= mapM (\(k, c) -> f k c >>= \c' -> return (k, c')) >>= ofList
 
 -- TODO: have merkle proofs of Non-Inclusion, by showing the last not before Empty.
 getMerkleProof ::

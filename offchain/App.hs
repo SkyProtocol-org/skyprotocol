@@ -12,6 +12,7 @@ module App
     runGY,
     buildAndRunGY,
     runAnyGY,
+    runDataRetentionJob,
     module App.Env,
     module App.Error,
   )
@@ -20,6 +21,7 @@ where
 import API.Types
 import App.Env
 import App.Error
+import App.Retention
 import Control.Concurrent.STM
 import Control.Monad.Except
 import Control.Monad.Reader
@@ -30,6 +32,7 @@ import GeniusYield.TxBuilder hiding (User)
 import GeniusYield.Types
 import Log
 import Servant
+import Utils
 
 newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
   deriving newtype
@@ -240,3 +243,14 @@ runAnyGY psk ssk addrs addr collateral action = do
                   )
           )
           action
+
+runDataRetentionJob :: AppEnv -> IO ()
+runDataRetentionJob appEnv =
+  modifyAppState appEnv \state -> do
+    let rs = state.retentionState
+        bs = state.blockState
+        da = bs.skyDa
+    t <- currentPOSIXTime
+    (da', rs') <- applyDataRetentionPolicy t da rs
+    let bs' = bs {skyDa = da'}
+    return (state {blockState = bs', retentionState = rs'}, ())

@@ -194,7 +194,6 @@ class FromByteString a where
 
   byteStringIn :: IsTerminal -> ByteStringReader a
 
-  --  ??? THIS CAUSES HAVOC IN THE PLUTUS COMPILER, WHY???
   {-# INLINEABLE maybeFromByteString #-}
   maybeFromByteString :: BuiltinByteString -> Maybe a
   maybeFromByteString = maybeFromByteStringIn
@@ -456,11 +455,7 @@ instance FromInt UInt16 where
   maybeFromInt = maybeValidate . UInt16
 
 instance ToByteString UInt16 where
-  -- toByteString (UInt16 n) = consByteString (divideInteger n 256) $ consByteString (modInteger n 256) emptyByteString
   toByteString (UInt16 n) = integerToByteString BigEndian 2 n
-
--- This is the default method, we shouldn't have to repeat it:
--- byteStringOut a _ = appendByteString $ toByteString a
 
 instance FromByteString UInt16 where
   {-# INLINEABLE fromByteString #-}
@@ -688,8 +683,7 @@ instance BitLogic P.Integer where
   shiftLeft b i = b * exponential 2 i
   shiftLeftWithBits a l b = (a `shiftLeft` l) + b
 
--- ** POSIXTime
-
+-- ** POSIXTime (measured as the number of /milliseconds/ since 1970-01-01T00:00:00Z.)
 instance P.Show POSIXTime where
   showsPrec prec (POSIXTime x) = showApp prec "POSIXTime" [showArg x]
 
