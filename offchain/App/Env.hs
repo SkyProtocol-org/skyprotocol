@@ -121,7 +121,7 @@ data AppState = AppState
 -- | long term storage of data, if any
 data BlockState = BlockState
   { -- | data published on the DA
-    skyDa :: SkyDa (HashRef Hash),
+    skyDa :: SkyDa (HashMRef Hash),
     -- | Not Implemented Yet:
     -- | current topic
     topic :: (),
@@ -136,10 +136,10 @@ data BlockState = BlockState
   }
 
 newtype BridgeState = BridgeState
-  { bridgedSkyDa :: SkyDa (HashRef Hash) -- data published on the DA *and* bridged on the blockchain
+  { bridgedSkyDa :: SkyDa (HashMRef Hash) -- data published on the DA *and* bridged on the blockchain
   }
 
-initBlockState :: SkyDa (HashRef Hash) -> BlockState
+initBlockState :: SkyDa (HashMRef Hash) -> BlockState
 initBlockState da =
   BlockState
     { skyDa = da,
@@ -178,7 +178,7 @@ initEnv appConfig appUsers logger appProviders adminKeys offererKeys claimantKey
           adminPubKey = fromByteString $ toBuiltin adminPubKeyBytes
       let daSchema = computeDigest (ofHex "deadbeef" :: Bytes4)
           committee = MultiSigPubKey ([adminPubKey], UInt16 1)
-          skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashRef Hash)
+          skyDa = runIdentity $ initDa daSchema committee :: SkyDa (HashMRef Hash)
           blockState = initBlockState skyDa
           appState = initAppState blockState $ BridgeState skyDa
 

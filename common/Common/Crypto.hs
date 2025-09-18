@@ -19,6 +19,7 @@ import PlutusTx.List as P
 import PlutusTx.Prelude as P
 import PlutusTx.Show as P
 import Prelude qualified as HP
+import Prelude (IO)
 
 -- * Types
 
@@ -250,6 +251,14 @@ instance (IsHash d, Dato a) => PreWrapping Identity (HashMRef d) a where
 instance (IsHash d, Dato a) => Wrapping Identity (HashMRef d) a where
   unwrap = return . fromJust . hashMRefValue
 
+-- Unsafe. TODO: Implement a safer version with an error monad
+instance (IsHash d, Dato a) => PreWrapping IO (HashMRef d) a where
+  wrap = return . digestMRef
+
+-- Unsafe. TODO: Implement a safer version with an error monad
+instance (IsHash d, Dato a) => Wrapping IO (HashMRef d) a where
+  unwrap = return . fromJust . hashMRefValue
+
 instance (IsHash d) => LiftShow (HashMRef d) where
   liftShowsPrec = showsPrec
 
@@ -277,6 +286,12 @@ instance (IsHash d) => LiftPreWrapping Identity (HashMRef d) where
   liftWrap = wrap
 
 instance (IsHash d) => LiftWrapping Identity (HashMRef d) where
+  liftUnwrap = unwrap
+
+instance (IsHash d) => LiftPreWrapping IO (HashMRef d) where
+  liftWrap = wrap
+
+instance (IsHash d) => LiftWrapping IO (HashMRef d) where
   liftUnwrap = unwrap
 
 -- instance (IsHash d, MonadReader r m) => LiftWrapping m (HashMRef d) where

@@ -12,13 +12,14 @@ import PlutusTx.Prelude ((<&>))
 import qualified PlutusTx.Prelude as P
 import qualified PlutusTx.Show as P
 
+import Common.Crypto
 import Common.DA
 import Common.Types
 import Common.Trie as T
 
 -- For each topic we follow, a queue of moments at which to forget past data
 newtype RetentionState = RetentionState
-  { -- | Trie of (time, height)
+  { -- | Trie of (time, queue)
     topicRetentionQueues :: T.Trie Identity Byte TopicId (Q.MinQueue TopicRetentionMoment)
   } deriving (Generic)
   deriving (P.Eq, P.Show) via T.Trie Identity Byte TopicId (Q.MinQueue TopicRetentionMoment)
@@ -28,7 +29,7 @@ newtype TopicRetentionMoment = TopicRetentionMomentOfTuple
   } deriving (Eq, Show, P.Eq, P.Show, ToByteString, FromByteString, P.ToData, P.FromData, P.UnsafeFromData) via (POSIXTime, MessageId)
 
 pattern TopicRetentionMoment :: POSIXTime -> MessageId -> TopicRetentionMoment
-pattern TopicRetentionMoment {h, t} = TopicRetentionMomentOfTuple (h, t)
+pattern TopicRetentionMoment {topicRetentionTime, topicRetentionHeight} = TopicRetentionMomentOfTuple (topicRetentionTime, topicRetentionHeight)
 
 {-# COMPLETE TopicRetentionMoment #-}
 
@@ -59,16 +60,71 @@ instance (P.Eq a, Ord a) => P.Eq (MinQueue a) where
 initialRetentionState :: RetentionState
 initialRetentionState = runIdentity (T.empty <&> RetentionState)
 
-topicRetentionDurationInMilliseconds :: LiftWrapping e r => SkyDa r -> TopicId -> e Integer
-topicRetentionDurationInMilliseconds _ _ = return oneDayInMilliseconds
+-- TODO: at some point, make that depend on per-topic metadata
+topicRetentionDurationInMilliseconds :: Integer
+topicRetentionDurationInMilliseconds = oneDayInMilliseconds
 
 oneDayInMilliseconds :: Integer
 oneDayInMilliseconds = 24 * 60 * 1_000_000
 
-applyDataRetentionPolicy :: (LiftWrapping e r) =>
+topicRetentionCutoff :: POSIXTime -> Q.MinQueue TopicRetentionMoment -> (Maybe MessageId, Maybe (Q.MinQueue TopicRetentionMoment))
+topicRetentionCutoff currentTime queue =
+  case Q.getMin queue of
+    Nothing -> (Nothing, Just queue)
+    Just (TopicRetentionMoment mt mh) ->
+      let isRetained t =
+            getPOSIXTime t >= getPOSIXTime currentTime - topicRetentionDurationInMilliseconds
+          loop h q =
+            let qq = Q.deleteMin q in
+              case Q.getMin qq of
+                Nothing -> (Just h, Nothing)
+                Just (TopicRetentionMoment mmt mmh) ->
+                  if isRetained mmt
+                  then (Just h, Just qq)
+                  else loop mmh qq in
+        if isRetained mt
+        then (Nothing, Just queue)
+        else loop mh queue
+
+applyDataRetentionPolicy :: (LiftWrapping e r, LiftDato r, MaybeRef e (LiftRef r), LiftWrapping e Identity) =>
   POSIXTime -> SkyDa r -> RetentionState -> e (SkyDa r, RetentionState)
-applyDataRetentionPolicy t da rs = do
-  let rsl = runIdentity . T.listOf $ rs.topicRetentionQueues
-  let ttz = da.skyTopicTrie
-  -- XXX TODO -- IMPLEMENT IT XXX
-  return (da, rs)
+applyDataRetentionPolicy currentTime da rs = do
+  let stt = skyTopicTrie da
+  tA <- unwrap stt
+  let tB = rs.topicRetentionQueues
+  eA <- rf T.Empty
+  eB <- rf T.Empty
+  walkTriePair tA tB
+    {-recurse-} id
+    {-emptyCase-} (\ _ _ -> return (eA, eB))
+    {-leafCase-} (\_ te@(ltmd, lmt) rq ->
+                    let (mh, mq) = topicRetentionCutoff currentTime rq in
+                      case mh of
+                        Nothing -> do
+                          a' <- rf $ Leaf te
+                          b' <- rf $ Leaf rq
+                          return (a', b')
+                        Just h -> do
+                          mt <- unwrap lmt
+                          mt' <- forgetBefore h mt
+                          lmt' <- wrap mt'
+                          a' <- rf $ Leaf (ltmd, lmt')
+                          b' <- case mq of
+                                  Nothing -> return eB
+                                  Just q -> rf $ Leaf q
+                          return (a', b'))
+    {-branchCase-} (\_ _ (la, lb) (ra, rb) -> do
+                      a' <- makeBranch la ra
+                      b' <- makeBranch lb rb
+                      return (a', b'))
+    {-skipCase-} (\_ _ hBits bits (a, b) -> do
+                      a' <- stepUp (SkipStep hBits bits) a
+                      b' <- stepUp (SkipStep hBits bits) b
+                      return (a', b'))
+    {-onlyACase-} (\_ _ a -> return (a, eB))
+    {-onlyBCase-} (\_ _ b -> return (eA, b))
+    {-finish-} (\h (a, b) -> do
+                  ta' <- makeTop h a
+                  stt' <- wrap ta'
+                  rs' <- makeTop h b
+                  return (da {skyTopicTrie=stt'}, RetentionState rs'))

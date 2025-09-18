@@ -111,10 +111,10 @@ instance LiftUnsafeFromData Identity where
 instance LiftHasBlueprintSchema Identity where
   liftSchema (Proxy, s) = s
 
-instance LiftPreWrapping Identity Identity where
+instance Monad e => LiftPreWrapping e Identity where
   liftWrap = wrap
 
-instance LiftWrapping Identity Identity where
+instance Monad e => LiftWrapping e Identity where
   liftUnwrap = unwrap
 
 --- * Maybe

@@ -864,3 +864,158 @@ applyMerkleProof :: (TrieHeightKey h k, Monad e, IsHash d) => d -> TriePath h k 
 applyMerkleProof leafDigest proof =
   zipUp (\s h -> return $ digestTrieStep s h) (Zip leafDigest proof)
     >>= \(Zip d (TriePath hh _ _ _)) -> return . computeDigest . toByteString $ TrieTop hh d
+
+ensureHeight :: (TrieHeightKey h k,
+                 LiftWrapping e r, LiftDato r, Dato c) =>
+                Integer -> TrieZipper r h k c -> e (TrieZipper r h k c)
+ensureHeight hMin z@(Zip f p@(TriePath h _ _ _)) =
+  if h >= hMin then return z
+  else pathStep p >>= \case
+    Just (s, p') -> stepUp s f >>= \f' -> ensureHeight hMin (Zip f' p')
+    Nothing -> do
+      let k0 = lowBitsMask 0
+      f' <- stepUp (SkipStep (fromInt $ hMin - h - 1) k0) f
+      return . Zip f' $ TriePath hMin k0 k0 []
+
+ensureSameHeight :: (TrieHeightKey h k,
+                 LiftWrapping e r, LiftDato r, Dato a,
+                 LiftWrapping e s, LiftDato s, Dato b)
+                 => Trie r h k a -> Trie s h k b -> e (TrieZipper r h k a, TrieZipper s h k b)
+ensureSameHeight a b = do
+  za <- zipperOf a >>= ensureHeight (trieTopHeight b)
+  zb <- zipperOf b >>= ensureHeight (trieTopHeight a)
+  return (za, zb)
+
+{- Given (the data of) a skip node, and a height at which to cut it (at least 0,
+   and no more than the skip node's bits-height), return the two notionally
+   equivalent branches (one of them empty) of the lower part of the cut. -}
+skipChoice :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
+  k -> TrieNodeRef r h k c -> Integer -> e (TrieNodeRef r h k c, TrieNodeRef r h k c)
+skipChoice bits child cutHeight = do
+  t <- if cutHeight == 0 then return child else stepUp (SkipStep (fromInt $ cutHeight - 1) bits) child
+  e <- rf Empty
+  if isBitSet (toInt cutHeight) bits then return (e, t) else return (t, e)
+
+makeSkip :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
+  Integer -> k -> TrieNodeRef r h k c -> e (TrieNodeRef r h k c)
+makeSkip bitsLength bits child =
+  if bitsLength == 0 then return child else
+    stepUp (SkipStep (fromInt $ bitsLength - 1) bits) child
+
+makeBranch :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
+  TrieNodeRef r h k c -> TrieNodeRef r h k c -> e (TrieNodeRef r h k c)
+makeBranch l r = do
+  ul <- fr l
+  case ul of
+    Empty -> makeSkip 1 (lowBitsMask 1) r
+    _ -> do
+      ur <- fr r
+      case ur of
+        Empty -> makeSkip 1 (lowBitsMask 0) l
+        _ -> rf $ Branch l r
+
+makeTop :: (TrieHeightKey h k, LiftWrapping e r, LiftDato r, Dato c) =>
+  Integer -> TrieNodeRef r h k c -> e (Trie r h k c)
+makeTop h t = ofTopZipper . Zip t $ TriePath h (fromInt 0) (lowBitsMask 0) []
+
+leftKey :: TrieKey k => Integer -> k -> k
+leftKey _h k = shiftLeft k 1
+
+rightKey :: TrieKey k => Integer -> k -> k
+rightKey _h k = shiftLeftWithBits k 1 $ lowBitsMask 1
+
+-- Describes a recursive computation over a pair of tries in great generality.
+walkTriePair :: (TrieHeightKey h k,
+                 LiftWrapping e r, LiftDato r, Dato a,
+                 LiftWrapping e s, LiftDato s, Dato b)
+                => Trie r h k a {-^ first input trie -}
+                -> Trie s h k b {-^ second input trie -}
+                -> ((Integer -> k -> TrieNodeRef r h k a -> TrieNodeRef s h k b -> e o)
+                    -> Integer -> k -> TrieNodeRef r h k a -> TrieNodeRef s h k b -> e o)
+                   {-^ recursing into two nodes -}
+                -> (Integer -> k -> e o) {-^ emptyCase when both tries are empty -}
+                -> (k -> a -> b -> e o) {-^ leafCase when both tries are leaves -}
+                -> (Integer -> k -> o -> o -> e o) {-^ branchCase after recursing into both sides of a branch -}
+                -> (Integer -> k -> h -> k -> o -> e o) {-^ skipCase when simultaneously skipping over the same key fragment -}
+                -> (Integer -> k -> TrieNodeRef r h k a -> e o) {-^ onlyACase when there is only a node in the a trie -}
+                -> (Integer -> k -> TrieNodeRef s h k b -> e o) {-^ onlyBCase when there is only a node in the b trie -}
+                -> (Integer -> o -> e oo) {-^ finish at the end given height and o -}
+                -> e oo
+walkTriePair ta tb recurse emptyCase leafCase branchCase skipCase onlyACase onlyBCase finish = do
+  (Zip aa (TriePath h _ _ _), Zip bb _) <- ensureSameHeight ta tb
+  r h (lowBitsMask 0) aa bb >>= finish h where
+    r h k a b = do
+      ua <- fr a
+      ub <- fr b
+      case (ua, ub) of
+        (Empty, Empty) -> emptyCase h k
+        (_, Empty) -> onlyACase h k a
+        (Empty, _) -> onlyBCase h k b
+        (Leaf va, Leaf vb) -> leafCase k va vb
+        (Branch la ra, Branch lb rb) -> do
+          let h1 = h - 1
+          lo <- recurse r h1 (leftKey h k) la lb
+          ro <- recurse r h1 (rightKey h k) ra rb
+          branchCase h k lo ro
+        -- TODO: write some meta-level constraint solver that deduces the 40 lines below from the 10 above.
+        (Branch la ra, Skip bitsHeight bits cb) -> do
+          let bh = toInt bitsHeight
+              h1 = h - 1
+              lk = leftKey h k
+              rk = rightKey h k
+          cb1 <- makeSkip bh bits cb
+          if isBitSet bh bits then
+            do lo <- onlyACase h1 lk la
+               ro <- recurse r h1 rk ra cb1
+               branchCase h k lo ro
+            else do
+               lo <- recurse r h1 lk la cb1
+               ro <- onlyACase h1 rk ra
+               branchCase h k lo ro
+        (Skip bitsHeight bits ca, Branch lb rb) -> do
+          let bh = toInt bitsHeight
+              h1 = h - 1
+              lk = leftKey h k
+              rk = rightKey h k
+          ca1 <- makeSkip bh bits ca
+          if isBitSet bh bits then
+            do lo <- onlyBCase h1 lk lb
+               ro <- recurse r h1 rk ca1 rb
+               branchCase h k lo ro
+            else do
+               lo <- recurse r h1 lk ca1 lb
+               ro <- onlyBCase h1 rk rb
+               branchCase h k lo ro
+        (Skip aBitsHeight aBits aChild, Skip bBitsHeight bBits bChild) -> do
+          let abh = toInt aBitsHeight
+              bbh = toInt bBitsHeight
+              bh = min abh bbh
+              len = 1 + bh
+              aHighBits = shiftRight aBits $ abh - bh
+              bHighBits = shiftRight bBits $ abh - bh
+              diffLength = bitLength $ aHighBits `logicalXor` bHighBits
+              sameLength = len - diffLength
+              sameHeight = h - sameLength
+              sameBits = shiftRight aHighBits diffLength
+              sameKey = shiftLeftWithBits k sameLength sameBits
+              aDiffHeight = abh - sameLength
+              bDiffHeight = bbh - sameLength
+              aDiffBits = aBits `logicalAnd` lowBitsMask (aDiffHeight + 1)
+              bDiffBits = bBits `logicalAnd` lowBitsMask (bDiffHeight + 1)
+          sameResult <-
+            if diffLength == 0 then do
+              -- at least one of the two below is actually not a skip
+              diffA <- stepUp (SkipStep (fromInt aDiffHeight) aDiffBits) aChild
+              diffB <- stepUp (SkipStep (fromInt bDiffHeight) bDiffBits) bChild
+              recurse r sameHeight sameKey diffA diffB
+            else do
+              (la, ra) <- skipChoice aBits aChild aDiffHeight
+              (lb, rb) <- skipChoice bBits bChild bDiffHeight
+              let sh1 = sameHeight - 1
+              lo <- recurse r sh1 (leftKey sameHeight sameKey) la lb
+              ro <- recurse r sh1 (rightKey sameHeight sameKey) ra rb
+              branchCase sameHeight sameKey lo ro
+          if sameLength == 0 then return sameResult else
+            skipCase h k (fromInt $ sameLength - 1) sameBits sameResult
+        (_, _) ->
+          traceError "walkTriePair invalid input"
