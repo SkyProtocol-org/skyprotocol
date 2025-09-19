@@ -25,6 +25,8 @@ import App.Retention
 import Control.Concurrent.STM
 import Control.Monad.Except
 import Control.Monad.Reader
+import Common.Crypto (Hash, IsHash, HashMRef(..))
+import Common.Types (Dato, Wrapping, LiftWrapping, liftUnwrap, unwrap)
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Text.Encoding (decodeUtf8)
 import GeniusYield.GYConfig
@@ -45,8 +47,15 @@ newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
       MonadIO
     )
 
-instance PreLiftWrapping AppM (HashMRef Hash) where
+-- Unsafe. TODO: Implement a safer version with an error monad
+instance (IsHash d, Show d, Dato a) => Wrapping AppM (HashMRef d) a where
+  unwrap x = case hashMRefValue x of
+    -- TODO: figure what kind of error best to throw
+    Nothing -> throwError $ ProviderError ("no value cached for hash") -- <> show $ hashMRefHash x
+    Just x -> return x
+
 instance LiftWrapping AppM (HashMRef Hash) where
+  liftUnwrap = unwrap
 
 runApp :: AppEnv -> AppM a -> IO (Either AppError a)
 runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) (fromMaybe Log.LogTrace $ configLogLevel $ appConfig env) $ runReaderT m env

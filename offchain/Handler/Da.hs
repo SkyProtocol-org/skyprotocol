@@ -19,7 +19,8 @@ readTopicHandler ::
     MonadReader AppEnv m,
     MonadIO m,
     MonadError AppError m,
-    MonadLog m
+    MonadLog m,
+    LiftWrapping m (HashMRef Hash)
   ) =>
   TopicId ->
   MessageId ->

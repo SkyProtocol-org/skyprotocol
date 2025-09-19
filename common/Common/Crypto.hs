@@ -244,16 +244,12 @@ instance (IsHash d, ToByteString x, FromByteString x) => FromByteString (HashMRe
   fromByteString = lookupHashRef . fromByteString
   byteStringIn isTerminal = byteStringIn isTerminal <&> lookupHashRef
 
-instance (IsHash d, Dato a) => PreWrapping Identity (HashMRef d) a where
+instance (IsHash d, Dato a, Monad e) => PreWrapping e (HashMRef d) a where
   wrap = return . digestMRef
 
 -- Unsafe. TODO: Implement a safer version with an error monad
 instance (IsHash d, Dato a) => Wrapping Identity (HashMRef d) a where
   unwrap = return . fromJust . hashMRefValue
-
--- Unsafe. TODO: Implement a safer version with an error monad
-instance (IsHash d, Dato a) => PreWrapping IO (HashMRef d) a where
-  wrap = return . digestMRef
 
 -- Unsafe. TODO: Implement a safer version with an error monad
 instance (IsHash d, Dato a) => Wrapping IO (HashMRef d) a where
@@ -282,14 +278,11 @@ instance (IsHash d) => LiftUnsafeFromData (HashMRef d) where
 instance (IsHash d) => LiftEq (HashMRef d) where
   liftEq = (==)
 
-instance (IsHash d) => LiftPreWrapping Identity (HashMRef d) where
+instance (IsHash d, Monad e) => LiftPreWrapping e (HashMRef d) where
   liftWrap = wrap
 
 instance (IsHash d) => LiftWrapping Identity (HashMRef d) where
   liftUnwrap = unwrap
-
-instance (IsHash d) => LiftPreWrapping IO (HashMRef d) where
-  liftWrap = wrap
 
 instance (IsHash d) => LiftWrapping IO (HashMRef d) where
   liftUnwrap = unwrap

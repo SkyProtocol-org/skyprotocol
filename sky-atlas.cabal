@@ -166,6 +166,7 @@ executable sky-atlas
   main-is:        Main.hs
   ghc-options:    -O2 -threaded -rtsopts -with-rtsopts=-T
   build-depends:
+    , async
     , base
     , http-types
     , log-base

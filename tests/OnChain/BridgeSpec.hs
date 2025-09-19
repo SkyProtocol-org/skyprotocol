@@ -101,8 +101,8 @@ updateBridgeTest ::
     GYTxUserQueryMonad m
   ) =>
   TestInfo ->
-  (SkyDa (HashRef Hash), Hash, MultiSigPubKey) ->
-  SkyDa (HashRef Hash) ->
+  (SkyDa (HashMRef Hash), Hash, MultiSigPubKey) ->
+  SkyDa (HashMRef Hash) ->
   m ()
 updateBridgeTest TestInfo {..} (initialDa, schema, committee) updatedDa = do
   addr <- getUserAddr $ admin testWallets

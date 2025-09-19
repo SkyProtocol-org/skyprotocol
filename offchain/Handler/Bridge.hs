@@ -96,7 +96,7 @@ updateBridgeHandler ::
     MonadIO m,
     MonadError AppError m,
     MonadLog m,
-    PreLiftWrapping m (HashMRef Hash),
+    LiftPreWrapping m (HashMRef Hash),
     LiftWrapping m (HashMRef Hash)
   ) =>
   -- | Bridge admin
