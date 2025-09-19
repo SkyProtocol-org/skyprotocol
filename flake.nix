@@ -108,6 +108,9 @@
                     haskell-language-server = { };
                     hlint = { };
                   };
+                  shellHook = ''
+                    if [ -f .env ] ; then echo "Sourcing local .env" ; source .env ; fi
+                  '';
                 };
 
                 # Non-Haskell shell tools go here

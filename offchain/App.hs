@@ -45,6 +45,9 @@ newtype AppM a = AppM {runAppM :: ReaderT AppEnv (LogT (ExceptT AppError IO)) a}
       MonadIO
     )
 
+instance PreLiftWrapping AppM (HashMRef Hash) where
+instance LiftWrapping AppM (HashMRef Hash) where
+
 runApp :: AppEnv -> AppM a -> IO (Either AppError a)
 runApp env (AppM m) = runExceptT $ runLogT "sky-api" (logger env) (fromMaybe Log.LogTrace $ configLogLevel $ appConfig env) $ runReaderT m env
 

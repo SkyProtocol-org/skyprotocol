@@ -95,7 +95,9 @@ updateBridgeHandler ::
     MonadReader AppEnv m,
     MonadIO m,
     MonadError AppError m,
-    MonadLog m
+    MonadLog m,
+    PreLiftWrapping m (HashMRef Hash),
+    LiftWrapping m (HashMRef Hash)
   ) =>
   -- | Bridge admin
   CardanoUser ->
